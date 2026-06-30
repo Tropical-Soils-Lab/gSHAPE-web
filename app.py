@@ -12,14 +12,88 @@ st.set_page_config(page_title="SHAPE — Soil Health Assessment", page_icon="�
 
 st.markdown("""
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap');
+
+/* Reset container padding to stable heights and fix top black space */
+.block-container {
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+    margin-top: 0px !important;
+}
+
+/* Enhanced title banner: centered, fully visible corners, and flanking soil graphics */
 .fl-header {
     background: linear-gradient(135deg, #0a3d1f 0%, #1a6b35 60%, #0f5132 100%);
-    border-radius: 12px;
-    padding: 28px 36px;
-    margin-bottom: 18px;
+    border-radius: 12px !important;
+    padding: 36px 24px; 
+    margin-top: 16px !important; 
+    margin-bottom: 12px;
+    display: block !important;
+    text-align: center !important;
+    position: relative !important;
+    overflow: hidden !important; 
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
-.fl-header h1 { color: #e8f5e9; font-size: 26px; font-weight: 700; margin: 0 0 6px 0; }
-.fl-header p  { color: #a5d6a7; font-size: 14px; margin: 0; }
+
+/* Left Side Graphic: Soil & Diagnostics Microscope Symbol */
+.fl-header::before {
+    content: "🔬" !important;
+    position: absolute !important;
+    left: 40px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    font-size: 54px !important;
+    opacity: 0.25 !important;
+    pointer-events: none !important;
+}
+
+/* Right Side Graphic: Regenerative Sprout Symbol */
+.fl-header::after {
+    content: "🌱" !important;
+    position: absolute !important;
+    right: 40px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    font-size: 54px !important;
+    opacity: 0.25 !important;
+    pointer-events: none !important;
+}
+
+/* Styled for the prominent main tool acronym */
+.fl-header .main-title {
+    color: #ffffff;
+    font-size: 44px;
+    font-weight: 800;
+    margin: 0 0 6px 0;
+    letter-spacing: 1px;
+    line-height: 1.1;
+    position: relative !important;
+    z-index: 2 !important;
+}
+
+/* Styled for the clear descriptive name below the acronym */
+.fl-header .sub-title {
+    color: #e8f5e9;
+    font-size: 19px;
+    font-weight: 400;
+    margin: 0 0 8px 0;
+    opacity: 0.95;
+    letter-spacing: 0.5px;
+    position: relative !important;
+    z-index: 2 !important;
+}
+
+/* Styled for the engineering lab tagline to balance empty space */
+.fl-header .tagline {
+    color: #a5d6a7;
+    font-size: 13px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin: 0;
+    position: relative !important;
+    z-index: 2 !important;
+}
 
 /* Make info box text smaller and clean */
 .info-box {
@@ -84,11 +158,21 @@ div[data-testid="stExpander"] {
     flex-basis: 0 !important;
     text-align: center !important;
     justify-content: center !important;
-    font-size: 32px !important; /* Increased from 24px for maximum visibility */
+    font-size: 32px !important; 
     font-weight: 700 !important;
-    padding: 20px 24px !important; /* Increased padding slightly to balance the larger text */
+    padding: 20px 24px !important; 
     border-radius: 8px 8px 0px 0px !important;
-    transition: background-color 0.2s ease;
+    transition: all 0.2s ease;
+    
+    /* THE MAGIC BULLETPROOF FLAG LINE */
+    font-family: inherit, "Noto Color Emoji" !important; 
+}
+
+/* Assign a specific green background tint to active region tab panels */
+.stTabs [data-baseweb="tab"][aria-selected="true"] {
+    background-color: rgba(26, 150, 65, 0.20) !important;
+    color: #1a9641 !important;
+    border-bottom: 3px solid #1a9641 !important;
 }
 
 /* Give tabs a subtle hover change so users know they are click options */
@@ -111,9 +195,8 @@ div[data-testid="stExpander"] {
     font-weight: 600 !important;
     padding: 6px 12px !important;
     border-radius: 0px !important;
-}
-.stTabs [data-baseweb="tab-panel"] .stTabs [data-baseweb="tab"]:hover {
     background-color: transparent !important;
+    border-bottom: none !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -200,6 +283,28 @@ BR_PG_TEXTURE_DESC = {
     "T4": "Clay",
 }
 
+# ---- BRAZIL (SiBC - Sistema Brasileiro de Classificação de Solos) ----
+BR_R1_SIBC = [
+    "Argissolos Vermelho-Amarelos", "Argissolos Vermelhos", "Neossolos Quartzarênicos", 
+    "Argissolos Amarelos", "Neossolos Litólicos", "Argissolos Acinzentados"
+]
+BR_R2_SIBC = [
+    "Latossolos Vermelho-Amarelos", "Latossolos Vermelhos", "Gleissolos Háplicos", 
+    "Gleissolos Melânicos", "Plintossolos Pétricos", "Plintossolos Háplicos", 
+    "Nitossolos Vermelhos", "Latossolos Amarelos", "Planossolos Háplicos", 
+    "Luvissolos Crômicos", "Vertissolos Hidromórficos", "Plintossolos Argilúvicos", 
+    "Planossolos Nátricos"
+]
+BR_R3_SIBC = [
+    "Cambissolos Háplicos", "Latossolos Brunos", "Nitossolos Háplicos", 
+    "Chernossolos Argilúvicos", "Chernossolos Ebânicos"
+]
+
+# Map the SiBC names to the identical R1, R2, R3 backend keys
+BR_TAXON_DISPLAY_SIBC = sorted(
+    make_display(BR_R1_SIBC, "R1") + make_display(BR_R2_SIBC, "R2") + make_display(BR_R3_SIBC, "R3")
+)
+
 # ---- SUB-SAHARAN AFRICA (Ethiopia-calibrated, WRB Reference Soil Groups) ----
 ET_OR2 = ["Andosols","Chernozems","Gleysols","Kastanozems","Phaeozems","Podzols","Stagnosols"]
 ET_OR3 = ["Acrisols","Alisols","Cambisols","Fluvisols","Planosols","Vertisols","Nitisols","Umbrisols"]
@@ -251,7 +356,7 @@ REGIONS = {
         "lat_bounds": (24.5, 31.1), "lon_bounds": (-87.6, -80.0),
         "default_latlon": (29.65, -82.32),
         "model_note": "Logit-Gaussian Bayesian model fit on USDA-NRCS Florida soil survey data. Predictor: Mean Annual Temperature.",
-        "col_map": {} # Florida is already perfectly named
+        "col_map": {} 
     },
     "Brazil": {
         "key": "BR",
@@ -261,6 +366,7 @@ REGIONS = {
         "has_histosol": False,
         "predictors": ["temp", "precip"],
         "taxon_display": BR_TAXON_DISPLAY,
+        "taxon_display_sibc": BR_TAXON_DISPLAY_SIBC,
         "texture_map": BR_TEXTURE_MAP,
         "texture_map_full": BR_TEXTURE_MAP,
         "s1_list": [],
@@ -305,6 +411,7 @@ REGIONS = {
     },
 }
 TAXON_LABEL = {"Florida": "Soil Taxonomy Suborder", "Brazil": "Reference Soil Group (WRB)", "Sub-Saharan Africa": "Reference Soil Group (WRB)"}
+
 # ════════════════════════════════════════════════════════════════════
 # 4. DATA LOADING
 # ════════════════════════════════════════════════════════════════════
@@ -325,7 +432,7 @@ def load_region_data(cfg):
     return mineral, hist
 
 # ════════════════════════════════════════════════════════════════════
-# 5. HELPER FUNCTIONS
+# 5. HELPER FUNCTIONS (Now with 5 Scoring Zones)
 # ════════════════════════════════════════════════════════════════════
 def fetch_climate(lat, lon, need_precip=False):
     """Fetch MAT (and optionally MAP) from NASA POWER climatology."""
@@ -344,7 +451,6 @@ def fetch_climate(lat, lon, need_precip=False):
             precip = p.get("PRECTOTCORR", {})
             map_v = precip.get("ann") or precip.get("annual") or precip.get("ANN")
             if map_v is not None:
-                # PRECTOTCORR climatology is mm/day average — convert to annual mm
                 result["precip"] = float(map_v) * 365.25
         return result if result else None
     except Exception:
@@ -356,7 +462,6 @@ def in_bounds(lat, lon, cfg):
     return (la0 <= lat <= la1) and (lo0 <= lon <= lo1)
 
 def get_params_1d(df, tax, tex, target_temp):
-    """1D linear interpolation over temperature only (Florida)."""
     sub = df[(df["peer_group_taxon"] == tax) & (df["peer_group_texture"] == tex)
              ].sort_values("PRISM_tmea").reset_index(drop=True)
     if sub.empty:
@@ -377,7 +482,6 @@ def get_params_1d(df, tax, tex, target_temp):
     return res
 
 def get_params_2d(df, tax, tex, target_temp, target_precip):
-    """Bilinear interpolation over temperature × precipitation grid (Brazil, SSA)."""
     sub = df[(df["peer_group_taxon"] == tax) & (df["peer_group_texture"] == tex)].reset_index(drop=True)
     if sub.empty:
         return None
@@ -429,11 +533,20 @@ def invlogit(x):
 def compute_score(oc, lp_mean, sigma_val):
     return float(norm.cdf(logit(np.array(oc) / 100), loc=lp_mean, scale=sigma_val) * 100)
 
+# Updates for 5-zone logic (20-point intervals)
 def score_color(s):
-    return "#1a9641" if s > 66 else "#fdae61" if s > 33 else "#d7191c"
+    if s >= 80: return "#1a9641" # Dark Green
+    if s >= 60: return "#77c35c" # Green
+    if s >= 40: return "#ffc107" # Yellow
+    if s >= 20: return "#f46d43" # Light Red
+    return "#d73027"             # Dark Red
 
 def score_label(s):
-    return "High Function" if s > 66 else "Moderate" if s > 33 else "Low Function"
+    if s >= 80: return "Very High"
+    if s >= 60: return "High"
+    if s >= 40: return "Medium"
+    if s >= 20: return "Low"
+    return "Very Low"
 
 def percentile_to_oc(pct, lp_mean, sigma_val):
     return invlogit(norm.ppf(pct / 100, loc=lp_mean, scale=sigma_val)) * 100
@@ -442,16 +555,12 @@ def parse_code(display_str):
     return display_str.split("(")[1].replace(")", "")
 
 def strip_code(display_str):
-    """Helper function to cleanly remove tracking code tags from UI text labels."""
     return display_str.split(" (")[0]
 
 # ════════════════════════════════════════════════════════════════════
 # 6. DEMO BATCH DATA GENERATOR
 # ════════════════════════════════════════════════════════════════════
 def build_demo_batch(region_name, cfg, include_hidden=True):
-    """Synthetic batch covering every peer group and every score zone for this region.
-    For Florida, also includes S1/T1/T5 rows to demonstrate the backend still scores
-    them correctly even though they're hidden from the manual dropdown."""
     rng = np.random.default_rng(7)
     rows = []
 
@@ -468,7 +577,7 @@ def build_demo_batch(region_name, cfg, include_hidden=True):
     for tax in taxa:
         for tex in textures:
             if region_name == "Florida" and tax == "S1" and tex != "T5":
-                continue  # Histosols only pair with T5
+                continue 
             if region_name == "Florida" and tax != "S1" and tex == "T5":
                 continue
             oc = oc_cycle[(i - 1) % len(oc_cycle)]
@@ -492,19 +601,31 @@ def build_demo_batch(region_name, cfg, include_hidden=True):
 # ════════════════════════════════════════════════════════════════════
 st.markdown("""
 <div class="fl-header">
-  <h1> SHAPE Tool (Soil Health Assessment Protocol and Evaluation) </h1>
-</div>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<div class="info-box">
-📊 This tool currently scores <b>Soil Organic Carbon (SOC)</b> only. Additional indicators are in active development.
+    <div class="main-title">gSHAPE</div>
+    <div class="sub-title">Soil Health Assessment Protocol and Evaluation</div>
+    <div class="tagline">Sustainable Management of Tropical Soils Lab</div>
 </div>
 """, unsafe_allow_html=True)
 
 # ════════════════════════════════════════════════════════════════════
 # 8. RENDER FUNCTIONS
 # ════════════════════════════════════════════════════════════════════
+
+FL_PH_BENCHMARKS = {
+    "Winter Vegetables (Sandy Plasticulture)": {"opt": 6.25, "sigma": 0.3},
+    "Winter Vegetables (Calcareous Limestone)": {"opt": 7.90, "sigma": 0.6},
+    "Everglades Muck (EAA Row Crops)": {"opt": 5.80, "sigma": 0.45},
+    "Perennial Citrus Orchards": {"opt": 6.25, "sigma": 0.3},
+    "Panhandle Agronomic Row Crops (Cotton/Peanuts)": {"opt": 6.25, "sigma": 0.3},
+    "Sod-Based Crop Rotation (SBCR)": {"opt": 6.00, "sigma": 0.5},
+    "Perennial Pasture / Grazing": {"opt": 5.50, "sigma": 0.7}, # <--- ADDED THIS BACK IN
+    "Acidophilic Small Fruits (Blueberries)": {"opt": 5.00, "sigma": 0.5},
+    "Commercial Greenhouse & Container Nurseries": {"opt": 5.50, "sigma": 0.35},
+    "Northeast Florida Potato System (TCAA)": {"opt": 5.25, "sigma": 0.3},
+    "Tropical & Subtropical Fruit Orchards": {"opt": 7.90, "sigma": 0.6},
+    "Commercial Timber & Forestry Systems": {"opt": 5.00, "sigma": 0.5}
+}
+
 def render_bulk_density_placeholder(region_name):
     st.markdown(f"""
     <div class="coming-soon-box">
@@ -535,20 +656,50 @@ def render_single_sample(region_name, cfg, df, df_hist):
         c1, c2, c3 = st.columns(3)
         with c1:
             taxon_label = TAXON_LABEL[region_name]
-            selected_sub = st.selectbox(taxon_label, cfg["taxon_display"], format_func=strip_code, key=f"{k}_sub")
+            
+            # ── DYNAMIC TAXONOMY SYSTEM TOGGLE FOR BRAZIL ──
+            if region_name == "Brazil":
+                br_tax_system = st.selectbox(
+                    "Taxonomy System", 
+                    ["World Reference Base (WRB)", "Sistema Brasileiro de Classificação (SiBC)"],
+                    key=f"{k}_tax_system"
+                )
+                if "SiBC" in br_tax_system:
+                    active_taxon_display = cfg["taxon_display_sibc"]
+                    taxon_label = "Ordem / Subordem (SiBC)"
+                else:
+                    active_taxon_display = cfg["taxon_display"]
+            else:
+                active_taxon_display = cfg["taxon_display"]
+
+            selected_sub = st.selectbox(taxon_label, active_taxon_display, format_func=strip_code, key=f"{k}_sub")
             selected_tex = st.selectbox("Soil Texture", list(cfg["texture_map"].keys()), format_func=strip_code, key=f"{k}_tex")
+            
+            # ── DYNAMIC CROPPING SYSTEMS BASED ON REGION ──
+            if region_name == "Florida":
+                crop_options = list(FL_PH_BENCHMARKS.keys())
+            else:
+                crop_options = ["Row Crops", "Perennial Pasture / Grazing", "Specialty / Veg Crops", "Orchards / Groves Matrix"]
+
+            cropping_system = st.selectbox(
+                "Cropping System",
+                crop_options,
+                key=f"{k}_cropping_system"
+            )
+
             if cfg["has_histosol"]:
-                hist_toggle = st.checkbox(
-                    "🧬 This is an organic / Histosol soil (Muck, Peat)")
+                hist_toggle = st.checkbox("🧬 This is an organic / Histosol soil (Muck, Peat)")
             else:
                 hist_toggle = False
 
         with c2:
             use_geo = st.checkbox("Fetch climate from coordinates", key=f"{k}_geo")
             lat_in, lon_in = cfg["default_latlon"]
+            
             if use_geo:
                 lat_in = st.number_input("Latitude", value=cfg["default_latlon"][0], format="%.4f", key=f"{k}_lat")
                 lon_in = st.number_input("Longitude", value=cfg["default_latlon"][1], format="%.4f", key=f"{k}_lon")
+                
                 if st.button("🌐 Fetch Climate Data", key=f"{k}_fetch"):
                     if not in_bounds(lat_in, lon_in, cfg):
                         st.error(f"📍 Outside area of interest for {region_name}. "
@@ -557,29 +708,49 @@ def render_single_sample(region_name, cfg, df, df_hist):
                     else:
                         res = fetch_climate(lat_in, lon_in, need_precip=has_precip)
                         if res:
-                            st.session_state[f"{k}_fetched_temp"] = res.get("temp")
+                            # ── UPDATE THE SLIDERS DIRECTLY IN SESSION STATE ──
+                            if "temp" in res:
+                                # Clips the fetched value so it doesn't break the slider's min/max rules
+                                st.session_state[f"{k}_temp"] = float(np.clip(res["temp"], *cfg["temp_range"]))
+                            
                             if has_precip and "precip" in res:
-                                st.session_state[f"{k}_fetched_precip"] = res["precip"]
+                                st.session_state[f"{k}_precip"] = float(np.clip(res["precip"], *cfg["precip_range"]))
+                            
                             st.success(f"Climate fetched: {res.get('temp', '—'):.1f}°C" +
                                       (f", {res.get('precip', 0):.0f}mm/yr" if has_precip and "precip" in res else ""))
                         else:
                             st.warning("Could not fetch climate data. Enter manually below.")
 
-            temp_default = float(st.session_state.get(f"{k}_fetched_temp", cfg["temp_default"]))
-            target_temp = st.slider("Mean Annual Temperature (°C)",
-                                    cfg["temp_range"][0], cfg["temp_range"][1],
-                                    float(np.clip(temp_default, *cfg["temp_range"])), 0.1, key=f"{k}_temp")
+            # The sliders now rely directly on the default config or the newly injected session state
+            target_temp = st.slider(
+                "Mean Annual Temperature (°C)",
+                cfg["temp_range"][0], cfg["temp_range"][1],
+                value=float(cfg["temp_default"]), step=0.1, key=f"{k}_temp"
+            )
 
             target_precip = None
             if has_precip:
-                precip_default = float(st.session_state.get(f"{k}_fetched_precip", cfg["precip_default"]))
-                target_precip = st.slider("Mean Annual Precipitation (mm)",
-                                          cfg["precip_range"][0], cfg["precip_range"][1],
-                                          float(np.clip(precip_default, *cfg["precip_range"])), 10.0, key=f"{k}_precip")
-
+                target_precip = st.slider(
+                    "Mean Annual Precipitation (mm)",
+                    cfg["precip_range"][0], cfg["precip_range"][1],
+                    value=float(cfg["precip_default"]), step=10.0, key=f"{k}_precip"
+                )
         with c3:
-            oc_val = st.number_input("Measured SOC (%)", 0.01, 80.0, 2.0, 0.1, key=f"{k}_oc")
-            target_pct = st.slider("Benchmark Percentile", 50, 99, 90, key=f"{k}_pct")
+            current_indicator = st.session_state.get(f"{k}_indicator_shared", "Soil Organic Carbon")
+            
+            if current_indicator == "pH" and region_name == "Florida":
+                ph_val = st.number_input("Measured pH", 3.0, 9.0, 6.0, 0.1, key=f"{k}_ph_measured_input")
+                
+                crop_sys = st.session_state.get(f"{k}_cropping_system", "Panhandle Agronomic Row Crops (Cotton/Peanuts)")
+                target_ph = FL_PH_BENCHMARKS.get(crop_sys, {"opt": 6.25})["opt"]
+                st.markdown(f"<div style='margin-top:10px; color:#1a9641; font-weight:600;'>🎯 Crop Target pH: {target_ph}</div>", unsafe_allow_html=True)
+                
+                oc_val = 2.0 
+                target_pct = 90
+            else:
+                oc_val = st.number_input("Measured SOC (%)", 0.01, 80.0, 2.0, 0.1, key=f"{k}_oc")
+                target_pct = st.slider("Benchmark Percentile", 50, 99, 90, key=f"{k}_pct")
+                ph_val = 6.0
 
     tax = parse_code(selected_sub)
     tex = cfg["texture_map"][selected_tex]
@@ -605,255 +776,346 @@ def render_single_sample(region_name, cfg, df, df_hist):
         sigma_val = float(np.exp(row["mean_sigma"]))
         plot_max  = max(15.0, oc_val + 5)
 
-    score  = compute_score(oc_val, lp_mean, sigma_val)
-    color  = score_color(score)
-    label  = score_label(score)
-    tgt_oc = percentile_to_oc(target_pct, lp_mean, sigma_val)
+    # ── PLACE THE SELECTBOX DIRECTLY HERE ──
+    # Restrict pH dropdown option exclusively to Florida
+    if region_name == "Florida":
+        indicator_options = ["Soil Organic Carbon", "pH", "Other indicators coming soon"]
+    else:
+        indicator_options = ["Soil Organic Carbon", "Other indicators coming soon"]
+
+    chosen_indicator = st.selectbox(
+        "Soil Health Indicators:",
+        indicator_options,
+        key=f"{cfg['key']}_indicator_shared"
+    )
+    st.divider()
 
     # ── Two-column layout: gauge+metrics LEFT | curve+recommendations RIGHT ──
     col_l, col_r = st.columns([1, 2])
 
-    with col_l:
-        climate_str = f"{target_temp:.1f}°C"
-        if has_precip and target_precip is not None:
-            climate_str += f" · {target_precip:.0f}mm"
-        gauge_title = (f"<b style='font-size:17px'>{label}</b><br>"
-                       f"<span style='font-size:11px;color:gray'>{strip_code(selected_sub)} · {strip_code(selected_tex)} · {climate_str} · SOC {oc_val}%</span>")
-        fig_gauge = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=round(score, 1),
-            title={"text": gauge_title, "font": {"size": 13}},
-            number={"suffix": "/100", "font": {"size": 38, "color": color}},
-            gauge={
-                "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray", "tickvals": [0, 33, 66, 100]},
-                "bar": {"color": color, "thickness": 0.28},
-                "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
-                "steps": [
-                    {"range": [0, 33], "color": "rgba(210,50,50,0.12)"},
-                    {"range": [33, 66], "color": "rgba(253,174,97,0.12)"},
-                    {"range": [66, 100], "color": "rgba(26,150,65,0.12)"}
-                ],
-                "threshold": {"line": {"color": color, "width": 5}, "thickness": 0.8, "value": score}
-            }
-        ))
-        fig_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                                height=260, margin=dict(l=20, r=20, t=80, b=10),
-    autosize=True  # <-- Add this to force responsive auto-sizing
-)
-        st.plotly_chart(fig_gauge, use_container_width=True, key=f"{k}_gauge_chart")
+    if chosen_indicator == "pH" and region_name == "Florida":
+        # ── pH BELL CURVE SCORING ──
+        crop_sys = st.session_state.get(f"{k}_cropping_system", "Panhandle Agronomic Row Crops (Cotton/Peanuts)")
+        benchmarks = FL_PH_BENCHMARKS.get(crop_sys, {"opt": 6.25, "sigma": 0.3})
+        ph_opt = benchmarks["opt"]
+        ph_sigma = benchmarks["sigma"]
+        
+        score = float(100.0 * np.exp(-((ph_val - ph_opt) / (2.0 * ph_sigma)) ** 2))
+        color = score_color(score)
+        label = score_label(score)
 
-        st.divider()
-        gap = tgt_oc - oc_val
-        m1, m2 = st.columns(2)
-        with m1:
-            st.metric("Above peer median", f"{score - 50:+.1f} pts",
-                      f"{'↑ above' if score >= 50 else '↓ below'} 50th pct")
-        with m2:
-            st.metric(f"Gap to {target_pct}th pct", f"{abs(gap):.2f}% SOC",
-                      "✅ Exceeds target" if gap <= 0 else f"+{gap:.2f}% needed")
+        with col_l:
+            gauge_title = f"<b style='font-size:17px'>{label}</b><br><span style='font-size:11px;color:gray'>{crop_sys} · pH {ph_val}</span>"
+            fig_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=round(score, 1),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
+                    ],
+                    "threshold": {"line": {"color": color, "width": 5}, "thickness": 0.8, "value": score}
+                }
+            ))
+            fig_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10), autosize=True)
+            st.plotly_chart(fig_gauge, use_container_width=True, key=f"{k}_gauge_chart_ph")
 
-        st.divider()
-        st.markdown("**SOC targets by percentile**")
-        bench = pd.DataFrame({
-            "Percentile": ["80th", "90th", "95th", "99th"],
-            "Target SOC (%)": [f"{percentile_to_oc(p, lp_mean, sigma_val):.2f}" for p in [80, 90, 95, 99]]
-        })
-        st.dataframe(bench, hide_index=True, width='stretch')
+            st.divider()
+            gap = ph_val - ph_opt
+            st.metric("Variance from Optimum", f"{gap:+.2f} pH", "Target Achieved" if abs(gap) < 0.2 else "Needs Adjustment")
 
-        st.divider()
-        st.markdown("**📥 Export result**")
-        result_df = pd.DataFrame([{
-            "Region": region_name, "Suborder": strip_code(selected_sub), "Texture": strip_code(selected_tex),
-            "Temperature_C": target_temp,
-            **({"Precipitation_mm": target_precip} if has_precip else {}),
-            "SOC_pct": oc_val, "SHAPE_Score": round(score, 2), "Zone": label,
-            "Target_SOC_pct": round(tgt_oc, 3)
-        }])
-        st.download_button("⬇️ Download as CSV", data=result_df.to_csv(index=False).encode("utf-8"),
-                           file_name=f"SHAPE_{cfg['key']}_{tax}_{tex}_{oc_val}pct.csv",
-                           mime="text/csv", width='stretch', key=f"{k}_export_btn")
+        with col_r:
+            st.markdown("#### pH Optimization Curve")
+            # Widened plotting scale to comfortably map timber and calcareous systems
+            x_axis = np.linspace(3.0, 9.0, 300) 
+            y_axis = 100.0 * np.exp(-((x_axis - ph_opt) / (2.0 * ph_sigma)) ** 2)
+            
+            fig_cdf = go.Figure()
+            fig_cdf.add_trace(go.Scatter(x=x_axis, y=y_axis / 100, mode="lines", line=dict(color="#1a9641", width=3), name="Crop Tolerance Curve", hovertemplate="pH: %{x:.1f}<br>Score: %{y:.1%}<extra></extra>"))
+            fig_cdf.add_trace(go.Scatter(x=[ph_val], y=[score / 100], mode="markers", marker=dict(color=color, size=14, symbol="circle", line=dict(color="white", width=2)), name="Your Field pH"))
+            fig_cdf.add_trace(go.Scatter(x=[ph_opt], y=[1.0], mode="markers", marker=dict(color="#0072B2", size=13, symbol="x-thin", line=dict(color="#0072B2", width=3)), name=f"Optimum ({ph_opt})"))
+            
+            fig_cdf.update_layout(
+                xaxis_title="Soil pH", yaxis_title="SHAPE Score",
+                yaxis=dict(range=[0, 1.1], tickformat=".0%"), xaxis=dict(range=[3.0, 9.0]), # Widened layout boundary
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=400, margin=dict(l=10, r=10, t=40, b=10)
+            )
+            st.plotly_chart(fig_cdf, width='stretch', key=f"{k}_cdf_chart_ph")
+            
+            if use_geo and f"{k}_lat" in st.session_state and in_bounds(lat_in, lon_in, cfg):
+                st.markdown("#### Site Location")
+                st.map(pd.DataFrame({"lat": [lat_in], "lon": [lon_in]}), zoom=6)
 
-    with col_r:
-        st.markdown("#### Bayesian Scoring Curve")
-        x = np.linspace(0.01, plot_max, 400)
-        lx = logit(x / 100)
-        y_mean = norm.cdf(lx, lp_mean, sigma_val)
-        y_lcl  = norm.cdf(lx, lp_lcl, sigma_val)
-        y_ucl  = norm.cdf(lx, lp_ucl, sigma_val)
+    else:
+        # ── ORIGINAL CARBON SCORING ──
+        score  = compute_score(oc_val, lp_mean, sigma_val)
+        color  = score_color(score)
+        label  = score_label(score)
+        tgt_oc = percentile_to_oc(target_pct, lp_mean, sigma_val)
 
-        fig_cdf = go.Figure()
-        fig_cdf.add_trace(go.Scatter(
-            x=np.concatenate([x, x[::-1]]), y=np.concatenate([y_ucl, y_lcl[::-1]]),
-            fill="toself", fillcolor="rgba(26,150,65,0.18)", line=dict(color="rgba(0,0,0,0)"),
-            name="95% Credible Interval", hoverinfo="skip"
-        ))
-        fig_cdf.add_trace(go.Scatter(
-            x=x, y=y_mean, mode="lines", line=dict(color="#1a9641", width=2.5), name="Score Curve",
-            hovertemplate="SOC: %{x:.2f}%<br>Score: %{y:.3f}<extra></extra>"
-        ))
-        for zy, zl in [(0.33, "Low | Moderate"), (0.66, "Moderate | High")]:
-            fig_cdf.add_hline(y=zy, line_dash="dot", line_color="rgba(150,150,150,0.5)",
-                              annotation_text=zl, annotation_position="right")
-        fig_cdf.add_trace(go.Scatter(
-            x=[oc_val], y=[score / 100], mode="markers",
-            marker=dict(color=color, size=14, symbol="circle", line=dict(color="white", width=2)),
-            name="Your Site", hovertemplate=f"Your site<br>SOC: {oc_val}%<br>Score: {score:.1f}/100<extra></extra>"
-        ))
-        fig_cdf.add_trace(go.Scatter(
-            x=[tgt_oc], y=[target_pct / 100], mode="markers",
-            marker=dict(color="#0072B2", size=13, symbol="x-thin", line=dict(color="#0072B2", width=3)),
-            name=f"Target ({target_pct}th)", hovertemplate=f"Target<br>SOC: {tgt_oc:.2f}%<br>{target_pct}th pct<extra></extra>"
-        ))
-        fig_cdf.update_layout(
-            xaxis_title="Soil Organic Carbon (%)", yaxis_title="SHAPE Score",
-            yaxis=dict(range=[0, 1], tickformat=".0%"), xaxis=dict(range=[0, plot_max]),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02),
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-            height=400, margin=dict(l=10, r=10, t=40, b=10)
-        )
-        fig_cdf.update_xaxes(gridcolor="rgba(150,150,150,0.1)")
-        fig_cdf.update_yaxes(gridcolor="rgba(150,150,150,0.1)")
-        st.plotly_chart(fig_cdf, width='stretch', key=f"{k}_cdf_chart")
+        with col_l:
+            climate_str = f"{target_temp:.1f}°C"
+            if has_precip and target_precip is not None:
+                climate_str += f" · {target_precip:.0f}mm"
+            gauge_title = (f"<b style='font-size:17px'>{label}</b><br>"
+                           f"<span style='font-size:11px;color:gray'>{strip_code(selected_sub)} · {strip_code(selected_tex)} · {climate_str} · SOC {oc_val}%</span>")
+            fig_gauge = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=round(score, 1),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
+                    ],
+                    "threshold": {"line": {"color": color, "width": 5}, "thickness": 0.8, "value": score}
+                }
+            ))
+            fig_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                                    height=260, margin=dict(l=20, r=20, t=80, b=10),
+                                    autosize=True)
+            st.plotly_chart(fig_gauge, use_container_width=True, key=f"{k}_gauge_chart")
 
-        if use_geo and f"{k}_lat" in st.session_state and in_bounds(lat_in, lon_in, cfg):
-            st.markdown("#### Site Location")
-            st.map(pd.DataFrame({"lat": [lat_in], "lon": [lon_in]}), zoom=6)
+            st.divider()
+            gap = tgt_oc - oc_val
+            m1, m2 = st.columns(2)
+            with m1:
+                st.metric("Above peer median", f"{score - 50:+.1f} pts",
+                          f"{'↑ above' if score >= 50 else '↓ below'} 50th pct")
+            with m2:
+                st.metric(f"Gap to {target_pct}th pct", f"{abs(gap):.2f}% SOC",
+                          "✅ Exceeds target" if gap <= 0 else f"+{gap:.2f}% needed")
+
+            st.divider()
+            st.markdown("**SOC targets by percentile**")
+            bench = pd.DataFrame({
+                "Percentile": ["80th", "90th", "95th", "99th"],
+                "Target SOC (%)": [f"{percentile_to_oc(p, lp_mean, sigma_val):.2f}" for p in [80, 90, 95, 99]]
+            })
+            st.dataframe(bench, hide_index=True, width='stretch')
+
+            st.divider()
+            st.markdown("**📥 Export result**")
+            result_df = pd.DataFrame([{
+                "Region": region_name, "Suborder": strip_code(selected_sub), "Texture": strip_code(selected_tex),
+                "Temperature_C": target_temp,
+                **({"Precipitation_mm": target_precip} if has_precip else {}),
+                "SOC_pct": oc_val, "SHAPE_Score": round(score, 2), "Zone": label,
+                "Target_SOC_pct": round(tgt_oc, 3)
+            }])
+            st.download_button("⬇️ Download as CSV", data=result_df.to_csv(index=False).encode("utf-8"),
+                               file_name=f"SHAPE_{cfg['key']}_{tax}_{tex}_{oc_val}pct.csv",
+                               mime="text/csv", width='stretch', key=f"{k}_export_btn")
+
+        with col_r:
+            st.markdown("#### Scoring Curve")
+            x = np.linspace(0.01, plot_max, 400)
+            lx = logit(x / 100)
+            y_mean = norm.cdf(lx, lp_mean, sigma_val)
+            y_lcl  = norm.cdf(lx, lp_lcl, sigma_val)
+            y_ucl  = norm.cdf(lx, lp_ucl, sigma_val)
+
+            fig_cdf = go.Figure()
+            fig_cdf.add_trace(go.Scatter(
+                x=np.concatenate([x, x[::-1]]), y=np.concatenate([y_ucl, y_lcl[::-1]]),
+                fill="toself", fillcolor="rgba(26,150,65,0.18)", line=dict(color="rgba(0,0,0,0)"),
+                name="95% Credible Interval", hoverinfo="skip"
+            ))
+            fig_cdf.add_trace(go.Scatter(
+                x=x, y=y_mean, mode="lines", line=dict(color="#1a9641", width=2.5), name="Score Curve",
+                hovertemplate="SOC: %{x:.2f}%<br>Score: %{y:.3f}<extra></extra>"
+            ))
+            for zy, zl in [(0.20, "V.Low | Low"), (0.40, "Low | Med"), (0.60, "Med | High"), (0.80, "High | V.High")]:
+                fig_cdf.add_hline(y=zy, line_dash="dot", line_color="rgba(150,150,150,0.5)",
+                                  annotation_text=zl, annotation_position="right")
+            fig_cdf.add_trace(go.Scatter(
+                x=[oc_val], y=[score / 100], mode="markers",
+                marker=dict(color=color, size=14, symbol="circle", line=dict(color="white", width=2)),
+                name="Your Site", hovertemplate=f"Your site<br>SOC: {oc_val}%<br>Score: {score:.1f}/100<extra></extra>"
+            ))
+            fig_cdf.add_trace(go.Scatter(
+                x=[tgt_oc], y=[target_pct / 100], mode="markers",
+                marker=dict(color="#0072B2", size=13, symbol="x-thin", line=dict(color="#0072B2", width=3)),
+                name=f"Target ({target_pct}th)", hovertemplate=f"Target<br>SOC: {tgt_oc:.2f}%<br>{target_pct}th pct<extra></extra>"
+            ))
+            fig_cdf.update_layout(
+                xaxis_title="Soil Organic Carbon (%)", yaxis_title="SHAPE Score",
+                yaxis=dict(range=[0, 1], tickformat=".0%"), xaxis=dict(range=[0, plot_max]),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                height=400, margin=dict(l=10, r=10, t=40, b=10)
+            )
+            fig_cdf.update_xaxes(gridcolor="rgba(150,150,150,0.1)")
+            fig_cdf.update_yaxes(gridcolor="rgba(150,150,150,0.1)")
+            st.plotly_chart(fig_cdf, width='stretch', key=f"{k}_cdf_chart")
+
+            if use_geo and f"{k}_lat" in st.session_state and in_bounds(lat_in, lon_in, cfg):
+                st.markdown("#### Site Location")
+                st.map(pd.DataFrame({"lat": [lat_in], "lon": [lon_in]}), zoom=6)
 
         st.divider()
         st.markdown("#### Management Recommendations")
-        if score < 33:
-            st.error("🔴 **Red Zone — Low Function**")
+        if score < 20:
+            st.error("🔴 **Red Zone — Very Low Function**")
             st.markdown("""
-**Priority: Rebuild baseline carbon stocks**
+**Priority: Critical intervention to rebuild baseline carbon stocks**
 - Integrate high-biomass cover crops to feed soil biology
 - Apply compost or biochar to jumpstart microbial activity
-- Maintain living roots year-round
 - Avoid bare soil periods — armor the surface at all times
 """)
-        elif score < 66:
-            st.warning("🟡 **Yellow Zone — Moderate Function**")
+        elif score < 40:
+            st.warning("🟠 **Orange Zone — Low Function**")
             st.markdown("""
-**Priority: Optimize and expand carbon stocks**
-- Transition to No-Till or reduced tillage
-- Diversify crop rotations
+**Priority: Stabilize and begin expanding carbon pools**
+- Maintain living roots year-round
+- Reduce physical soil disturbance significantly
+- Introduce diverse crop rotations
+""")
+        elif score < 60:
+            st.warning("🟡 **Yellow Zone — Medium Function**")
+            st.markdown("""
+**Priority: Optimize biological cycling**
+- Transition to continuous No-Till or strip-till systems
 - Integrate perennial cover or sod-based rotations
 - Track SOC trajectory annually
 """)
-        else:
-            st.success("🟢 **Green Zone — High Function**")
+        elif score < 80:
+            st.success("🟢 **Light Green Zone — High Function**")
             st.markdown("""
-**Priority: Stewardship and resilience**
+**Priority: Stewardship and expansion**
 - Maintain full soil cover to prevent erosion and oxidation
 - Focus on biological monitoring of existing carbon sinks
 - Protect elite stocks while monitoring for drought stress
-- Consider carbon market participation
+""")
+        else:
+            st.success("🌟 **Dark Green Zone — Very High Function**")
+            st.markdown("""
+**Priority: Maximum resilience and monetization**
+- Maintain current elite regenerative practices
+- Focus on deep biological mapping of stable carbon stocks
+- Consider exploring premium carbon market participation
 """)
 
-    # ── Carbon Sequestration Calculator ──
-    st.divider()
-    st.markdown("### 🌍 Carbon Sequestration Calculator")
-    st.markdown("Estimate carbon stock, sequestration gap, credit value, and time to target based on the benchmark above.")
+        # ── Carbon Sequestration Calculator ──
+        st.divider()
+        st.markdown("### 🌍 Carbon Sequestration Calculator")
+        st.markdown("Estimate carbon stock, sequestration gap, credit value, and time to target based on the benchmark above.")
 
-    with st.expander("⚙️ Field & Market Parameters", expanded=True):
-        cc1, cc2, cc3, cc4, cc5 = st.columns(5)
-        with cc1:
-            field_area = st.number_input("Field area (acres)", 1.0, 100000.0, 100.0, 10.0, key=f"{k}_area")
-        with cc2:
-            bulk_density = st.number_input("Bulk density (g/cm³)", 0.8, 2.0, 1.45, 0.05, key=f"{k}_bd")
-        with cc3:
-            depth_cm = st.number_input("Sampling depth (cm)", 5, 100, 30, 5, key=f"{k}_depth")
-        with cc4:
-            carbon_price = st.number_input("Carbon price ($/t CO₂e)", 1.0, 500.0, 25.0, 5.0, key=f"{k}_price")
-        with cc5:
-            annual_rate = st.number_input("Annual SOC gain (%/yr)", 0.01, 2.0, 0.20, 0.05, key=f"{k}_rate")
+        with st.expander("⚙️ Field & Market Parameters", expanded=True):
+            cc1, cc2, cc3, cc4, cc5 = st.columns(5)
+            with cc1:
+                field_area = st.number_input("Field area (acres)", 1.0, 100000.0, 100.0, 10.0, key=f"{k}_area")
+            with cc2:
+                bulk_density = st.number_input("Bulk density (g/cm³)", 0.8, 2.0, 1.45, 0.05, key=f"{k}_bd")
+            with cc3:
+                depth_cm = st.number_input("Sampling depth (cm)", 5, 100, 30, 5, key=f"{k}_depth")
+            with cc4:
+                carbon_price = st.number_input("Carbon price ($/t CO₂e)", 1.0, 500.0, 25.0, 5.0, key=f"{k}_price")
+            with cc5:
+                annual_rate = st.number_input("Annual SOC gain (%/yr)", 0.01, 2.0, 0.20, 0.05, key=f"{k}_rate")
 
-    def soc_to_tc_per_acre(soc_pct, bd, depth):
-        return (soc_pct / 100.0) * bd * depth * 10.0 * 0.4047
+        def soc_to_tc_per_acre(soc_pct, bd, depth):
+            return (soc_pct / 100.0) * bd * depth * 10.0 * 0.4047
 
-    C_RATIO = 3.667
-    soc_target_90 = percentile_to_oc(90, lp_mean, sigma_val)
-    curr_tc_acre = soc_to_tc_per_acre(oc_val, bulk_density, depth_cm)
-    tgt_tc_acre  = soc_to_tc_per_acre(soc_target_90, bulk_density, depth_cm)
-    curr_tc_field = curr_tc_acre * field_area
-    tgt_tc_field  = tgt_tc_acre * field_area
-    gap_tc_field  = max(0.0, tgt_tc_field - curr_tc_field)
-    gap_co2_field = gap_tc_field * C_RATIO
-    credit_value  = gap_co2_field * carbon_price
-    years_to_tgt  = (max(0.0, soc_target_90 - oc_val) / annual_rate) if annual_rate > 0 else 0
+        C_RATIO = 3.667
+        soc_target_90 = percentile_to_oc(90, lp_mean, sigma_val)
+        curr_tc_acre = soc_to_tc_per_acre(oc_val, bulk_density, depth_cm)
+        tgt_tc_acre  = soc_to_tc_per_acre(soc_target_90, bulk_density, depth_cm)
+        curr_tc_field = curr_tc_acre * field_area
+        tgt_tc_field  = tgt_tc_acre * field_area
+        gap_tc_field  = max(0.0, tgt_tc_field - curr_tc_field)
+        gap_co2_field = gap_tc_field * C_RATIO
+        credit_value  = gap_co2_field * carbon_price
+        years_to_tgt  = (max(0.0, soc_target_90 - oc_val) / annual_rate) if annual_rate > 0 else 0
 
-    sc1, sc2, sc3, sc4, sc5 = st.columns(5)
-    sc1.metric("Current C stock", f"{curr_tc_field:,.1f} t C", f"{curr_tc_acre:.2f} t C/acre")
-    sc2.metric("Target C stock (90th pct)", f"{tgt_tc_field:,.1f} t C", f"{tgt_tc_acre:.2f} t C/acre")
-    sc3.metric("Sequestration gap", f"{gap_tc_field:,.1f} t C", f"{gap_co2_field:,.1f} t CO₂e")
-    sc4.metric("Potential credit value", f"${credit_value:,.0f}", f"@ ${carbon_price}/t CO₂e")
-    sc5.metric("Years to 90th pct", f"{years_to_tgt:.1f} yrs", f"@ {annual_rate}%/yr gain")
+        sc1, sc2, sc3, sc4, sc5 = st.columns(5)
+        sc1.metric("Current C stock", f"{curr_tc_field:,.1f} t C", f"{curr_tc_acre:.2f} t C/acre")
+        sc2.metric("Target C stock (90th pct)", f"{tgt_tc_field:,.1f} t C", f"{tgt_tc_acre:.2f} t C/acre")
+        sc3.metric("Sequestration gap", f"{gap_tc_field:,.1f} t C", f"{gap_co2_field:,.1f} t CO₂e")
+        sc4.metric("Potential credit value", f"${credit_value:,.0f}", f"@ ${carbon_price}/t CO₂e")
+        sc5.metric("Years to 90th pct", f"{years_to_tgt:.1f} yrs", f"@ {annual_rate}%/yr gain")
 
-    st.divider()
-    chart_col, table_col = st.columns([3, 2])
-    with chart_col:
-        st.markdown("**Projected SOC trajectory to 90th percentile benchmark**")
-        max_yrs = max(int(np.ceil(years_to_tgt)) + 5, 20)
-        yr_axis = np.arange(0, max_yrs + 1, 1.0)
-        soc_traj = np.minimum(oc_val + annual_rate * yr_axis, soc_target_90)
-        tc_traj  = soc_to_tc_per_acre(soc_traj, bulk_density, depth_cm) * field_area
-        val_traj = (tc_traj - curr_tc_field) * C_RATIO * carbon_price
+        st.divider()
+        chart_col, table_col = st.columns([3, 2])
+        with chart_col:
+            st.markdown("**Projected SOC trajectory to 90th percentile benchmark**")
+            max_yrs = max(int(np.ceil(years_to_tgt)) + 5, 20)
+            yr_axis = np.arange(0, max_yrs + 1, 1.0)
+            soc_traj = np.minimum(oc_val + annual_rate * yr_axis, soc_target_90)
+            tc_traj  = soc_to_tc_per_acre(soc_traj, bulk_density, depth_cm) * field_area
+            val_traj = (tc_traj - curr_tc_field) * C_RATIO * carbon_price
 
-        fig_traj = go.Figure()
-        fig_traj.add_trace(go.Scatter(x=yr_axis, y=soc_traj, mode="lines", name="SOC (%)",
-                                      line=dict(color="#1a9641", width=2.5),
-                                      hovertemplate="Year %{x:.0f}<br>SOC: %{y:.2f}%<extra></extra>"))
-        fig_traj.add_hline(y=soc_target_90, line_dash="dash", line_color="rgba(0,114,178,0.6)",
-                           annotation_text=f"90th pct target ({soc_target_90:.2f}%)", annotation_position="right")
-        fig_traj.add_hline(y=oc_val, line_dash="dot", line_color="rgba(200,100,0,0.5)",
-                           annotation_text=f"Current ({oc_val}%)", annotation_position="right")
-        if years_to_tgt > 0:
-            fig_traj.add_trace(go.Scatter(
-                x=[years_to_tgt], y=[soc_target_90], mode="markers+text",
-                marker=dict(color="#0072B2", size=12, line=dict(color="white", width=2)),
-                text=[f"  Yr {years_to_tgt:.1f}"], textposition="middle right", name="Target reached"
-            ))
-        fig_traj.add_trace(go.Scatter(x=yr_axis, y=val_traj, mode="lines", name="Cumulative credit value ($)",
-                                      line=dict(color="#E69F00", width=2, dash="dot"), yaxis="y2",
-                                      hovertemplate="Year %{x:.0f}<br>Value: $%{y:,.0f}<extra></extra>"))
-        fig_traj.update_layout(
-            xaxis_title="Years from now",
-            yaxis=dict(title="SOC (%)", gridcolor="rgba(150,150,150,0.1)"),
-            yaxis2=dict(title="Cumulative credit value ($)", overlaying="y", side="right",
-                        showgrid=False, tickformat="$,.0f"),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02),
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-            height=360, margin=dict(l=10, r=60, t=40, b=10)
-        )
-        st.plotly_chart(fig_traj, width='stretch', key=f"{k}_traj_chart")
+            fig_traj = go.Figure()
+            fig_traj.add_trace(go.Scatter(x=yr_axis, y=soc_traj, mode="lines", name="SOC (%)",
+                                          line=dict(color="#1a9641", width=2.5),
+                                          hovertemplate="Year %{x:.0f}<br>SOC: %{y:.2f}%<extra></extra>"))
+            fig_traj.add_hline(y=soc_target_90, line_dash="dash", line_color="rgba(0,114,178,0.6)",
+                               annotation_text=f"90th pct target ({soc_target_90:.2f}%)", annotation_position="right")
+            fig_traj.add_hline(y=oc_val, line_dash="dot", line_color="rgba(200,100,0,0.5)",
+                               annotation_text=f"Current ({oc_val}%)", annotation_position="right")
+            if years_to_tgt > 0:
+                fig_traj.add_trace(go.Scatter(
+                    x=[years_to_tgt], y=[soc_target_90], mode="markers+text",
+                    marker=dict(color="#0072B2", size=12, line=dict(color="white", width=2)),
+                    text=[f"  Yr {years_to_tgt:.1f}"], textposition="middle right", name="Target reached"
+                ))
+            fig_traj.add_trace(go.Scatter(x=yr_axis, y=val_traj, mode="lines", name="Cumulative credit value ($)",
+                                          line=dict(color="#E69F00", width=2, dash="dot"), yaxis="y2",
+                                          hovertemplate="Year %{x:.0f}<br>Value: $%{y:,.0f}<extra></extra>"))
+            fig_traj.update_layout(
+                xaxis_title="Years from now",
+                yaxis=dict(title="SOC (%)", gridcolor="rgba(150,150,150,0.1)"),
+                yaxis2=dict(title="Cumulative credit value ($)", overlaying="y", side="right",
+                            showgrid=False, tickformat="$,.0f"),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                height=360, margin=dict(l=10, r=60, t=40, b=10)
+            )
+            st.plotly_chart(fig_traj, width='stretch', key=f"{k}_traj_chart")
 
-    with table_col:
-        st.markdown("**Credit value sensitivity ($/t CO₂e)**")
-        price_scenarios = [10, 25, 50, 100, 200]
-        milestone_years = sorted(set([5, 10, 20, int(np.ceil(years_to_tgt))] if years_to_tgt > 0 else [5, 10, 20]))
-        rows = []
-        for yr in milestone_years:
-            soc_at_yr = min(oc_val + annual_rate * yr, soc_target_90)
-            tc_at_yr = soc_to_tc_per_acre(soc_at_yr, bulk_density, depth_cm) * field_area
-            co2_at_yr = max(0.0, tc_at_yr - curr_tc_field) * C_RATIO
-            row_vals = {"Year": f"Yr {yr}"}
-            for p in price_scenarios:
-                row_vals[f"${p}"] = f"${co2_at_yr * p:,.0f}"
-            rows.append(row_vals)
-        st.dataframe(pd.DataFrame(rows), hide_index=True, width='stretch')
+        with table_col:
+            st.markdown("**Credit value sensitivity ($/t CO₂e)**")
+            price_scenarios = [10, 25, 50, 100, 200]
+            milestone_years = sorted(set([5, 10, 20, int(np.ceil(years_to_tgt))] if years_to_tgt > 0 else [5, 10, 20]))
+            rows = []
+            for yr in milestone_years:
+                soc_at_yr = min(oc_val + annual_rate * yr, soc_target_90)
+                tc_at_yr = soc_to_tc_per_acre(soc_at_yr, bulk_density, depth_cm) * field_area
+                co2_at_yr = max(0.0, tc_at_yr - curr_tc_field) * C_RATIO
+                row_vals = {"Year": f"Yr {yr}"}
+                for p in price_scenarios:
+                    row_vals[f"${p}"] = f"${co2_at_yr * p:,.0f}"
+                rows.append(row_vals)
+            st.dataframe(pd.DataFrame(rows), hide_index=True, width='stretch')
 
-        ann_tc = soc_to_tc_per_acre(annual_rate, bulk_density, depth_cm) * field_area
-        ann_co2 = ann_tc * C_RATIO
-        ann_value = ann_co2 * carbon_price
-        st.markdown(f"""
+            ann_tc = soc_to_tc_per_acre(annual_rate, bulk_density, depth_cm) * field_area
+            ann_co2 = ann_tc * C_RATIO
+            ann_value = ann_co2 * carbon_price
+            st.markdown(f"""
 | Metric | Value |
 |---|---|
 | Annual C gain | {ann_tc:.2f} t C/yr |
 | Annual CO₂e | {ann_co2:.2f} t CO₂e/yr |
 | Annual credit value | ${ann_value:,.0f}/yr |
 """)
-        st.caption("⚠️ Estimates assume linear SOC accumulation. Actual sequestration is nonlinear "
-                   "and depends on management, soil type, and climate. Consult a certified carbon "
-                   "project developer before trading.")
+            st.caption("⚠️ Estimates assume linear SOC accumulation. Actual sequestration is nonlinear "
+                       "and depends on management, soil type, and climate. Consult a certified carbon "
+                       "project developer before trading.")
 
     st.divider()
     st.markdown("#### 📚 Resources")
@@ -869,7 +1131,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
         st.link_button("Related Research (Google Scholar)",
                        "https://scholar.google.com/scholar?q=soil+organic+carbon+soil+health",
                        width='stretch')
-
 
 def render_batch_scoring(region_name, cfg, df, df_hist):
     k = cfg["key"]
@@ -952,13 +1213,13 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
         mc1, mc2, mc3, mc4 = st.columns(4)
         mc1.metric("Samples scored", len(valid))
         mc2.metric("Mean score", f"{valid.mean():.1f}/100" if len(valid) else "—")
-        mc3.metric("In Green Zone", f"{(valid > 66).sum()} ({100*(valid>66).mean():.0f}%)" if len(valid) else "—")
-        mc4.metric("In Red Zone", f"{(valid <= 33).sum()} ({100*(valid<=33).mean():.0f}%)" if len(valid) else "—")
+        mc3.metric("High / V. High", f"{(valid >= 60).sum()} ({100*(valid>=60).mean():.0f}%)" if len(valid) else "—")
+        mc4.metric("Low / V. Low", f"{(valid < 40).sum()} ({100*(valid<40).mean():.0f}%)" if len(valid) else "—")
 
         st.divider()
         fig_dist = go.Figure()
         fig_dist.add_trace(go.Histogram(x=valid, nbinsx=20, marker_color="#1a9641", opacity=0.75))
-        for xv, lbl, clr in [(33, "Low|Mod", "#fdae61"), (66, "Mod|High", "#1a9641")]:
+        for xv, lbl, clr in [(20, "V.Low|Low", "#f46d43"), (40, "Low|Med", "#ffc107"), (60, "Med|High", "#77c35c"), (80, "High|V.High", "#1a9641")]:
             fig_dist.add_vline(x=xv, line_dash="dash", line_color=clr, annotation_text=lbl, annotation_position="top right")
         fig_dist.update_layout(xaxis_title="SHAPE Score", yaxis_title="Count",
                                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
@@ -969,10 +1230,13 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
         def highlight_zone(row):
             s = row.get("SHAPE_Score", np.nan)
             if pd.isna(s): return [""] * len(row)
-            bg = ("background-color: rgba(26,150,65,0.15)" if s > 66 else
-                  "background-color: rgba(253,174,97,0.15)" if s > 33 else
-                  "background-color: rgba(210,50,50,0.15)")
+            if s >= 80: bg = "background-color: rgba(26,150,65,0.25)"
+            elif s >= 60: bg = "background-color: rgba(119,195,92,0.25)"
+            elif s >= 40: bg = "background-color: rgba(255,193,7,0.25)"
+            elif s >= 20: bg = "background-color: rgba(244,109,67,0.25)"
+            else: bg = "background-color: rgba(215,48,39,0.25)"
             return [bg] * len(row)
+            
         display_cols = ["sample_id", "oc", "peer_group_taxon", "peer_group_texture", "PRISM_tmea"]
         if has_precip and "PRISM_ppt" in batch.columns:
             display_cols.append("PRISM_ppt")
@@ -1023,9 +1287,11 @@ def render_how_to_use(region_name, cfg):
         st.markdown("""
         Scores are calculated relative to an environmental peer group under identical baseline conditions. A rating of 70 indicates the sample outranks 70% of comparable regional profiles.
         
-        - 🔴 **0 to 33 — Low Function Zone**: Soil carbon storage is significantly underperforming its environmental threshold limits. Priority should be given to structural recovery workflows.
-        - 🟡 **34 to 66 — Moderate Function Zone**: Soil performance trails median benchmarks. Active adjustments can optimize retention trends.
-        - 🟢 **67 to 100 — High Function Zone**: Active management techniques are maximizing inherent soil performance thresholds.
+        - 🔴 **0 to 20 — Very Low Function Zone**: Critical intervention needed. Soil is significantly underperforming its environmental threshold limits.
+        - 🟠 **21 to 40 — Low Function Zone**: Active stabilization required to reverse degradation trends.
+        - 🟡 **41 to 60 — Medium Function Zone**: Soil performance is near median benchmarks. Active adjustments can optimize retention trends.
+        - 🟢 **61 to 80 — High Function Zone**: Active management techniques are driving strong performance.
+        - 🌟 **81 to 100 — Very High Function Zone**: Elite structural health. Maximizing inherent soil performance thresholds.
         
         #### Graph Mechanics:
         - **Axes**: The horizontal axis maps raw **Soil Organic Carbon (%)**, while the vertical axis registers your final **SHAPE Score**.
@@ -1054,26 +1320,30 @@ def render_how_to_use(region_name, cfg):
 def render_region(region_name, cfg):
     mineral_df, hist_df = load_region_data(cfg)
 
-    indicator = st.selectbox(
-        "Select Soil Indicator to Assess:",
-        ["Soil Organic Carbon (SOC)", "Other Indicators (Coming Soon)"],
-        key=f"{cfg['key']}_indicator"
-    )
-
-    if "Bulk Density" in indicator:
-        render_bulk_density_placeholder(region_name)
-        return
-
     if mineral_df is None:
         st.error(f"⚠️ Parameter file '{cfg['csv']}' not found. Upload it to your deployment "
                  f"to activate scoring for {region_name}.")
         return
 
+    # 1. Standard sub-tabs setup
     tab_single, tab_batch, tab_use = st.tabs(["🔬 Single Sample", "📊 Batch Scoring", "📖 How to Use"])
+
+    # 2. Render Single Sample View
     with tab_single:
         render_single_sample(region_name, cfg, mineral_df, hist_df)
+
+    # 3. Render Batch View
     with tab_batch:
-        render_batch_scoring(region_name, cfg, mineral_df, hist_df)
+        # Gracefully pull the shared selection state from session memory
+        current_selection = st.session_state.get(f"{cfg['key']}_indicator_shared", "Soil Organic Carbon")
+        st.markdown(f"**Selected Indicator:** `{current_selection}`")
+        
+        if "Bulk Density" in current_selection:
+            render_bulk_density_placeholder(region_name)
+        else:
+            render_batch_scoring(region_name, cfg, mineral_df, hist_df)
+
+    # 4. Render How to Use View
     with tab_use:
         render_how_to_use(region_name, cfg)
 

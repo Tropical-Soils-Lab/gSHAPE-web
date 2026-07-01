@@ -618,12 +618,33 @@ FL_PH_BENCHMARKS = {
     "Perennial Citrus Orchards": {"opt": 6.25, "sigma": 0.3},
     "Panhandle Agronomic Row Crops (Cotton/Peanuts)": {"opt": 6.25, "sigma": 0.3},
     "Sod-Based Crop Rotation (SBCR)": {"opt": 6.00, "sigma": 0.5},
-    "Perennial Pasture / Grazing": {"opt": 5.50, "sigma": 0.7}, # <--- ADDED THIS BACK IN
+    "Perennial Pasture / Grazing": {"opt": 5.50, "sigma": 0.7},
     "Acidophilic Small Fruits (Blueberries)": {"opt": 5.00, "sigma": 0.5},
     "Commercial Greenhouse & Container Nurseries": {"opt": 5.50, "sigma": 0.35},
     "Northeast Florida Potato System (TCAA)": {"opt": 5.25, "sigma": 0.3},
     "Tropical & Subtropical Fruit Orchards": {"opt": 7.90, "sigma": 0.6},
     "Commercial Timber & Forestry Systems": {"opt": 5.00, "sigma": 0.5}
+}
+
+SSA_PH_BENCHMARKS = {
+    "Teff-based highland systems": {"opt": 6.00, "sigma": 0.5},
+    "Maize-based systems": {"opt": 6.00, "sigma": 1.0},
+    "Wheat/barley highland systems": {"opt": 6.75, "sigma": 0.75},
+    "Sorghum/millet dryland systems": {"opt": 6.50, "sigma": 1.0},
+    "Pulse/legume systems": {"opt": 7.25, "sigma": 1.25},
+    "Coffee agroforestry systems": {"opt": 6.25, "sigma": 0.75},
+    "Root and tuber systems": {"opt": 5.60, "sigma": 0.6},
+    "Vegetable/horticultural systems": {"opt": 6.15, "sigma": 0.65},
+    "Pasture/forage systems": {"opt": 5.75, "sigma": 1.25},
+    "Perennial fruit/agroforestry systems": {"opt": 6.25, "sigma": 0.75}
+}
+
+# ── NEW BRAZIL AGRONOMIC PH OPT PARAMETERS ──
+BR_PH_BENCHMARKS = {
+    "Annual row crops": {"opt": 6.00, "sigma": 0.5},
+    "Vegetable crops": {"opt": 6.25, "sigma": 0.25},
+    "Perennial/tree": {"opt": 6.00, "sigma": 0.5},
+    "Native vegetation/pasture": {"opt": 5.50, "sigma": 1.0}
 }
 
 def render_bulk_density_placeholder(region_name):
@@ -678,6 +699,10 @@ def render_single_sample(region_name, cfg, df, df_hist):
             # ── DYNAMIC CROPPING SYSTEMS BASED ON REGION ──
             if region_name == "Florida":
                 crop_options = list(FL_PH_BENCHMARKS.keys())
+            elif region_name == "Sub-Saharan Africa":
+                crop_options = list(SSA_PH_BENCHMARKS.keys())
+            elif region_name == "Brazil":
+                crop_options = list(BR_PH_BENCHMARKS.keys())
             else:
                 crop_options = ["Row Crops", "Perennial Pasture / Grazing", "Specialty / Veg Crops", "Orchards / Groves Matrix"]
 
@@ -695,11 +720,9 @@ def render_single_sample(region_name, cfg, df, df_hist):
         with c2:
             use_geo = st.checkbox("Fetch climate from coordinates", key=f"{k}_geo")
             lat_in, lon_in = cfg["default_latlon"]
-            
             if use_geo:
                 lat_in = st.number_input("Latitude", value=cfg["default_latlon"][0], format="%.4f", key=f"{k}_lat")
                 lon_in = st.number_input("Longitude", value=cfg["default_latlon"][1], format="%.4f", key=f"{k}_lon")
-                
                 if st.button("🌐 Fetch Climate Data", key=f"{k}_fetch"):
                     if not in_bounds(lat_in, lon_in, cfg):
                         st.error(f"📍 Outside area of interest for {region_name}. "
@@ -708,24 +731,19 @@ def render_single_sample(region_name, cfg, df, df_hist):
                     else:
                         res = fetch_climate(lat_in, lon_in, need_precip=has_precip)
                         if res:
-                            # ── UPDATE THE SLIDERS DIRECTLY IN SESSION STATE ──
                             if "temp" in res:
-                                # Clips the fetched value so it doesn't break the slider's min/max rules
                                 st.session_state[f"{k}_temp"] = float(np.clip(res["temp"], *cfg["temp_range"]))
-                            
                             if has_precip and "precip" in res:
                                 st.session_state[f"{k}_precip"] = float(np.clip(res["precip"], *cfg["precip_range"]))
-                            
                             st.success(f"Climate fetched: {res.get('temp', '—'):.1f}°C" +
                                       (f", {res.get('precip', 0):.0f}mm/yr" if has_precip and "precip" in res else ""))
                         else:
                             st.warning("Could not fetch climate data. Enter manually below.")
 
-            # The sliders now rely directly on the default config or the newly injected session state
             target_temp = st.slider(
                 "Mean Annual Temperature (°C)",
                 cfg["temp_range"][0], cfg["temp_range"][1],
-                value=float(cfg["temp_default"]), step=0.1, key=f"{k}_temp"
+                value=float(st.session_state.get(f"{k}_temp", cfg["temp_default"])), step=0.1, key=f"{k}_temp"
             )
 
             target_precip = None
@@ -733,16 +751,27 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 target_precip = st.slider(
                     "Mean Annual Precipitation (mm)",
                     cfg["precip_range"][0], cfg["precip_range"][1],
-                    value=float(cfg["precip_default"]), step=10.0, key=f"{k}_precip"
+                    value=float(st.session_state.get(f"{k}_precip", cfg["precip_default"])), step=10.0, key=f"{k}_precip"
                 )
+
         with c3:
             current_indicator = st.session_state.get(f"{k}_indicator_shared", "Soil Organic Carbon")
             
-            if current_indicator == "pH" and region_name == "Florida":
+            if current_indicator == "pH":
                 ph_val = st.number_input("Measured pH", 3.0, 9.0, 6.0, 0.1, key=f"{k}_ph_measured_input")
                 
-                crop_sys = st.session_state.get(f"{k}_cropping_system", "Panhandle Agronomic Row Crops (Cotton/Peanuts)")
-                target_ph = FL_PH_BENCHMARKS.get(crop_sys, {"opt": 6.25})["opt"]
+                if region_name == "Florida":
+                    crop_sys = st.session_state.get(f"{k}_cropping_system", "Panhandle Agronomic Row Crops (Cotton/Peanuts)")
+                    target_ph = FL_PH_BENCHMARKS.get(crop_sys, {"opt": 6.25})["opt"]
+                elif region_name == "Sub-Saharan Africa":
+                    crop_sys = st.session_state.get(f"{k}_cropping_system", "Teff-based highland systems")
+                    target_ph = SSA_PH_BENCHMARKS.get(crop_sys, {"opt": 6.00})["opt"]
+                elif region_name == "Brazil":
+                    crop_sys = st.session_state.get(f"{k}_cropping_system", "Annual row crops")
+                    target_ph = BR_PH_BENCHMARKS.get(crop_sys, {"opt": 6.00})["opt"]
+                else:
+                    target_ph = 6.0
+                    
                 st.markdown(f"<div style='margin-top:10px; color:#1a9641; font-weight:600;'>🎯 Crop Target pH: {target_ph}</div>", unsafe_allow_html=True)
                 
                 oc_val = 2.0 
@@ -777,11 +806,8 @@ def render_single_sample(region_name, cfg, df, df_hist):
         plot_max  = max(15.0, oc_val + 5)
 
     # ── PLACE THE SELECTBOX DIRECTLY HERE ──
-    # Restrict pH dropdown option exclusively to Florida
-    if region_name == "Florida":
-        indicator_options = ["Soil Organic Carbon", "pH", "Other indicators coming soon"]
-    else:
-        indicator_options = ["Soil Organic Carbon", "Other indicators coming soon"]
+    # Open pH indicator options globally for FL, SSA, and BR
+    indicator_options = ["Soil Organic Carbon", "pH", "Other indicators coming soon"]
 
     chosen_indicator = st.selectbox(
         "Soil Health Indicators:",
@@ -793,10 +819,20 @@ def render_single_sample(region_name, cfg, df, df_hist):
     # ── Two-column layout: gauge+metrics LEFT | curve+recommendations RIGHT ──
     col_l, col_r = st.columns([1, 2])
 
-    if chosen_indicator == "pH" and region_name == "Florida":
+    if chosen_indicator == "pH":
         # ── pH BELL CURVE SCORING ──
-        crop_sys = st.session_state.get(f"{k}_cropping_system", "Panhandle Agronomic Row Crops (Cotton/Peanuts)")
-        benchmarks = FL_PH_BENCHMARKS.get(crop_sys, {"opt": 6.25, "sigma": 0.3})
+        if region_name == "Florida":
+            crop_sys = st.session_state.get(f"{k}_cropping_system", "Panhandle Agronomic Row Crops (Cotton/Peanuts)")
+            benchmarks = FL_PH_BENCHMARKS.get(crop_sys, {"opt": 6.25, "sigma": 0.3})
+        elif region_name == "Sub-Saharan Africa":
+            crop_sys = st.session_state.get(f"{k}_cropping_system", "Teff-based highland systems")
+            benchmarks = SSA_PH_BENCHMARKS.get(crop_sys, {"opt": 6.00, "sigma": 0.5})
+        elif region_name == "Brazil":
+            crop_sys = st.session_state.get(f"{k}_cropping_system", "Annual row crops")
+            benchmarks = BR_PH_BENCHMARKS.get(crop_sys, {"opt": 6.00, "sigma": 0.5})
+        else:
+            benchmarks = {"opt": 6.00, "sigma": 0.5}
+            
         ph_opt = benchmarks["opt"]
         ph_sigma = benchmarks["sigma"]
         
@@ -833,7 +869,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
         with col_r:
             st.markdown("#### pH Optimization Curve")
-            # Widened plotting scale to comfortably map timber and calcareous systems
             x_axis = np.linspace(3.0, 9.0, 300) 
             y_axis = 100.0 * np.exp(-((x_axis - ph_opt) / (2.0 * ph_sigma)) ** 2)
             
@@ -844,7 +879,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             
             fig_cdf.update_layout(
                 xaxis_title="Soil pH", yaxis_title="SHAPE Score",
-                yaxis=dict(range=[0, 1.1], tickformat=".0%"), xaxis=dict(range=[3.0, 9.0]), # Widened layout boundary
+                yaxis=dict(range=[0, 1.1], tickformat=".0%"), xaxis=dict(range=[3.0, 9.0]),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02),
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=400, margin=dict(l=10, r=10, t=40, b=10)
             )

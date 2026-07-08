@@ -854,7 +854,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
             if current_indicator == "Soil Phosphorus":
                 st.markdown("##### 📐 Landscape Parameters")
-                chosen_texture_text = st.selectbox("SMAF Texture Profile", list(SMAF_TEXTURE_MAP.keys()), key=f"{k}_sm_tex")
+                chosen_texture_text = st.selectbox("Texture Profile", list(SMAF_TEXTURE_MAP.keys()), key=f"{k}_sm_tex")
                 chosen_slope_text = st.selectbox("Landscape Slope Profile", list(SMAF_SLOPE_MAP.keys()), key=f"{k}_sm_slope")
                 target_temp = cfg["temp_default"]
                 target_precip = cfg["precip_default"] if has_precip else None

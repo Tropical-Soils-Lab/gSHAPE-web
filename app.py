@@ -890,7 +890,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             lp_mean, lp_lcl, lp_ucl, sigma_val, plot_max = 0.0, 0.0, 0.0, 1.0, 15.0
 
     # ── INDICATOR SELECTION ──
-    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density (Coming Soon)"]
+    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH"]
     chosen_indicator = st.selectbox(
         "Soil Health Indicators:",
         indicator_options,
@@ -1309,9 +1309,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
                        "and depends on management, soil type, and climate. Consult a certified carbon "
                        "project developer before trading.")
 
-    elif chosen_indicator == "Bulk Density (Coming Soon)":
-        render_bulk_density_placeholder(region_name)
-
     st.divider()
     st.markdown("#### 📚 Resources")
     rc1, rc2, rc3 = st.columns(3)
@@ -1529,14 +1526,10 @@ def render_region(region_name, cfg):
 
     # 3. Render Batch View
     with tab_batch:
-        # Gracefully pull the shared selection state from session memory
         current_selection = st.session_state.get(f"{cfg['key']}_indicator_shared", "Soil Organic Carbon")
         st.markdown(f"**Selected Indicator:** `{current_selection}`")
         
-        if "Bulk Density" in current_selection:
-            render_bulk_density_placeholder(region_name)
-        else:
-            render_batch_scoring(region_name, cfg, mineral_df, hist_df)
+        render_batch_scoring(region_name, cfg, mineral_df, hist_df)
 
     # 4. Render How to Use View
     with tab_use:

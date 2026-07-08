@@ -1000,21 +1000,19 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 st.success("🎯 **Optimum sufficiency plateau:** Maximum vegetative performance profile verified.")
             else:
                 st.warning("⚠️ **Environmental Hazard Threshold:** Runoff risk flagged due to high baseline matrix saturation.")
-
+                
     elif chosen_indicator == "pH":
-        crop_selected_name = st.session_state[f"{k}_sm_crop"]
-        ph_benchmarks = SMAF_DATA.get("ph_benchmarks", {}) if SMAF_DATA else {}
+        selected_crop = st.session_state[f"{k}_sm_crop"]
+        ph_benchmarks_lower = {k.lower(): v for k, v in SMAF_DATA.get("ph_benchmarks", {}).items()}
+        benchmarks = ph_benchmarks_lower.get(selected_crop.lower())
         
-        if crop_selected_name not in ph_benchmarks:
-            with col_r:
-                st.warning(f"ℹ️ **pH Target Data Coming Soon:** Optimum pH thresholds for **{crop_selected_name}** are currently being calibrated and are not yet available in the database.")
-            with col_l:
-                st.metric("Soil pH", ph_val)
+        if not benchmarks:
+            st.warning(f"ℹ️ **pH Target Data:** Optimum pH thresholds for **{selected_crop}** are not found in the database. Please check your Excel spreadsheet.")
+            st.metric("Soil pH", ph_val)
         else:
-            benchmarks = ph_benchmarks[crop_selected_name]
+            # ... proceed with the rest of your score_ph calculation code ...
             ph_opt = benchmarks["opt"]
-            ph_sigma = benchmarks["sigma"]
-            
+            ph_sigma = benchmarks["sigma"] 
             score_ph = float(100.0 * np.exp(-((ph_val - ph_opt) / (2.0 * ph_sigma)) ** 2))
             color_ph = score_color(score_ph)
             label_ph = score_label(score_ph)

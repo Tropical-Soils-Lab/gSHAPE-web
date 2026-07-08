@@ -6,201 +6,63 @@ from scipy.interpolate import PchipInterpolator
 import plotly.graph_objects as go
 import requests
 
-# ════════════════════════════════════════════════════════════════════
-# 1. PAGE CONFIG & GLOBAL CSS
-# ════════════════════════════════════════════════════════════════════
-st.set_page_config(page_title="SHAPE — Soil Health Assessment", page_icon="🌱", layout="wide")
-
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap');
-
-/* Reset container padding to stable heights and fix top black space */
-.block-container {
-    padding-top: 2rem !important;
-    padding-bottom: 2rem !important;
-    margin-top: 0px !important;
-}
-
-/* Enhanced title banner: centered, fully visible corners, and flanking soil graphics */
-.fl-header {
-    background: linear-gradient(135deg, #0a3d1f 0%, #1a6b35 60%, #0f5132 100%);
-    border-radius: 12px !important;
-    padding: 36px 24px; 
-    margin-top: 16px !important; 
-    margin-bottom: 12px;
-    display: block !important;
-    text-align: center !important;
-    position: relative !important;
-    overflow: hidden !important; 
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-/* Left Side Graphic: Soil & Diagnostics Microscope Symbol */
-.fl-header::before {
-    content: "🔬" !important;
-    position: absolute !important;
-    left: 40px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    font-size: 54px !important;
-    opacity: 0.25 !important;
-    pointer-events: none !important;
-}
-
-/* Right Side Graphic: Regenerative Sprout Symbol */
-.fl-header::after {
-    content: "🌱" !important;
-    position: absolute !important;
-    right: 40px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    font-size: 54px !important;
-    opacity: 0.25 !important;
-    pointer-events: none !important;
-}
-
-/* Styled for the prominent main tool acronym */
-.fl-header .main-title {
-    color: #ffffff;
-    font-size: 44px;
-    font-weight: 800;
-    margin: 0 0 6px 0;
-    letter-spacing: 1px;
-    line-height: 1.1;
-    position: relative !important;
-    z-index: 2 !important;
-}
-
-/* Styled for the clear descriptive name below the acronym */
-.fl-header .sub-title {
-    color: #e8f5e9;
-    font-size: 19px;
-    font-weight: 400;
-    margin: 0 0 8px 0;
-    opacity: 0.95;
-    letter-spacing: 0.5px;
-    position: relative !important;
-    z-index: 2 !important;
-}
-
-/* Styled for the engineering lab tagline to balance empty space */
-.fl-header .tagline {
-    color: #a5d6a7;
-    font-size: 13px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    margin: 0;
-    position: relative !important;
-    z-index: 2 !important;
-}
-
-/* Make info box text smaller and clean */
-.info-box {
-    background: var(--color-background-info);
-    border-left: 3px solid #1565c0;
-    border-radius: 0 8px 8px 0;
-    padding: 8px 14px;
-    margin: 10px 0 18px 0;
-    font-size: 12px;
-    color: var(--color-text-info);
-    line-height: 1.4;
-}
-.coming-soon-box {
-    border: 1.5px dashed var(--color-border-tertiary);
-    border-radius: 12px;
-    padding: 40px 30px;
-    text-align: center;
-    margin: 20px 0;
-}
-.coming-soon-box h3 { font-size: 18px; margin-bottom: 8px; color: var(--color-text-primary); }
-.coming-soon-box p { font-size: 14px; color: var(--color-text-secondary); max-width: 480px; margin: 0 auto; }
-
-.pg-card {
-    border: 0.5px solid var(--color-border-tertiary);
-    border-radius: 10px;
-    padding: 14px 16px;
-    margin-bottom: 10px;
-}
-.pg-card h4 { font-size: 15px; font-weight: 600; margin: 0 0 6px 0; color: var(--color-text-primary); }
-.pg-card p  { font-size: 13px; color: var(--color-text-secondary); margin: 0; line-height: 1.5; }
-
-.region-pill {
-    display: inline-block;
-    padding: 3px 12px;
-    border-radius: 14px;
-    font-size: 12px;
-    font-weight: 600;
-    background: rgba(26,150,65,0.15);
-    color: #1a9641;
-    margin-bottom: 8px;
-}
-
-/* Subtle shadows for clean containers */
-div[data-testid="stExpander"] {
-    background-color: rgba(255,255,255,0.01);
-    border-radius: 12px !important;
-}
-
 /* ─── ENHANCED REGION SELECTION TABS LAYOUT ─── */
-/* Targets the master tab row container to stretch across the page full-width */
-.stTabs [data-baseweb="tab-list"] {
+
+/* 1. STYLE MAIN REGION TABS (Applies to all tabs first) */
+div[data-testid="stTabs"] [data-baseweb="tab-list"] {
     display: flex !important;
     width: 100% !important;
-    gap: 0px !important; 
-    margin-bottom: 20px;
-    border-bottom: 2px solid var(--color-border-tertiary);
+    justify-content: center !important;
+    border-bottom: 2px solid var(--color-border-tertiary) !important;
 }
 
-/* Forces each individual region tab item to grow equally and fill the screen space */
-.stTabs [data-baseweb="tab"] {
-    flex-grow: 1 !important;
-    flex-basis: 0 !important;
+div[data-testid="stTabs"] [data-baseweb="tab"] {
+    flex: 1 !important;
     text-align: center !important;
     justify-content: center !important;
     font-size: 32px !important; 
     font-weight: 700 !important;
-    padding: 20px 24px !important; 
+    padding: 20px 24px !important;
     border-radius: 8px 8px 0px 0px !important;
+    font-family: inherit, "Noto Color Emoji" !important;
     transition: all 0.2s ease;
-    
-    /* THE MAGIC BULLETPROOF FLAG LINE */
-    font-family: inherit, "Noto Color Emoji" !important; 
 }
 
-/* Assign a specific green background tint to active region tab panels */
-.stTabs [data-baseweb="tab"][aria-selected="true"] {
+/* Master Active Tab Underline & Highlight */
+div[data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"] {
     background-color: rgba(26, 150, 65, 0.20) !important;
     color: #1a9641 !important;
     border-bottom: 3px solid #1a9641 !important;
 }
 
-/* Give tabs a subtle hover change so users know they are click options */
-.stTabs [data-baseweb="tab"]:hover {
-    background-color: rgba(26,150,65,0.04) !important;
+div[data-testid="stTabs"] [data-baseweb="tab"]:hover {
+    background-color: rgba(26, 150, 65, 0.04) !important;
 }
 
-/* Keeps the inner sub-tabs (Single Sample, Batch Scoring, How to Use) normal size and localized */
-.stTabs [data-baseweb="tab-panel"] .stTabs [data-baseweb="tab-list"] {
-    display: inline-flex !important;
-    width: auto !important;
-    gap: 24px !important;
+/* 2. RESET INNER TABS (Single Sample, Batch, How-To) */
+/* The double selector ensures these rules ONLY apply to tabs inside other tabs */
+div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab-list"] {
+    justify-content: flex-start !important;
     border-bottom: none !important;
+    gap: 16px !important;
+    margin-bottom: 10px !important;
 }
 
-.stTabs [data-baseweb="tab-panel"] .stTabs [data-baseweb="tab"] {
-    flex-grow: 0 !important;
-    flex-basis: auto !important;
+div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab"] {
+    flex: 0 1 auto !important;
     font-size: 15px !important;
     font-weight: 600 !important;
     padding: 6px 12px !important;
     border-radius: 0px !important;
     background-color: transparent !important;
+}
+
+div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"] {
+    background-color: transparent !important;
+    color: #1a9641 !important;
     border-bottom: none !important;
 }
 </style>
-""", unsafe_allow_html=True)
 
 # ════════════════════════════════════════════════════════════════════
 # 2. PEER GROUP DEFINITIONS PER REGION

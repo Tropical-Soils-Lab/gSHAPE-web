@@ -774,13 +774,13 @@ def render_bulk_density_placeholder(region_name):
     with st.expander("Preview: what this tab will look like"):
         pc1, pc2 = st.columns(2)
         with pc1:
-            st.selectbox("Soil Taxonomy / Reference Group", ["— available once launched —"], disabled=True)
-            st.selectbox("Soil Texture", ["— available once launched —"], disabled=True)
+            # Added unique keys using region_name to prevent DuplicateElementId error
+            st.selectbox("Soil Taxonomy / Reference Group", ["— available once launched —"], disabled=True, key=f"bd_tax_{region_name}")
+            st.selectbox("Soil Texture", ["— available once launched —"], disabled=True, key=f"bd_tex_{region_name}")
         with pc2:
-            st.number_input("Measured Bulk Density (g/cm³)", value=1.45, disabled=True)
-            st.slider("Benchmark Percentile", 50, 99, 90, disabled=True)
+            st.number_input("Measured Bulk Density (g/cm³)", value=1.45, disabled=True, key=f"bd_val_{region_name}")
+            st.slider("Benchmark Percentile", 50, 99, 90, disabled=True, key=f"bd_pct_{region_name}")
         st.button("Calculate Bulk Density Score", disabled=True, key=f"bd_btn_{region_name}")
-
 
 def render_single_sample(region_name, cfg, df, df_hist):
     k = cfg["key"]

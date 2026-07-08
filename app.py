@@ -971,7 +971,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             st.metric("Corrected Value", f"{corrected_p:.1f} mg/kg", f"Threshold: {pmax_lim:.1f}")
 
         with col_r:
-            st.markdown("#### SMAF Non-Linear Sufficiency Curve")
+            st.markdown("#### Scoring Curve")
             grid = np.array([5, 10, 15, 20, 30, 50, 60, 90, 120, 150, 180, 210, 300.0])
             gy = np.array([run_smaf_p_score(x, crop_id, method_id, weather_id, texture_id, slope_id, oc_val) for x in grid])
             
@@ -1045,7 +1045,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 st.metric("Variance from Optimum", f"{gap:+.2f} pH", "Target Achieved" if abs(gap) < 0.2 else "Needs Adjustment")
 
             with col_r:
-                st.markdown("#### pH Optimization Curve")
+                st.markdown("#### Scoring Curve")
                 x_axis = np.linspace(3.0, 9.0, 300) 
                 y_axis = 100.0 * np.exp(-((x_axis - ph_opt) / (2.0 * ph_sigma)) ** 2)
                 

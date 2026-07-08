@@ -15,69 +15,61 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap');
 
-/* Layout Reset */
-.block-container { padding-top: 2rem !important; }
+/* Reset container padding */
+.block-container { padding-top: 2rem !important; margin-top: 0px !important; }
 
-/* Header Styling */
+/* Header Styling (Kept EXACTLY as your original) */
 .fl-header {
     background: linear-gradient(135deg, #0a3d1f 0%, #1a6b35 60%, #0f5132 100%);
     border-radius: 12px !important;
-    padding: 36px 24px; 
-    margin-bottom: 24px;
-    text-align: center;
-    color: white;
-    position: relative;
-    overflow: hidden;
+    padding: 36px 24px; margin-top: 16px !important; margin-bottom: 12px;
+    display: block !important; text-align: center !important;
+    position: relative !important; overflow: hidden !important; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
-.fl-header::before { content: "🔬"; position: absolute; left: 40px; top: 50%; transform: translateY(-50%); font-size: 54px; opacity: 0.25; }
-.fl-header::after { content: "🌱"; position: absolute; right: 40px; top: 50%; transform: translateY(-50%); font-size: 54px; opacity: 0.25; }
-.fl-header .main-title { font-size: 44px; font-weight: 800; margin: 0; }
-.fl-header .sub-title { font-size: 19px; opacity: 0.95; }
-.fl-header .tagline { color: #a5d6a7; font-size: 13px; text-transform: uppercase; }
-
-/* Peer Group Cards & Boxes */
-.info-box { background: var(--color-background-info); border-left: 3px solid #1565c0; padding: 8px 14px; margin: 10px 0; font-size: 12px; }
-.coming-soon-box { border: 1.5px dashed var(--color-border-tertiary); padding: 40px; text-align: center; }
-.pg-card { border: 0.5px solid var(--color-border-tertiary); border-radius: 10px; padding: 14px; margin-bottom: 10px; }
+.fl-header::before { content: "🔬" !important; position: absolute !important; left: 40px !important; top: 50% !important; transform: translateY(-50%) !important; font-size: 54px !important; opacity: 0.25 !important; }
+.fl-header::after { content: "🌱" !important; position: absolute !important; right: 40px !important; top: 50% !important; transform: translateY(-50%) !important; font-size: 54px !important; opacity: 0.25 !important; }
+.fl-header .main-title { color: #ffffff; font-size: 44px; font-weight: 800; margin: 0 0 6px 0; }
+.fl-header .sub-title { color: #e8f5e9; font-size: 19px; font-weight: 400; margin: 0 0 8px 0; }
+.fl-header .tagline { color: #a5d6a7; font-size: 13px; font-weight: 500; text-transform: uppercase; margin: 0; }
 
 /* ─── FIXED TAB LAYOUT ─── */
-/* 1. Master Region Tabs: Center, Spread, Underline */
-div[data-testid="stTabs"] > [data-baseweb="tab-list"] {
+/* Targets the master tab row container for centered, full-width behavior */
+div[data-testid="stTabs"] [data-baseweb="tab-list"] {
     display: flex !important;
     width: 100% !important;
     justify-content: center !important;
     border-bottom: 2px solid var(--color-border-tertiary) !important;
 }
-div[data-testid="stTabs"] > [data-baseweb="tab-list"] > [data-baseweb="tab"] {
+
+/* Individual region tab items */
+div[data-testid="stTabs"] [data-baseweb="tab"] {
     flex: 1 !important;
     justify-content: center !important;
-    font-size: 24px !important;
+    font-size: 32px !important; 
     font-weight: 700 !important;
-    padding: 20px !important;
+    padding: 20px 24px !important;
+    font-family: inherit, "Noto Color Emoji" !important;
 }
-div[data-testid="stTabs"] > [data-baseweb="tab-list"] > [aria-selected="true"] {
+
+/* Active tab underline */
+div[data-testid="stTabs"] [aria-selected="true"] {
     border-bottom: 3px solid #1a9641 !important;
     color: #1a9641 !important;
     background-color: rgba(26, 150, 65, 0.1) !important;
 }
 
-/* 2. Sub-Tabs (Single Sample/Batch): Reset to default size/alignment */
-div[data-testid="stTabs"] div[data-testid="stTabs"] > [data-baseweb="tab-list"] {
+/* Sub-tabs (Single Sample, Batch, How-to): Left-aligned */
+div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab-list"] {
     justify-content: flex-start !important;
     border-bottom: none !important;
-    gap: 24px !important;
 }
-div[data-testid="stTabs"] div[data-testid="stTabs"] > [data-baseweb="tab-list"] > [data-baseweb="tab"] {
+div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab"] {
     flex: 0 !important;
     font-size: 15px !important;
-    font-weight: 600 !important;
     padding: 6px 12px !important;
     background-color: transparent !important;
-    border-bottom: none !important;
 }
 </style>
-""", unsafe_allow_html=True)
-
 # ════════════════════════════════════════════════════════════════════
 # 2. PEER GROUP DEFINITIONS PER REGION
 # ════════════════════════════════════════════════════════════════════

@@ -779,7 +779,7 @@ def render_bulk_density_placeholder(region_name):
             st.selectbox("Soil Texture", ["— available once launched —"], disabled=True, key=f"bd_tex_{region_name}")
         with pc2:
             st.number_input("Measured Bulk Density (g/cm³)", value=1.45, disabled=True, key=f"bd_val_{region_name}")
-            st.slider("Benchmark Percentile", 50, 99, 90, disabled=True, key=f"bd_pct_{region_name}")
+            st.slider("", 50, 99, 90, disabled=True, key=f"bd_pct_{region_name}")
         st.button("Calculate Bulk Density Score", disabled=True, key=f"bd_btn_{region_name}")
 
 def render_single_sample(region_name, cfg, df, df_hist):
@@ -863,7 +863,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             oc_val = st.number_input("Measured SOC (%)", 0.01, 80.0, key=f"{k}_oc")
             p_val = st.number_input("Measured Extractable P (mg/kg)", 0.0, 500.0, key=f"{k}_sm_p_input")
             ph_val = st.number_input("Measured Soil pH", 0.0, 14.0, key=f"{k}_ph_measured_input")
-            target_pct = st.slider("Benchmark Percentile", 50, 99, 90, key=f"{k}_pct")
+            target_pct = st.slider("Benchmark Percentile (SOC)", 50, 99, 90, key=f"{k}_pct")
 
     # ── GLOBAL SOC PEER GROUP RESOLUTION ──
     tax = parse_code(selected_sub)

@@ -797,7 +797,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
     if f"{k}_sm_slope" not in st.session_state: st.session_state[f"{k}_sm_slope"] = list(SMAF_SLOPE_MAP.keys())[0]
 
     # ── MASTER SITE INPUTS (Always Visible) ──
-    with st.expander("⚙️ Master Site Inputs", expanded=True):
+    with st.expander("⚙️Site Inputs", expanded=True):
         c1, c2, c3 = st.columns(3)
         
         with c1:

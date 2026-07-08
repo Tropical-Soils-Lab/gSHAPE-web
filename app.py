@@ -6,6 +6,9 @@ from scipy.interpolate import PchipInterpolator
 import plotly.graph_objects as go
 import requests
 
+/* ─── ENHANCED REGION SELECTION TABS LAYOUT ─── */
+
+/* 1. STYLE MAIN REGION TABS (Applies to all tabs first) */
 div[data-testid="stTabs"] [data-baseweb="tab-list"] {
     display: flex !important;
     width: 100% !important;

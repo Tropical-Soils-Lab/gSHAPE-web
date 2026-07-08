@@ -15,28 +15,26 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap');
 
-/* Reset container padding to stable heights and fix top black space */
+/* Reset container padding */
 .block-container {
     padding-top: 2rem !important;
     padding-bottom: 2rem !important;
     margin-top: 0px !important;
 }
 
-/* Enhanced title banner: centered, fully visible corners, and flanking soil graphics */
+/* ── Header banner ── */
 .fl-header {
     background: linear-gradient(135deg, #0a3d1f 0%, #1a6b35 60%, #0f5132 100%);
     border-radius: 12px !important;
-    padding: 36px 24px; 
-    margin-top: 16px !important; 
+    padding: 36px 24px;
+    margin-top: 16px !important;
     margin-bottom: 12px;
     display: block !important;
     text-align: center !important;
     position: relative !important;
-    overflow: hidden !important; 
+    overflow: hidden !important;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
-
-/* Left Side Graphic: Soil & Diagnostics Microscope Symbol */
 .fl-header::before {
     content: "🔬" !important;
     position: absolute !important;
@@ -47,8 +45,6 @@ st.markdown("""
     opacity: 0.25 !important;
     pointer-events: none !important;
 }
-
-/* Right Side Graphic: Regenerative Sprout Symbol */
 .fl-header::after {
     content: "🌱" !important;
     position: absolute !important;
@@ -59,8 +55,6 @@ st.markdown("""
     opacity: 0.25 !important;
     pointer-events: none !important;
 }
-
-/* Styled for the prominent main tool acronym */
 .fl-header .main-title {
     color: #ffffff;
     font-size: 44px;
@@ -71,8 +65,6 @@ st.markdown("""
     position: relative !important;
     z-index: 2 !important;
 }
-
-/* Styled for the clear descriptive name below the acronym */
 .fl-header .sub-title {
     color: #e8f5e9;
     font-size: 19px;
@@ -83,8 +75,6 @@ st.markdown("""
     position: relative !important;
     z-index: 2 !important;
 }
-
-/* Styled for the engineering lab tagline to balance empty space */
 .fl-header .tagline {
     color: #a5d6a7;
     font-size: 13px;
@@ -96,7 +86,7 @@ st.markdown("""
     z-index: 2 !important;
 }
 
-/* Make info box text smaller and clean */
+/* ── Info / card boxes ── */
 .info-box {
     background: var(--color-background-info);
     border-left: 3px solid #1565c0;
@@ -115,7 +105,7 @@ st.markdown("""
     margin: 20px 0;
 }
 .coming-soon-box h3 { font-size: 18px; margin-bottom: 8px; color: var(--color-text-primary); }
-.coming-soon-box p { font-size: 14px; color: var(--color-text-secondary); max-width: 480px; margin: 0 auto; }
+.coming-soon-box p  { font-size: 14px; color: var(--color-text-secondary); max-width: 480px; margin: 0 auto; }
 
 .pg-card {
     border: 0.5px solid var(--color-border-tertiary);
@@ -137,81 +127,87 @@ st.markdown("""
     margin-bottom: 8px;
 }
 
-/* Subtle shadows for clean containers */
 div[data-testid="stExpander"] {
     background-color: rgba(255,255,255,0.01);
     border-radius: 12px !important;
 }
 
-/* ─── ENHANCED REGION SELECTION TABS LAYOUT ─── */
-/* Targets the master tab row container */
-div[data-testid="stTabs"] [data-baseweb="tab-list"] {
+/* ══════════════════════════════════════════════════════════
+   REGION TABS  (Florida / Brazil / Sub-Saharan Africa)
+   Uses direct-child ">" selector so sub-tabs are unaffected.
+   ══════════════════════════════════════════════════════════ */
+
+/* Tab row: full width, evenly spread across the page */
+[data-testid="stTabs"] > div > [data-baseweb="tab-list"] {
     display: flex !important;
     width: 100% !important;
-    justify-content: center !important;
-    gap: 0px !important; 
-    margin-bottom: 20px;
-    border-bottom: 2px solid var(--color-border-tertiary);
+    justify-content: space-evenly !important;
+    gap: 0px !important;
+    margin-bottom: 16px !important;
+    border-bottom: 2px solid rgba(26,150,65,0.25) !important;
+    background: transparent !important;
 }
 
-/* Forces each individual region tab item */
-div[data-testid="stTabs"] [data-baseweb="tab"] {
-    flex-grow: 1 !important;
+/* Each region tab button */
+[data-testid="stTabs"] > div > [data-baseweb="tab-list"] [data-baseweb="tab"] {
+    flex: 1 1 0 !important;
     text-align: center !important;
     justify-content: center !important;
-    font-size: 32px !important; 
+    font-size: 18px !important;
     font-weight: 700 !important;
-    padding: 20px 24px !important; 
-    transition: all 0.2s ease;
-    font-family: inherit, "Noto Color Emoji" !important; 
+    padding: 16px 8px !important;
+    color: var(--color-text-secondary) !important;
+    background-color: transparent !important;
+    border-bottom: 3px solid transparent !important;
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease !important;
 }
 
-/* Assign a specific green background tint and underline to active region tab panels */
-div[data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"] {
-    background-color: rgba(26, 150, 65, 0.20) !important;
+/* Hover state */
+[data-testid="stTabs"] > div > [data-baseweb="tab-list"] [data-baseweb="tab"]:hover {
+    background-color: rgba(26,150,65,0.07) !important;
+    color: #1a9641 !important;
+}
+
+/* Selected state — green background + green underline */
+[data-testid="stTabs"] > div > [data-baseweb="tab-list"] [data-baseweb="tab"][aria-selected="true"] {
+    background-color: rgba(26,150,65,0.18) !important;
     color: #1a9641 !important;
     border-bottom: 3px solid #1a9641 !important;
 }
 
-/* Keeps the inner sub-tabs (Single Sample, Batch, How to Use) normal size and localized */
-div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab-list"] {
-    display: inline-flex !important;
+/* ══════════════════════════════════════════════════════════
+   SUB-TABS  (Single Sample / Batch Scoring / How to Use)
+   Nested inside stTabsContent — override back to compact.
+   ══════════════════════════════════════════════════════════ */
+
+[data-testid="stTabsContent"] [data-testid="stTabs"] > div > [data-baseweb="tab-list"] {
+    display: flex !important;
     width: auto !important;
-    gap: 24px !important;
-    border-bottom: none !important;
+    justify-content: flex-start !important;
+    gap: 4px !important;
+    border-bottom: 1px solid var(--color-border-tertiary) !important;
+    margin-bottom: 12px !important;
+    background: transparent !important;
 }
 
-div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab"] {
-    flex-grow: 0 !important;
-    font-size: 15px !important;
+[data-testid="stTabsContent"] [data-testid="stTabs"] > div > [data-baseweb="tab-list"] [data-baseweb="tab"] {
+    flex: 0 0 auto !important;
+    font-size: 14px !important;
     font-weight: 600 !important;
-    padding: 6px 12px !important;
+    padding: 6px 14px !important;
     background-color: transparent !important;
-    border-bottom: none !important;
+    border-bottom: 2px solid transparent !important;
+    color: var(--color-text-secondary) !important;
 }
 
-/* Give tabs a subtle hover change so users know they are click options */
-.stTabs [data-baseweb="tab"]:hover {
+[data-testid="stTabsContent"] [data-testid="stTabs"] > div > [data-baseweb="tab-list"] [data-baseweb="tab"][aria-selected="true"] {
+    background-color: transparent !important;
+    color: var(--color-text-primary) !important;
+    border-bottom: 2px solid var(--color-text-primary) !important;
+}
+
+[data-testid="stTabsContent"] [data-testid="stTabs"] > div > [data-baseweb="tab-list"] [data-baseweb="tab"]:hover {
     background-color: rgba(26,150,65,0.04) !important;
-}
-
-/* Keeps the inner sub-tabs (Single Sample, Batch Scoring, How to Use) normal size and localized */
-.stTabs [data-baseweb="tab-panel"] .stTabs [data-baseweb="tab-list"] {
-    display: inline-flex !important;
-    width: auto !important;
-    gap: 24px !important;
-    border-bottom: none !important;
-}
-
-.stTabs [data-baseweb="tab-panel"] .stTabs [data-baseweb="tab"] {
-    flex-grow: 0 !important;
-    flex-basis: auto !important;
-    font-size: 15px !important;
-    font-weight: 600 !important;
-    padding: 6px 12px !important;
-    border-radius: 0px !important;
-    background-color: transparent !important;
-    border-bottom: none !important;
 }
 </style>
 """, unsafe_allow_html=True)

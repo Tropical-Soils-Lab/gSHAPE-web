@@ -756,7 +756,6 @@ st.markdown("""
     <div class="tagline">Sustainable Management of Tropical Soils Lab</div>
 </div>
 """, unsafe_allow_html=True)
-
 # ════════════════════════════════════════════════════════════════════
 # 8. RENDER FUNCTIONS
 # ════════════════════════════════════════════════════════════════════
@@ -787,14 +786,23 @@ def render_single_sample(region_name, cfg, df, df_hist):
     k = cfg["key"]
     has_precip = "precip" in cfg["predictors"]
 
-    current_indicator = st.session_state.get(f"{k}_indicator_shared", "Soil Organic Carbon")
+    # ── INITIALIZE MASTER KEYS (Prevents KeyErrors) ──
+    if f"{k}_sm_crop" not in st.session_state: st.session_state[f"{k}_sm_crop"] = MASTER_CROP_OPTIONS[0]
+    if f"{k}_oc" not in st.session_state: st.session_state[f"{k}_oc"] = 2.00
+    if f"{k}_sm_p_input" not in st.session_state: st.session_state[f"{k}_sm_p_input"] = 25.0
+    if f"{k}_ph_measured_input" not in st.session_state: st.session_state[f"{k}_ph_measured_input"] = 6.0
+    if f"{k}_sm_method" not in st.session_state: st.session_state[f"{k}_sm_method"] = list(SMAF_METHOD_MAP.keys())[0]
+    if f"{k}_sm_weather" not in st.session_state: st.session_state[f"{k}_sm_weather"] = list(SMAF_WEATHERING_MAP.keys())[0]
+    if f"{k}_sm_tex" not in st.session_state: st.session_state[f"{k}_sm_tex"] = list(SMAF_TEXTURE_MAP.keys())[0]
+    if f"{k}_sm_slope" not in st.session_state: st.session_state[f"{k}_sm_slope"] = list(SMAF_SLOPE_MAP.keys())[0]
 
-    with st.expander("⚙️ Site Inputs", expanded=True):
+    # ── MASTER SITE INPUTS (Always Visible) ──
+    with st.expander("⚙️ Master Site Inputs", expanded=True):
         c1, c2, c3 = st.columns(3)
+        
         with c1:
+            # Taxonomy & Landscape
             taxon_label = TAXON_LABEL[region_name]
-            
-            # ── DYNAMIC TAXONOMY SYSTEM TOGGLE FOR BRAZIL ──
             if region_name == "Brazil":
                 br_tax_system = st.selectbox(
                     "Taxonomy System", 
@@ -810,26 +818,16 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 active_taxon_display = cfg["taxon_display"]
 
             selected_sub = st.selectbox(taxon_label, active_taxon_display, format_func=strip_code, key=f"{k}_sub")
-            selected_tex = st.selectbox("Soil Texture", list(cfg["texture_map"].keys()), format_func=strip_code, key=f"{k}_tex")
+            selected_tex = st.selectbox("SOC Peer Group Texture", list(cfg["texture_map"].keys()), format_func=strip_code, key=f"{k}_tex")
+            selected_sm_tex = st.selectbox("SMAF Texture Profile", list(SMAF_TEXTURE_MAP.keys()), key=f"{k}_sm_tex")
+            selected_sm_slope = st.selectbox("Landscape Slope Profile", list(SMAF_SLOPE_MAP.keys()), key=f"{k}_sm_slope")
+            chosen_crop = st.selectbox("Target Field Crop", MASTER_CROP_OPTIONS, key=f"{k}_sm_crop")
             
-            if current_indicator in ["Soil Phosphorus", "pH"]:
-                st.markdown("---")
-                st.markdown("##### 🌱 Master Crop Configuration")
-                chosen_crop_text = st.selectbox("Target Field Crop", MASTER_CROP_OPTIONS, key=f"{k}_sm_crop")
-                
-                if current_indicator == "Soil Phosphorus":
-                    chosen_method_text = st.selectbox("P Extraction Method", list(SMAF_METHOD_MAP.keys()), key=f"{k}_sm_method")
-                    chosen_weathering_text = st.selectbox("Soil Weathering Class", list(SMAF_WEATHERING_MAP.keys()), key=f"{k}_sm_weather")
-            else:
-                crop_options = ["Row Crops", "Perennial Pasture / Grazing", "Specialty / Veg Crops", "Orchards / Groves Matrix"]
-                cropping_system = st.selectbox("Cropping System", crop_options, key=f"{k}_cropping_system")
-
-            if cfg["has_histosol"]:
-                hist_toggle = st.checkbox("🧬 This is an organic / Histosol soil (Muck, Peat)")
-            else:
-                hist_toggle = False
-
         with c2:
+            # Management & Climate
+            selected_method = st.selectbox("P Extraction Method", list(SMAF_METHOD_MAP.keys()), key=f"{k}_sm_method")
+            selected_weath = st.selectbox("Soil Weathering Class", list(SMAF_WEATHERING_MAP.keys()), key=f"{k}_sm_weather")
+            
             use_geo = st.checkbox("Fetch climate from coordinates", key=f"{k}_geo")
             lat_in, lon_in = cfg["default_latlon"]
             if use_geo:
@@ -837,9 +835,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 lon_in = st.number_input("Longitude", value=cfg["default_latlon"][1], format="%.4f", key=f"{k}_lon")
                 if st.button("🌐 Fetch Climate Data", key=f"{k}_fetch"):
                     if not in_bounds(lat_in, lon_in, cfg):
-                        st.error(f"📍 Outside area of interest for {region_name}. "
-                                 f"Valid range: lat {cfg['lat_bounds'][0]}–{cfg['lat_bounds'][1]}, "
-                                 f"lon {cfg['lon_bounds'][0]}–{cfg['lon_bounds'][1]}.")
+                        st.error(f"📍 Outside area of interest for {region_name}. Valid range: lat {cfg['lat_bounds'][0]}–{cfg['lat_bounds'][1]}, lon {cfg['lon_bounds'][0]}–{cfg['lon_bounds'][1]}.")
                     else:
                         res = fetch_climate(lat_in, lon_in, need_precip=has_precip)
                         if res:
@@ -847,51 +843,32 @@ def render_single_sample(region_name, cfg, df, df_hist):
                                 st.session_state[f"{k}_temp"] = float(np.clip(res["temp"], *cfg["temp_range"]))
                             if has_precip and "precip" in res:
                                 st.session_state[f"{k}_precip"] = float(np.clip(res["precip"], *cfg["precip_range"]))
-                            st.success(f"Climate fetched: {res.get('temp', '—'):.1f}°C" +
-                                      (f", {res.get('precip', 0):.0f}mm/yr" if has_precip and "precip" in res else ""))
+                            st.success(f"Climate fetched: {res.get('temp', '—'):.1f}°C" + (f", {res.get('precip', 0):.0f}mm/yr" if has_precip and "precip" in res else ""))
                         else:
                             st.warning("Could not fetch climate data. Enter manually below.")
-
-            if current_indicator == "Soil Phosphorus":
-                st.markdown("##### 📐 Landscape Parameters")
-                chosen_texture_text = st.selectbox("Texture Profile", list(SMAF_TEXTURE_MAP.keys()), key=f"{k}_sm_tex")
-                chosen_slope_text = st.selectbox("Landscape Slope Profile", list(SMAF_SLOPE_MAP.keys()), key=f"{k}_sm_slope")
-                target_temp = cfg["temp_default"]
-                target_precip = cfg["precip_default"] if has_precip else None
-            elif current_indicator == "pH":
-                target_temp = cfg["temp_default"]
-                target_precip = cfg["precip_default"] if has_precip else None
+            
+            target_temp = st.slider("Mean Annual Temperature (°C)", cfg["temp_range"][0], cfg["temp_range"][1], value=float(st.session_state.get(f"{k}_temp", cfg["temp_default"])), step=0.1, key=f"{k}_temp")
+            if has_precip:
+                target_precip = st.slider("Mean Annual Precipitation (mm)", cfg["precip_range"][0], cfg["precip_range"][1], value=float(st.session_state.get(f"{k}_precip", cfg["precip_default"])), step=10.0, key=f"{k}_precip")
             else:
-                target_temp = st.slider(
-                    "Mean Annual Temperature (°C)",
-                    cfg["temp_range"][0], cfg["temp_range"][1],
-                    value=float(st.session_state.get(f"{k}_temp", cfg["temp_default"])), step=0.1, key=f"{k}_temp"
-                )
                 target_precip = None
-                if has_precip:
-                    target_precip = st.slider(
-                        "Mean Annual Precipitation (mm)",
-                        cfg["precip_range"][0], cfg["precip_range"][1],
-                        value=float(st.session_state.get(f"{k}_precip", cfg["precip_default"])), step=10.0, key=f"{k}_precip"
-                    )
+                
+            if cfg["has_histosol"]:
+                hist_toggle = st.checkbox("📌 This is an organic / Histosol soil (Muck, Peat)", key=f"{k}_hist")
+            else:
+                hist_toggle = False
 
         with c3:
-            if current_indicator == "Soil Phosphorus":
-                measured_p = st.number_input("Measured Extractable P (mg/kg)", min_value=1.0, max_value=500.0, value=25.0, step=1.0, key=f"{k}_sm_p_input")
-                oc_val = st.number_input("Baseline SOC (%)", 0.01, 20.0, 2.0, 0.1, key=f"{k}_oc")
-            elif current_indicator == "pH":
-                ph_val = st.number_input("Measured pH", 3.0, 9.0, 6.0, 0.1, key=f"{k}_ph_measured_input")
-                oc_val = 2.0 
-                target_pct = 90
-            else:
-                oc_val = st.number_input("Measured SOC (%)", 0.01, 80.0, 2.0, 0.1, key=f"{k}_oc")
-                target_pct = st.slider("Benchmark Percentile", 50, 99, 90, key=f"{k}_pct")
-                ph_val = 6.0
+            # Core Lab Measurements
+            oc_val = st.number_input("Measured SOC (%)", 0.01, 80.0, key=f"{k}_oc")
+            p_val = st.number_input("Measured Extractable P (mg/kg)", 0.0, 500.0, key=f"{k}_sm_p_input")
+            ph_val = st.number_input("Measured Soil pH", 0.0, 14.0, key=f"{k}_ph_measured_input")
+            target_pct = st.slider("Benchmark Percentile", 50, 99, 90, key=f"{k}_pct")
 
+    # ── GLOBAL SOC PEER GROUP RESOLUTION ──
     tax = parse_code(selected_sub)
     tex = cfg["texture_map"][selected_tex]
 
-    # ── Resolve parameter maps safely (Includes missing lcl/ucl fix) ──
     if hist_toggle and cfg["has_histosol"] and df_hist is not None:
         lp_mean   = float(df_hist["mean_lp"].iloc[0])
         lp_lcl    = float(df_hist["lcl_lp"].iloc[0])
@@ -912,7 +889,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
         else:
             lp_mean, lp_lcl, lp_ucl, sigma_val, plot_max = 0.0, 0.0, 0.0, 1.0, 15.0
 
-    # ── PLACE THE SELECTBOX DIRECTLY HERE ──
+    # ── INDICATOR SELECTION ──
     indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density (Coming Soon)"]
     chosen_indicator = st.selectbox(
         "Soil Health Indicators:",
@@ -923,6 +900,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
     col_l, col_r = st.columns([1, 2])
 
+    # ── CONDITIONAL SCORING LOGIC ──
     if chosen_indicator == "Soil Phosphorus":
         if not SMAF_DATA:
             st.error("Missing `SMAF_lookup.xlsx` file dashboard linkage.")
@@ -939,14 +917,14 @@ def render_single_sample(region_name, cfg, df, df_hist):
         weather_id = SMAF_WEATHERING_MAP[st.session_state[f"{k}_sm_weather"]]
         texture_id = SMAF_TEXTURE_MAP[st.session_state[f"{k}_sm_tex"]]
         slope_id = SMAF_SLOPE_MAP[st.session_state[f"{k}_sm_slope"]]
-        p_input = st.session_state[f"{k}_sm_p_input"]
 
-        score_p = run_smaf_p_score(p_input, crop_id, method_id, weather_id, texture_id, slope_id, oc_val)
+        # Unified SOC value feeds into Phosphorus scoring
+        score_p = run_smaf_p_score(p_val, crop_id, method_id, weather_id, texture_id, slope_id, oc_val)
         color_p = score_color(score_p)
         label_p = score_label(score_p)
 
         with col_l:
-            gauge_title = f"<b style='font-size:17px'>{label_p}</b><br><span style='font-size:11px;color:gray'>SMAF Index · {p_input} mg/kg P</span>"
+            gauge_title = f"<b style='font-size:17px'>{label_p}</b><br><span style='font-size:11px;color:gray'>SMAF Index · {p_val} mg/kg P</span>"
             fig_gauge = go.Figure(go.Indicator(
                 mode="gauge+number", value=round(score_p, 1),
                 title={"text": gauge_title, "font": {"size": 13}},
@@ -969,7 +947,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
             st.divider()
             pmax_lim = SMAF_DATA["crops"][crop_id]["pmax"]
-            corrected_p = p_input * SMAF_DATA["method"][(method_id, weather_id)]
+            corrected_p = p_val * SMAF_DATA["method"][(method_id, weather_id)]
             st.metric("Corrected Value", f"{corrected_p:.1f} mg/kg", f"Threshold: {pmax_lim:.1f}")
 
         with col_r:
@@ -983,7 +961,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
             fig_p = go.Figure()
             fig_p.add_trace(go.Scatter(x=xs, y=ys, mode="lines", line=dict(color="#1F4E5F", width=3), name="SMAF Function", hovertemplate="P: %{x:.1f}<br>Score: %{y:.2f}<extra></extra>"))
-            fig_p.add_trace(go.Scatter(x=[p_input], y=[score_p / 100.0], mode="markers", marker=dict(color=color_p, size=14, line=dict(color="white", width=2)), name="Your Site"))
+            fig_p.add_trace(go.Scatter(x=[p_val], y=[score_p / 100.0], mode="markers", marker=dict(color=color_p, size=14, line=dict(color="white", width=2)), name="Your Site"))
             
             fig_p.update_layout(
                 xaxis_title="Extractable P (mg/kg)", yaxis_title="Performance Rating",
@@ -1002,20 +980,18 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 st.warning("⚠️ **Environmental Hazard Threshold:** Runoff risk flagged due to high baseline matrix saturation.")
                 
     elif chosen_indicator == "pH":
-        # 1. ALWAYS define these variables at the start of this block
+        # Global definition prevents NameError
         crop_selected_name = st.session_state[f"{k}_sm_crop"]
         ph_benchmarks = SMAF_DATA.get("ph_benchmarks", {}) if SMAF_DATA else {}
         
-        # 2. Check the lookup
+        # Case insensitive lookup
         ph_benchmarks_lower = {key.lower(): val for key, val in ph_benchmarks.items()}
         benchmarks = ph_benchmarks_lower.get(crop_selected_name.lower())
         
         if not benchmarks:
-            # Now crop_selected_name exists, so this will not crash
             st.warning(f"ℹ️ **pH Target Data:** Optimum thresholds for **{crop_selected_name}** are being calibrated.")
             st.metric("Soil pH", ph_val)
         else:
-            # ... proceed with your score_ph calculation ...
             ph_opt = benchmarks["opt"]
             ph_sigma = benchmarks["sigma"]
             score_ph = float(100.0 * np.exp(-((ph_val - ph_opt) / (2.0 * ph_sigma)) ** 2))
@@ -1072,7 +1048,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
                     st.map(pd.DataFrame({"lat": [lat_in], "lon": [lon_in]}), zoom=6)
 
     elif chosen_indicator == "Soil Organic Carbon":
-        # ── ORIGINAL CARBON SCORING ──
         score  = compute_score(oc_val, lp_mean, sigma_val)
         color  = score_color(score)
         label  = score_label(score)
@@ -1333,6 +1308,9 @@ def render_single_sample(region_name, cfg, df, df_hist):
             st.caption("⚠️ Estimates assume linear SOC accumulation. Actual sequestration is nonlinear "
                        "and depends on management, soil type, and climate. Consult a certified carbon "
                        "project developer before trading.")
+
+    elif chosen_indicator == "Bulk Density (Coming Soon)":
+        render_bulk_density_placeholder(region_name)
 
     st.divider()
     st.markdown("#### 📚 Resources")

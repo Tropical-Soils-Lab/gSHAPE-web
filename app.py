@@ -836,7 +836,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
                         else:
                             st.warning("Could not fetch climate data. Enter manually below.")
 
-            if current_indicator == "Soil Phosphorus (SMAF)":
+            if current_indicator == "Soil Phosphorus":
                 st.markdown("##### 📐 Landscape Parameters")
                 chosen_texture_text = st.selectbox("SMAF Texture Profile", list(SMAF_TEXTURE_MAP.keys()), key=f"{k}_sm_tex")
                 chosen_slope_text = st.selectbox("Landscape Slope Profile", list(SMAF_SLOPE_MAP.keys()), key=f"{k}_sm_slope")
@@ -860,7 +860,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
                     )
 
         with c3:
-            if current_indicator == "Soil Phosphorus (SMAF)":
+            if current_indicator == "Soil Phosphorus":
                 measured_p = st.number_input("Measured Extractable P (mg/kg)", min_value=1.0, max_value=500.0, value=25.0, step=1.0, key=f"{k}_sm_p_input")
                 oc_val = st.number_input("Baseline SOC (%)", 0.01, 20.0, 2.0, 0.1, key=f"{k}_oc")
             elif current_indicator == "pH":
@@ -897,7 +897,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             lp_mean, lp_lcl, lp_ucl, sigma_val, plot_max = 0.0, 0.0, 0.0, 1.0, 15.0
 
     # ── PLACE THE SELECTBOX DIRECTLY HERE ──
-    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus (SMAF)", "pH", "Bulk Density (Coming Soon)"]
+    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density (Coming Soon)"]
     chosen_indicator = st.selectbox(
         "Soil Health Indicators:",
         indicator_options,
@@ -907,7 +907,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
     col_l, col_r = st.columns([1, 2])
 
-    if chosen_indicator == "Soil Phosphorus (SMAF)":
+    if chosen_indicator == "Soil Phosphorus":
         if not SMAF_DATA:
             st.error("Missing `SMAF_lookup.xlsx` file dashboard linkage.")
             return

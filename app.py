@@ -144,50 +144,36 @@ div[data-testid="stExpander"] {
 }
 
 /* ─── ENHANCED REGION SELECTION TABS LAYOUT ─── */
-/* Targets the master tab row container */
-div[data-testid="stTabs"] [data-baseweb="tab-list"] {
+/* Targets the master tab row container to stretch across the page full-width */
+.stTabs [data-baseweb="tab-list"] {
     display: flex !important;
     width: 100% !important;
-    justify-content: center !important;
     gap: 0px !important; 
     margin-bottom: 20px;
     border-bottom: 2px solid var(--color-border-tertiary);
 }
 
-/* Forces each individual region tab item */
-div[data-testid="stTabs"] [data-baseweb="tab"] {
+/* Forces each individual region tab item to grow equally and fill the screen space */
+.stTabs [data-baseweb="tab"] {
     flex-grow: 1 !important;
+    flex-basis: 0 !important;
     text-align: center !important;
     justify-content: center !important;
     font-size: 32px !important; 
     font-weight: 700 !important;
     padding: 20px 24px !important; 
+    border-radius: 8px 8px 0px 0px !important;
     transition: all 0.2s ease;
+    
+    /* THE MAGIC BULLETPROOF FLAG LINE */
     font-family: inherit, "Noto Color Emoji" !important; 
 }
 
-/* Assign a specific green background tint and underline to active region tab panels */
-div[data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"] {
+/* Assign a specific green background tint to active region tab panels */
+.stTabs [data-baseweb="tab"][aria-selected="true"] {
     background-color: rgba(26, 150, 65, 0.20) !important;
     color: #1a9641 !important;
     border-bottom: 3px solid #1a9641 !important;
-}
-
-/* Keeps the inner sub-tabs (Single Sample, Batch, How to Use) normal size and localized */
-div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab-list"] {
-    display: inline-flex !important;
-    width: auto !important;
-    gap: 24px !important;
-    border-bottom: none !important;
-}
-
-div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab"] {
-    flex-grow: 0 !important;
-    font-size: 15px !important;
-    font-weight: 600 !important;
-    padding: 6px 12px !important;
-    background-color: transparent !important;
-    border-bottom: none !important;
 }
 
 /* Give tabs a subtle hover change so users know they are click options */
@@ -215,7 +201,6 @@ div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab"] {
 }
 </style>
 """, unsafe_allow_html=True)
-
 # ════════════════════════════════════════════════════════════════════
 # 2. PEER GROUP DEFINITIONS PER REGION
 # ════════════════════════════════════════════════════════════════════

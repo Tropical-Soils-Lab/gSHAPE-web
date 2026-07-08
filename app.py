@@ -792,14 +792,23 @@ def render_single_sample(region_name, cfg, df, df_hist):
     tax = parse_code(selected_sub)
     tex = cfg["texture_map"][selected_tex]
 
+    # ── Resolve background parameter sheets for Carbon baseline ──
     if hist_toggle and cfg["has_histosol"] and df_hist is not None:
-        lp_mean, sigma_val, plot_max = float(df_hist["mean_lp"].iloc[0]), float(np.exp(df_hist["mean_sigma"].iloc[0])), 80.0
+        lp_mean = float(df_hist["mean_lp"].iloc[0])
+        lp_lcl  = float(df_hist["lcl_lp"].iloc[0])
+        lp_ucl  = float(df_hist["ucl_lp"].iloc[0])
+        sigma_val = float(np.exp(df_hist["mean_sigma"].iloc[0]))
+        plot_max = 80.0
     else:
         row = get_params_any(cfg, df, tax, tex, target_temp, target_precip)
         if row is not None:
-            lp_mean, sigma_val, plot_max = float(row["mean_lp"]), float(np.exp(row["mean_sigma"])), max(15.0, oc_val + 5)
+            lp_mean = float(row["mean_lp"])
+            lp_lcl  = float(row["lcl_lp"])
+            lp_ucl  = float(row["ucl_lp"])
+            sigma_val = float(np.exp(row["mean_sigma"]))
+            plot_max = max(15.0, oc_val + 5)
         else:
-            lp_mean, sigma_val, plot_max = 0.0, 1.0, 15.0
+            lp_mean, lp_lcl, lp_ucl, sigma_val, plot_max = 0.0, 0.0, 0.0, 1.0, 15.0
 
     # Dynamic global selector menu
     indicator_options = ["Soil Organic Carbon", "Soil Phosphorus (SMAF)", "pH"]

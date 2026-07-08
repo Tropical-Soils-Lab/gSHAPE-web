@@ -818,8 +818,8 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 active_taxon_display = cfg["taxon_display"]
 
             selected_sub = st.selectbox(taxon_label, active_taxon_display, format_func=strip_code, key=f"{k}_sub")
-            selected_tex = st.selectbox("SOC Peer Group Texture", list(cfg["texture_map"].keys()), format_func=strip_code, key=f"{k}_tex")
-            selected_sm_tex = st.selectbox("SMAF Texture Profile", list(SMAF_TEXTURE_MAP.keys()), key=f"{k}_sm_tex")
+            selected_tex = st.selectbox("Texture", list(cfg["texture_map"].keys()), format_func=strip_code, key=f"{k}_tex")
+            selected_sm_tex = st.selectbox("Texture Profile", list(SMAF_TEXTURE_MAP.keys()), key=f"{k}_sm_tex")
             selected_sm_slope = st.selectbox("Landscape Slope Profile", list(SMAF_SLOPE_MAP.keys()), key=f"{k}_sm_slope")
             chosen_crop = st.selectbox("Target Field Crop", MASTER_CROP_OPTIONS, key=f"{k}_sm_crop")
             

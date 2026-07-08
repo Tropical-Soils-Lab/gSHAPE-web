@@ -544,17 +544,18 @@ SMAF_DATA = load_smaf_lookup_dynamic("SMAF_lookup.xlsx")
 
 # ── CONSTRAINT: Use only verified pH crops as the master list to prevent missing values ──
 if SMAF_DATA and "ph_benchmarks" in SMAF_DATA and SMAF_DATA["ph_benchmarks"]:
-    MASTER_CROP_OPTIONS = sorted(list(SMAF_DATA["ph_benchmarks"].keys()))
+    # Capitalize each crop name here
+    MASTER_CROP_OPTIONS = sorted([c.capitalize() for c in list(SMAF_DATA["ph_benchmarks"].keys())])
 elif SMAF_DATA and "crop_ui_map" in SMAF_DATA:
-    MASTER_CROP_OPTIONS = sorted(list(SMAF_DATA["crop_ui_map"].keys()))
+    MASTER_CROP_OPTIONS = sorted([c.capitalize() for c in list(SMAF_DATA["crop_ui_map"].keys())])
 else:
     MASTER_CROP_OPTIONS = ["Apple", "Blueberry", "Corn / maize / sweet corn", "Orange", "Soybean"]
 
 # Standardized descriptive selection boxes
-SMAF_METHOD_MAP = {"Mehlich-3 (Code 2)": 2, "Olsen (Code 1)": 1}
-SMAF_WEATHERING_MAP = {"Highly Weathered (Class 1)": 1, "Slightly/Moderately Weathered (Class 2)": 2}
-SMAF_TEXTURE_MAP = {"Coarse / Sandy (Code 1)": 1, "Medium / Loamy (Code 2)": 2, "Fine / Clayey (Code 3)": 3}
-SMAF_SLOPE_MAP = {"0–2% Level Slope (Class 1)": 1, "2–5% Gentle Slope (Class 2)": 2, "5%+ Steep Slope (Class 3)": 3}
+SMAF_METHOD_MAP = {"Mehlich-3": 2, "Olsen": 1}
+SMAF_WEATHERING_MAP = {"Highly Weathered": 1, "Slightly/Moderately Weathered": 2}
+SMAF_TEXTURE_MAP = {"Coarse / Sandy": 1, "Medium / Loamy": 2, "Fine / Clayey": 3}
+SMAF_SLOPE_MAP = {"0–2% Level Slope": 1, "2–5% Gentle Slope": 2, "5%+ Steep Slope": 3}
 
 # ════════════════════════════════════════════════════════════════════
 # 5. HELPER FUNCTIONS (Now with 5 Scoring Zones)
@@ -927,7 +928,8 @@ def render_single_sample(region_name, cfg, df, df_hist):
             st.error("Missing `SMAF_lookup.xlsx` file dashboard linkage.")
             return
             
-        crop_id = SMAF_DATA["crop_ui_map"].get(st.session_state[f"{k}_sm_crop"], 0)
+        selected_crop_input = st.session_state[f"{k}_sm_crop"].lower()
+        crop_id = SMAF_DATA["crop_ui_map"].get(selected_crop_input, 0)
         
         if crop_id not in SMAF_DATA["crops"]:
             st.error(f"⚠️ **Phosphorus Parameters Missing:** '{st.session_state[f'{k}_sm_crop']}' has valid pH metrics but is missing from the `crop_factors` sheet tab. Please check your Excel spreadsheet.")

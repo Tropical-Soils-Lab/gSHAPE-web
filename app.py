@@ -811,12 +811,12 @@ def render_single_sample(region_name, cfg, df, df_hist):
             selected_sub = st.selectbox(taxon_label, active_taxon_display, format_func=strip_code, key=f"{k}_sub")
             selected_tex = st.selectbox("Soil Texture", list(cfg["texture_map"].keys()), format_func=strip_code, key=f"{k}_tex")
             
-            if current_indicator in ["Soil Phosphorus", "pH"]:
+            if current_indicator in ["Soil Phosphorus (SMAF)", "pH"]:
                 st.markdown("---")
                 st.markdown("##### 🌱 Master Crop Configuration")
                 chosen_crop_text = st.selectbox("Target Field Crop", MASTER_CROP_OPTIONS, key=f"{k}_sm_crop")
                 
-                if current_indicator == "Soil Phosphorus":
+                if current_indicator == "Soil Phosphorus (SMAF)":
                     chosen_method_text = st.selectbox("P Extraction Method", list(SMAF_METHOD_MAP.keys()), key=f"{k}_sm_method")
                     chosen_weathering_text = st.selectbox("Soil Weathering Class", list(SMAF_WEATHERING_MAP.keys()), key=f"{k}_sm_weather")
             else:
@@ -851,7 +851,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
                         else:
                             st.warning("Could not fetch climate data. Enter manually below.")
 
-            if current_indicator == "Soil Phosphorus":
+            if current_indicator == "Soil Phosphorus (SMAF)":
                 st.markdown("##### 📐 Landscape Parameters")
                 chosen_texture_text = st.selectbox("SMAF Texture Profile", list(SMAF_TEXTURE_MAP.keys()), key=f"{k}_sm_tex")
                 chosen_slope_text = st.selectbox("Landscape Slope Profile", list(SMAF_SLOPE_MAP.keys()), key=f"{k}_sm_slope")
@@ -875,7 +875,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
                     )
 
         with c3:
-            if current_indicator == "Soil Phosphorus":
+            if current_indicator == "Soil Phosphorus (SMAF)":
                 measured_p = st.number_input("Measured Extractable P (mg/kg)", min_value=1.0, max_value=500.0, value=25.0, step=1.0, key=f"{k}_sm_p_input")
                 oc_val = st.number_input("Baseline SOC (%)", 0.01, 20.0, 2.0, 0.1, key=f"{k}_oc")
             elif current_indicator == "pH":
@@ -971,7 +971,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             st.metric("Corrected Value", f"{corrected_p:.1f} mg/kg", f"Threshold: {pmax_lim:.1f}")
 
         with col_r:
-            st.markdown("#### Scoring Curve")
+            st.markdown("#### SMAF Non-Linear Sufficiency Curve")
             grid = np.array([5, 10, 15, 20, 30, 50, 60, 90, 120, 150, 180, 210, 300.0])
             gy = np.array([run_smaf_p_score(x, crop_id, method_id, weather_id, texture_id, slope_id, oc_val) for x in grid])
             

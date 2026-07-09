@@ -607,15 +607,51 @@ def run_smaf_bd_score(bd, texture_id, mineralogy_id=0):
     """Calculates the SMAF Bulk Density score using Weibull parameters."""
     if not SMAF_DATA: return 0.0
     
-    K = SMAF_DATA["bd_constants"]
+    # --- AUTO-LOADER PATCH: Reads BD sheets if they aren't loaded yet ---
+    if "bd_constants" not in SMAF_DATA:
+        try:
+            sh = pd.read_excel("SMAF_lookup.xlsx", sheet_name=None, dtype=str)
+            def num(x):
+                try: return float(x) if not pd.isna(x) and not math.isnan(float(x)) else None
+                except: return None
+
+            # Load Constants
+            K = {}
+            if "bd_constants" in sh:
+                for _, r in sh["bd_constants"].iterrows():
+                    v = num(r["value"])
+                    if pd.notna(r["param_name"]) and v is not None: K[str(r["param_name"]).strip()] = v
+            SMAF_DATA["bd_constants"] = K
+
+            # Load Texture Factors
+            tex_dict = {}
+            if "bd_texture_factors" in sh:
+                for _, r in sh["bd_texture_factors"].iterrows():
+                    tc = num(r["texture_code"])
+                    if tc is not None: tex_dict[int(tc)] = {"range_lo": num(r.get("range_lo")), "range_hi": num(r.get("range_hi")), "b1": num(r.get("b1")), "c1": num(r.get("c1")), "d1": num(r.get("d1"))}
+            SMAF_DATA["bd_texture_factors"] = tex_dict
+
+            # Load Mineralogy Factors
+            min_dict = {}
+            if "bd_mineralogy_factors" in sh:
+                for _, r in sh["bd_mineralogy_factors"].iterrows():
+                    mc = num(r["mineralogy_code"])
+                    if mc is not None: min_dict[int(mc)] = {"range_shift": num(r.get("range_shift")), "delta_b": num(r.get("delta_b"))}
+            SMAF_DATA["bd_mineralogy_factors"] = min_dict
+        except Exception as e:
+            st.error(f"Error loading BD sheets from Excel: {e}")
+            return 0.0
+    # --- END PATCH ---
+
+    K = SMAF_DATA.get("bd_constants", {})
+    if not K: return 0.0  # Safety fallback
+    
     a = K["a"]
     t = SMAF_DATA["bd_texture_factors"][texture_id]
     
     if texture_id < 4:
-        # Mineralogy is ignored for coarser textures
         b, c, d = t["b1"], t["c1"], t["d1"]
     else:
-        # Applies mineralogy shifts for clay/fine textures (IDs 4 & 5)
         m = SMAF_DATA["bd_mineralogy_factors"][mineralogy_id]
         r = t["range_lo"] + m["range_shift"]
         b = t["b1"] + m["delta_b"]
@@ -799,7 +835,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
     if f"{k}_sm_slope" not in st.session_state: st.session_state[f"{k}_sm_slope"] = list(SMAF_SLOPE_MAP.keys())[0]
 
     # ── MASTER SITE INPUTS (Always Visible) ──
-    with st.expander("⚙️Site Inputs", expanded=True):
+    with st.expander("⚙️ Site Inputs", expanded=True):
         c1, c2, c3 = st.columns(3)
         
         with c1:
@@ -821,7 +857,15 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
             selected_sub = st.selectbox(taxon_label, active_taxon_display, format_func=strip_code, key=f"{k}_sub")
             selected_tex = st.selectbox("Texture", list(cfg["texture_map"].keys()), format_func=strip_code, key=f"{k}_tex")
+            
+            # Shared Texture Profile for Phosphorus & Bulk Density
             selected_sm_tex = st.selectbox("Texture Profile", list(SMAF_TEXTURE_MAP.keys()), key=f"{k}_sm_tex")
+            
+            # Dynamic Mineralogy Dropdown (Only appears for Clay classes 4 & 5)
+            texture_id = SMAF_TEXTURE_MAP[selected_sm_tex]
+            if texture_id >= 4:
+                st.selectbox("Clay Mineralogy", list(SMAF_MINERALOGY_MAP.keys()), key=f"{k}_bd_min")
+
             selected_sm_slope = st.selectbox("Landscape Slope Profile", list(SMAF_SLOPE_MAP.keys()), key=f"{k}_sm_slope")
             chosen_crop = st.selectbox("Target Field Crop", MASTER_CROP_OPTIONS, key=f"{k}_sm_crop")
             
@@ -864,6 +908,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             # Core Lab Measurements
             oc_val = st.number_input("Measured SOC (%)", 0.01, 80.0, key=f"{k}_oc")
             p_val = st.number_input("Measured Extractable P (mg/kg)", 0.0, 500.0, key=f"{k}_sm_p_input")
+            bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.5, max_value=2.0, value=1.45, step=0.05, key=f"{k}_bd_input")
             ph_val = st.number_input("Measured Soil pH", 0.0, 14.0, key=f"{k}_ph_measured_input")
             target_pct = st.slider("Benchmark Percentile (SOC)", 50, 99, 90, key=f"{k}_pct")
 
@@ -981,19 +1026,15 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 st.warning("⚠️ **Environmental Hazard Threshold:** Runoff risk flagged due to high baseline matrix saturation.")
 
     elif chosen_indicator == "Bulk Density":
-        st.markdown("##### 🧱 Physical Soil Parameters")
         
-        # 1. Separated Inputs
-        selected_bd_tex = st.selectbox("SMAF Texture Profile", list(SMAF_TEXTURE_MAP.keys()), key=f"{k}_bd_tex")
-        texture_id = SMAF_TEXTURE_MAP[selected_bd_tex]
-        
-        # Only show mineralogy if a fine texture (4 or 5) is selected
+        # 1. Grab inputs from the Master Panel via session_state
+        texture_id = SMAF_TEXTURE_MAP[st.session_state[f"{k}_sm_tex"]]
         mineralogy_id = 0
         if texture_id >= 4:
-            selected_min = st.selectbox("Clay Mineralogy", list(SMAF_MINERALOGY_MAP.keys()), key=f"{k}_bd_min")
-            mineralogy_id = SMAF_MINERALOGY_MAP[selected_min]
+            mineral_string = st.session_state.get(f"{k}_bd_min", list(SMAF_MINERALOGY_MAP.keys())[0])
+            mineralogy_id = SMAF_MINERALOGY_MAP[mineral_string]
             
-        bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.5, max_value=2.0, value=1.45, step=0.05, key=f"{k}_bd_input")
+        bd_val = st.session_state[f"{k}_bd_input"]
         
         # 2. Score Calculation
         score_bd = run_smaf_bd_score(bd_val, texture_id, mineralogy_id)

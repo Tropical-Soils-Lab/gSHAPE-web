@@ -1109,7 +1109,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             st.plotly_chart(fig_gauge, use_container_width=True, key=f"{k}_bd_gauge")
 
         with col_r:
-            st.markdown("#### Density Scoring Curve")
+            st.markdown("#### Scoring Curve")
             
             xs = np.linspace(0.6, 1.8, 400)
             ys = [run_smaf_bd_score(x, texture_id, mineralogy_id) for x in xs]

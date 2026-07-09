@@ -902,7 +902,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
     col_l, col_r = st.columns([1, 2])
 
-        elif chosen_indicator == "Bulk Density":
+    elif chosen_indicator == "Bulk Density":
         st.markdown("##### 🧱 Physical Soil Parameters")
         
         # 1. Separated Inputs

@@ -979,7 +979,72 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 st.success("🎯 **Optimum sufficiency plateau:** Maximum vegetative performance profile verified.")
             else:
                 st.warning("⚠️ **Environmental Hazard Threshold:** Runoff risk flagged due to high baseline matrix saturation.")
-                
+
+    elif chosen_indicator == "Bulk Density":
+        st.markdown("##### 🧱 Physical Soil Parameters")
+        
+        # 1. Separated Inputs
+        selected_bd_tex = st.selectbox("SMAF Texture Profile", list(SMAF_TEXTURE_MAP.keys()), key=f"{k}_bd_tex")
+        texture_id = SMAF_TEXTURE_MAP[selected_bd_tex]
+        
+        # Only show mineralogy if a fine texture (4 or 5) is selected
+        mineralogy_id = 0
+        if texture_id >= 4:
+            selected_min = st.selectbox("Clay Mineralogy", list(SMAF_MINERALOGY_MAP.keys()), key=f"{k}_bd_min")
+            mineralogy_id = SMAF_MINERALOGY_MAP[selected_min]
+            
+        bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.5, max_value=2.0, value=1.45, step=0.05, key=f"{k}_bd_input")
+        
+        # 2. Score Calculation
+        score_bd = run_smaf_bd_score(bd_val, texture_id, mineralogy_id)
+        color_bd = score_color(score_bd)
+        label_bd = score_label(score_bd)
+        
+        with col_l:
+            gauge_title = f"<b style='font-size:17px'>{label_bd}</b><br><span style='font-size:11px;color:gray'>BD {bd_val} g/cm³</span>"
+            fig_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=round(score_bd, 1),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": color_bd}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray"},
+                    "bar": {"color": color_bd, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)",
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
+                    ]
+                }
+            ))
+            fig_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
+            st.plotly_chart(fig_gauge, use_container_width=True, key=f"{k}_bd_gauge")
+
+        with col_r:
+            st.markdown("#### Density Scoring Curve")
+            
+            xs = np.linspace(0.6, 1.8, 400)
+            ys = [run_smaf_bd_score(x, texture_id, mineralogy_id) for x in xs]
+            
+            fig_bd = go.Figure()
+            fig_bd.add_trace(go.Scatter(x=xs, y=np.array(ys) / 100.0, mode="lines", line=dict(color="#5A3E85", width=3), name="Tolerance Curve", hovertemplate="BD: %{x:.2f} g/cm³<br>Score: %{y:.1%}<extra></extra>"))
+            fig_bd.add_trace(go.Scatter(x=[bd_val], y=[score_bd / 100.0], mode="markers", marker=dict(color=color_bd, size=14, line=dict(color="white", width=2)), name="Your Soil"))
+            
+            fig_bd.update_layout(
+                xaxis_title="Bulk Density (g/cm³)", yaxis_title="SHAPE Score",
+                yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0.6, 1.8]),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=400, margin=dict(l=10, r=10, t=40, b=10)
+            )
+            st.plotly_chart(fig_bd, width='stretch', key=f"{k}_bd_curve_plot")
+            
+            if bd_val > 1.6 and texture_id >= 4:
+                st.error("📉 **Severe Compaction Risk:** Values above 1.6 g/cm³ in fine-textured soils restrict root penetration and aeration.")
+            elif score_bd > 80:
+                st.success("🎯 **Optimum Structure:** Excellent porosity and aggregation supporting maximum root proliferation.")
+
     elif chosen_indicator == "pH":
         # Global definition prevents NameError
         crop_selected_name = st.session_state[f"{k}_sm_crop"]

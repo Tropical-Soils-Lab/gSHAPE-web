@@ -605,25 +605,30 @@ def run_smaf_p_score(soil_p, crop, method, weathering, texture, slope, toc):
 
 def run_smaf_bd_score(bd, texture_id, mineralogy_id=0):
     """Calculates the SMAF Bulk Density score using Weibull parameters."""
-    if not SMAF_DATA: return 0.0
+    if not SMAF_DATA: 
+        st.error("Diagnostic: SMAF_DATA is totally empty.")
+        return 0.0
     
     # --- AUTO-LOADER: Reads BD sheets and cleans headers ---
     if "bd_constants" not in SMAF_DATA:
         try:
+            # Read the file
             sh = pd.read_excel("SMAF_lookup.xlsx", sheet_name=None, dtype=str)
             
             def get_clean_df(sheet_name):
                 """Extracts a sheet and strips hidden spaces from column headers"""
-                if sheet_name not in sh: return pd.DataFrame()
+                if sheet_name not in sh: 
+                    st.error(f"Diagnostic: Could not find a sheet exactly named '{sheet_name}' in Excel.")
+                    return pd.DataFrame()
                 df = sh[sheet_name].copy()
                 df.columns = [str(c).strip() for c in df.columns]
                 return df
 
             def num(x):
                 try:
-                    v = float(x)
-                    return None if math.isnan(v) else v
-                except: return None
+                    return float(x) if not pd.isna(x) else None
+                except: 
+                    return None
 
             # 1. Load Constants
             df_c = get_clean_df("bd_constants")
@@ -661,31 +666,44 @@ def run_smaf_bd_score(bd, texture_id, mineralogy_id=0):
             SMAF_DATA["bd_mineralogy_factors"] = min_dict
             
         except Exception as e:
-            st.error(f"Error reading BD sheets: {e}")
+            st.error(f"Diagnostic: Excel loading crashed with error: {e}")
             return 0.0
 
     # --- MATH EXECUTION ---
     K = SMAF_DATA.get("bd_constants", {})
-    if not K: return 0.0  # Failsafe if dictionary is still empty
+    if not K: 
+        st.error("Diagnostic: 'bd_constants' loaded, but is empty (check column names 'param_name' and 'value').")
+        return 0.0
     
-    a = K.get("a", 1.0)
+    a = K.get("a")
+    if a is None:
+        st.error("Diagnostic: Could not find parameter 'a' in bd_constants.")
+        return 0.0
+
     t = SMAF_DATA["bd_texture_factors"].get(texture_id)
-    if not t: return 0.0  # Failsafe if texture isn't found
+    if not t: 
+        st.error(f"Diagnostic: Could not find texture_code '{texture_id}' in bd_texture_factors.")
+        return 0.0
     
     if texture_id < 4:
         b, c, d = t["b1"], t["c1"], t["d1"]
     else:
-        m = SMAF_DATA["bd_mineralogy_factors"].get(mineralogy_id, {"range_shift": 0, "delta_b": 0})
+        m = SMAF_DATA["bd_mineralogy_factors"].get(mineralogy_id, {"range_shift": 0.0, "delta_b": 0.0})
         r = t["range_lo"] + m["range_shift"]
         b = t["b1"] + m["delta_b"]
         c = K["c2_coef_a"] * np.exp(K["c2_coef_b"] * r)
         d = K["d2_coef_a"] + K["d2_coef_b"] * r
 
-    # Protect against math domain errors with extreme exponents
+    # Check for missing variables before math
+    if None in [a, b, c, d]:
+        st.error(f"Diagnostic: Missing variables -> a:{a}, b:{b}, c:{c}, d:{d}")
+        return 0.0
+
     try:
         y = a - b * np.exp(-c * (bd ** d))
         return float(max(K["score_min"], min(K["score_max"], y)) * 100.0)
-    except Exception:
+    except Exception as e:
+        st.error(f"Diagnostic: Math domain error: {e}")
         return 0.0
 
 def fetch_climate(lat, lon, need_precip=False):

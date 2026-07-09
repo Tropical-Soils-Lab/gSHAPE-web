@@ -537,12 +537,37 @@ elif SMAF_DATA and "crop_ui_map" in SMAF_DATA:
 else:
     MASTER_CROP_OPTIONS = ["Apple", "Blueberry", "Corn / maize / sweet corn", "Orange", "Soybean"]
 
-# Standardized descriptive selection boxes
-SMAF_METHOD_MAP = {"Mehlich-3": 2, "Olsen": 1}
-SMAF_WEATHERING_MAP = {"Highly Weathered": 1, "Slightly/Moderately Weathered": 2}
-SMAF_TEXTURE_MAP = {"Coarse / Sandy": 1, "Medium / Loamy": 2, "Fine / Clayey": 3}
-SMAF_SLOPE_MAP = {"0–2% Level Slope": 1, "2–5% Gentle Slope": 2, "5%+ Steep Slope": 3}
+# Expanded UI Maps (Make sure the integer matches your Excel code!)
+SMAF_METHOD_MAP = {
+    "Mehlich-1": 1, 
+    "Mehlich-3": 2,
+    "Bray":3,
+    "Olsen": 4, 
+    "Resin": 5,
+    "Iron oxide strip":6
+}
 
+SMAF_WEATHERING_MAP = {
+    "Calcareous": 1, 
+    "Highly Weathered": 2,
+    "Slightly Weathered": 3 
+}
+
+SMAF_TEXTURE_MAP = {
+    "sand / loamy sand / sandy loam (<8% clay)": 1, 
+    "sandy loam (>8% clay) / sandy clay loam / loam": 2, 
+    "silt loam / silt": 3,
+    "sandy clay / clay loam / silty clay loam / silty clay / clay (<60% clay)": 4, 
+    "clay (>60% clay)": 5          
+}
+
+SMAF_SLOPE_MAP = {
+    "0–2% Level Slope": 1, 
+    "2–5% Gentle Slope": 2, 
+    "5–9% Moderate Slope": 3,
+    "9–15% Strong Slope": 4,
+    "15%+ Very Steep Slope": 5
+}
 # ════════════════════════════════════════════════════════════════════
 # 5. HELPER FUNCTIONS (Now with 5 Scoring Zones)
 # ════════════════════════════════════════════════════════════════════

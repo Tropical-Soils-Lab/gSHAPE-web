@@ -554,11 +554,11 @@ SMAF_WEATHERING_MAP = {
 }
 
 SMAF_TEXTURE_MAP = {
-    "sand / loamy sand / sandy loam (<8% clay)": 1, 
-    "sandy loam (>8% clay) / sandy clay loam / loam": 2, 
-    "silt loam / silt": 3,
-    "sandy clay / clay loam / silty clay loam / silty clay / clay (<60% clay)": 4, 
-    "clay (>60% clay)": 5          
+    "Sand / loamy sand / sandy loam (<8% clay)": 1, 
+    "Sandy loam (>8% clay) / sandy clay loam / loam": 2, 
+    "Silt loam / silt": 3,
+    "Sandy clay / clay loam / silty clay loam / silty clay / clay (<60% clay)": 4, 
+    "Clay (>60% clay)": 5          
 }
 
 SMAF_SLOPE_MAP = {
@@ -567,9 +567,17 @@ SMAF_SLOPE_MAP = {
     "5–9% Moderate Slope": 3,
     "9–15% Strong Slope": 4,
     "15%+ Very Steep Slope": 5
+    }
+SMAF_MINERALOGY_MAP = {
+    "Smectitic": 1,
+    "Glassy": 2,
+    "Other": 3
 }
 # ════════════════════════════════════════════════════════════════════
-# 5. HELPER FUNCTIONS (Now with 5 Scoring Zones)
+# 5. HELPER FUNCTIONS
+# ════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════
+# 5. HELPER FUNCTIONS
 # ════════════════════════════════════════════════════════════════════
 def run_smaf_p_score(soil_p, crop, method, weathering, texture, slope, toc):
     if not SMAF_DATA: return 0.0
@@ -593,6 +601,28 @@ def run_smaf_p_score(soil_p, crop, method, weathering, texture, slope, toc):
         y = K["weibull_a"] - K["weibull_b"] * np.exp(-c * xc**K["weibull_d"])
     else:
         y = 1.0
+    return float(max(K["score_min"], min(K["score_max"], y)) * 100.0)
+
+def run_smaf_bd_score(bd, texture_id, mineralogy_id=0):
+    """Calculates the SMAF Bulk Density score using Weibull parameters."""
+    if not SMAF_DATA: return 0.0
+    
+    K = SMAF_DATA["bd_constants"]
+    a = K["a"]
+    t = SMAF_DATA["bd_texture_factors"][texture_id]
+    
+    if texture_id < 4:
+        # Mineralogy is ignored for coarser textures
+        b, c, d = t["b1"], t["c1"], t["d1"]
+    else:
+        # Applies mineralogy shifts for clay/fine textures (IDs 4 & 5)
+        m = SMAF_DATA["bd_mineralogy_factors"][mineralogy_id]
+        r = t["range_lo"] + m["range_shift"]
+        b = t["b1"] + m["delta_b"]
+        c = K["c2_coef_a"] * np.exp(K["c2_coef_b"] * r)
+        d = K["d2_coef_a"] + K["d2_coef_b"] * r
+
+    y = a - b * np.exp(-c * (bd ** d))
     return float(max(K["score_min"], min(K["score_max"], y)) * 100.0)
 
 def fetch_climate(lat, lon, need_precip=False):
@@ -717,45 +747,6 @@ def parse_code(display_str):
 
 def strip_code(display_str):
     return display_str.split(" (")[0]
-
-# ════════════════════════════════════════════════════════════════════
-# 6. DEMO BATCH DATA GENERATOR
-# ════════════════════════════════════════════════════════════════════
-def build_demo_batch(region_name, cfg, include_hidden=True):
-    rng = np.random.default_rng(7)
-    rows = []
-
-    taxa = sorted(set(parse_code(t) for t in cfg["taxon_display"]))
-    textures = sorted(set(cfg["texture_map"].values()))
-
-    if region_name == "Florida" and include_hidden:
-        taxa = taxa + ["S1"]
-        textures = textures + ["T1"]
-
-    oc_cycle = [0.5, 1.2, 1.8, 2.2, 2.8, 3.5, 4.5, 6.0]  # spans red → yellow → green
-    lat_mid, lon_mid = cfg["default_latlon"]
-    i = 1
-    for tax in taxa:
-        for tex in textures:
-            if region_name == "Florida" and tax == "S1" and tex != "T5":
-                continue 
-            if region_name == "Florida" and tax != "S1" and tex == "T5":
-                continue
-            oc = oc_cycle[(i - 1) % len(oc_cycle)]
-            row = {
-                "sample_id": f"{cfg['key']}_{i:03d}",
-                "oc": oc,
-                "peer_group_taxon": tax,
-                "peer_group_texture": tex,
-                "PRISM_tmea": round(float(cfg["temp_default"] + rng.uniform(-2, 2)), 1),
-            }
-            if "precip" in cfg["predictors"]:
-                row["PRISM_ppt"] = round(float(cfg["precip_default"] + rng.uniform(-150, 150)), 0)
-            row["lat"] = round(float(lat_mid + rng.uniform(-1.2, 1.2)), 3)
-            row["lon"] = round(float(lon_mid + rng.uniform(-1.2, 1.2)), 3)
-            rows.append(row)
-            i += 1
-    return pd.DataFrame(rows)
 
 # ════════════════════════════════════════════════════════════════════
 # 7. HEADER
@@ -901,7 +892,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             lp_mean, lp_lcl, lp_ucl, sigma_val, plot_max = 0.0, 0.0, 0.0, 1.0, 15.0
 
     # ── INDICATOR SELECTION ──
-    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH"]
+    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density"]
     chosen_indicator = st.selectbox(
         "Soil Health Indicators:",
         indicator_options,
@@ -910,6 +901,71 @@ def render_single_sample(region_name, cfg, df, df_hist):
     st.divider()
 
     col_l, col_r = st.columns([1, 2])
+
+    elif chosen_indicator == "Bulk Density":
+        st.markdown("##### 🧱 Physical Soil Parameters")
+        
+        # 1. Separated Inputs
+        selected_bd_tex = st.selectbox("SMAF Texture Profile", list(SMAF_TEXTURE_MAP.keys()), key=f"{k}_bd_tex")
+        texture_id = SMAF_TEXTURE_MAP[selected_bd_tex]
+        
+        # Only show mineralogy if a fine texture (4 or 5) is selected
+        mineralogy_id = 0
+        if texture_id >= 4:
+            selected_min = st.selectbox("Clay Mineralogy", list(SMAF_MINERALOGY_MAP.keys()), key=f"{k}_bd_min")
+            mineralogy_id = SMAF_MINERALOGY_MAP[selected_min]
+            
+        bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.5, max_value=2.0, value=1.45, step=0.05, key=f"{k}_bd_input")
+        
+        # 2. Score Calculation
+        score_bd = run_smaf_bd_score(bd_val, texture_id, mineralogy_id)
+        color_bd = score_color(score_bd)
+        label_bd = score_label(score_bd)
+        
+        with col_l:
+            gauge_title = f"<b style='font-size:17px'>{label_bd}</b><br><span style='font-size:11px;color:gray'>BD {bd_val} g/cm³</span>"
+            fig_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=round(score_bd, 1),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": color_bd}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray"},
+                    "bar": {"color": color_bd, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)",
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
+                    ]
+                }
+            ))
+            fig_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
+            st.plotly_chart(fig_gauge, use_container_width=True, key=f"{k}_bd_gauge")
+
+        with col_r:
+            st.markdown("#### Density Scoring Curve")
+            
+            xs = np.linspace(0.6, 1.8, 400)
+            ys = [run_smaf_bd_score(x, texture_id, mineralogy_id) for x in xs]
+            
+            fig_bd = go.Figure()
+            fig_bd.add_trace(go.Scatter(x=xs, y=np.array(ys) / 100.0, mode="lines", line=dict(color="#5A3E85", width=3), name="Tolerance Curve", hovertemplate="BD: %{x:.2f} g/cm³<br>Score: %{y:.1%}<extra></extra>"))
+            fig_bd.add_trace(go.Scatter(x=[bd_val], y=[score_bd / 100.0], mode="markers", marker=dict(color=color_bd, size=14, line=dict(color="white", width=2)), name="Your Soil"))
+            
+            fig_bd.update_layout(
+                xaxis_title="Bulk Density (g/cm³)", yaxis_title="SHAPE Score",
+                yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0.6, 1.8]),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=400, margin=dict(l=10, r=10, t=40, b=10)
+            )
+            st.plotly_chart(fig_bd, width='stretch', key=f"{k}_bd_curve_plot")
+            
+            if bd_val > 1.6 and texture_id >= 4:
+                st.error("📉 **Severe Compaction Risk:** Values above 1.6 g/cm³ in fine-textured soils restrict root penetration and aeration.")
+            elif score_bd > 80:
+                st.success("🎯 **Optimum Structure:** Excellent porosity and aggregation supporting maximum root proliferation.")
 
     # ── CONDITIONAL SCORING LOGIC ──
     if chosen_indicator == "Soil Phosphorus":

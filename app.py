@@ -607,59 +607,86 @@ def run_smaf_bd_score(bd, texture_id, mineralogy_id=0):
     """Calculates the SMAF Bulk Density score using Weibull parameters."""
     if not SMAF_DATA: return 0.0
     
-    # --- AUTO-LOADER PATCH: Reads BD sheets if they aren't loaded yet ---
+    # --- AUTO-LOADER: Reads BD sheets and cleans headers ---
     if "bd_constants" not in SMAF_DATA:
         try:
             sh = pd.read_excel("SMAF_lookup.xlsx", sheet_name=None, dtype=str)
+            
+            def get_clean_df(sheet_name):
+                """Extracts a sheet and strips hidden spaces from column headers"""
+                if sheet_name not in sh: return pd.DataFrame()
+                df = sh[sheet_name].copy()
+                df.columns = [str(c).strip() for c in df.columns]
+                return df
+
             def num(x):
-                try: return float(x) if not pd.isna(x) and not math.isnan(float(x)) else None
+                try:
+                    v = float(x)
+                    return None if math.isnan(v) else v
                 except: return None
 
-            # Load Constants
+            # 1. Load Constants
+            df_c = get_clean_df("bd_constants")
             K = {}
-            if "bd_constants" in sh:
-                for _, r in sh["bd_constants"].iterrows():
-                    v = num(r["value"])
-                    if pd.notna(r["param_name"]) and v is not None: K[str(r["param_name"]).strip()] = v
+            if not df_c.empty:
+                for _, r in df_c.iterrows():
+                    v = num(r.get("value"))
+                    p = r.get("param_name")
+                    if pd.notna(p) and v is not None: K[str(p).strip()] = v
             SMAF_DATA["bd_constants"] = K
 
-            # Load Texture Factors
+            # 2. Load Texture Factors
+            df_t = get_clean_df("bd_texture_factors")
             tex_dict = {}
-            if "bd_texture_factors" in sh:
-                for _, r in sh["bd_texture_factors"].iterrows():
-                    tc = num(r["texture_code"])
-                    if tc is not None: tex_dict[int(tc)] = {"range_lo": num(r.get("range_lo")), "range_hi": num(r.get("range_hi")), "b1": num(r.get("b1")), "c1": num(r.get("c1")), "d1": num(r.get("d1"))}
+            if not df_t.empty:
+                for _, r in df_t.iterrows():
+                    tc = num(r.get("texture_code"))
+                    if tc is not None:
+                        tex_dict[int(tc)] = {
+                            "range_lo": num(r.get("range_lo")), "range_hi": num(r.get("range_hi")),
+                            "b1": num(r.get("b1")), "c1": num(r.get("c1")), "d1": num(r.get("d1"))
+                        }
             SMAF_DATA["bd_texture_factors"] = tex_dict
 
-            # Load Mineralogy Factors
+            # 3. Load Mineralogy Factors
+            df_m = get_clean_df("bd_mineralogy_factors")
             min_dict = {}
-            if "bd_mineralogy_factors" in sh:
-                for _, r in sh["bd_mineralogy_factors"].iterrows():
-                    mc = num(r["mineralogy_code"])
-                    if mc is not None: min_dict[int(mc)] = {"range_shift": num(r.get("range_shift")), "delta_b": num(r.get("delta_b"))}
+            if not df_m.empty:
+                for _, r in df_m.iterrows():
+                    mc = num(r.get("mineralogy_code"))
+                    if mc is not None:
+                        min_dict[int(mc)] = {
+                            "range_shift": num(r.get("range_shift")), "delta_b": num(r.get("delta_b"))
+                        }
             SMAF_DATA["bd_mineralogy_factors"] = min_dict
+            
         except Exception as e:
-            st.error(f"Error loading BD sheets from Excel: {e}")
+            st.error(f"Error reading BD sheets: {e}")
             return 0.0
-    # --- END PATCH ---
 
+    # --- MATH EXECUTION ---
     K = SMAF_DATA.get("bd_constants", {})
-    if not K: return 0.0  # Safety fallback
+    if not K: return 0.0  # Failsafe if dictionary is still empty
     
-    a = K["a"]
-    t = SMAF_DATA["bd_texture_factors"][texture_id]
+    a = K.get("a", 1.0)
+    t = SMAF_DATA["bd_texture_factors"].get(texture_id)
+    if not t: return 0.0  # Failsafe if texture isn't found
     
     if texture_id < 4:
         b, c, d = t["b1"], t["c1"], t["d1"]
     else:
-        m = SMAF_DATA["bd_mineralogy_factors"][mineralogy_id]
+        m = SMAF_DATA["bd_mineralogy_factors"].get(mineralogy_id, {"range_shift": 0, "delta_b": 0})
         r = t["range_lo"] + m["range_shift"]
         b = t["b1"] + m["delta_b"]
         c = K["c2_coef_a"] * np.exp(K["c2_coef_b"] * r)
         d = K["d2_coef_a"] + K["d2_coef_b"] * r
 
-    y = a - b * np.exp(-c * (bd ** d))
-    return float(max(K["score_min"], min(K["score_max"], y)) * 100.0)
+    # Protect against math domain errors with extreme exponents
+    try:
+        y = a - b * np.exp(-c * (bd ** d))
+        return float(max(K["score_min"], min(K["score_max"], y)) * 100.0)
+    except Exception:
+        return 0.0
 
 def fetch_climate(lat, lon, need_precip=False):
     """Fetch MAT (and optionally MAP) from NASA POWER climatology."""

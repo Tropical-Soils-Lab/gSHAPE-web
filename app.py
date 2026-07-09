@@ -1051,7 +1051,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             ys = np.clip(spl(xs), 0.0, 1.0)
 
             fig_p = go.Figure()
-            fig_p.add_trace(go.Scatter(x=xs, y=ys, mode="lines", line=dict(color="#1F4E5F", width=3), name="SMAF Function", hovertemplate="P: %{x:.1f}<br>Score: %{y:.2f}<extra></extra>"))
+            fig_p.add_trace(go.Scatter(x=xs, y=ys, mode="lines", line=dict(color="#1F4E5F", width=3), name="Score Curve", hovertemplate="P: %{x:.1f}<br>Score: %{y:.2f}<extra></extra>"))
             fig_p.add_trace(go.Scatter(x=[p_val], y=[score_p / 100.0], mode="markers", marker=dict(color=color_p, size=14, line=dict(color="white", width=2)), name="Your Site"))
             
             fig_p.update_layout(
@@ -1115,7 +1115,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             ys = [run_smaf_bd_score(x, texture_id, mineralogy_id) for x in xs]
             
             fig_bd = go.Figure()
-            fig_bd.add_trace(go.Scatter(x=xs, y=np.array(ys) / 100.0, mode="lines", line=dict(color="#5A3E85", width=3), name="Tolerance Curve", hovertemplate="BD: %{x:.2f} g/cm³<br>Score: %{y:.1%}<extra></extra>"))
+            fig_bd.add_trace(go.Scatter(x=xs, y=np.array(ys) / 100.0, mode="lines", line=dict(color="#5A3E85", width=3), name=" Score Curve", hovertemplate="BD: %{x:.2f} g/cm³<br>Score: %{y:.1%}<extra></extra>"))
             fig_bd.add_trace(go.Scatter(x=[bd_val], y=[score_bd / 100.0], mode="markers", marker=dict(color=color_bd, size=14, line=dict(color="white", width=2)), name="Your Soil"))
             
             fig_bd.update_layout(
@@ -1183,7 +1183,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 y_axis = 100.0 * np.exp(-((x_axis - ph_opt) / (2.0 * ph_sigma)) ** 2)
                 
                 fig_cdf = go.Figure()
-                fig_cdf.add_trace(go.Scatter(x=x_axis, y=y_axis / 100, mode="lines", line=dict(color="#1a9641", width=3), name="Crop Tolerance Curve", hovertemplate="pH: %{x:.1f}<br>Score: %{y:.1%}<extra></extra>"))
+                fig_cdf.add_trace(go.Scatter(x=x_axis, y=y_axis / 100, mode="lines", line=dict(color="#1a9641", width=3), name="Score Curve", hovertemplate="pH: %{x:.1f}<br>Score: %{y:.1%}<extra></extra>"))
                 fig_cdf.add_trace(go.Scatter(x=[ph_val], y=[score_ph / 100], mode="markers", marker=dict(color=color_ph, size=14, symbol="circle", line=dict(color="white", width=2)), name="Your Field pH"))
                 fig_cdf.add_trace(go.Scatter(x=[ph_opt], y=[1.0], mode="markers", marker=dict(color="#0072B2", size=13, symbol="x-thin", line=dict(color="#0072B2", width=3)), name=f"Optimum ({ph_opt})"))
                 

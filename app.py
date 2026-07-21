@@ -416,11 +416,18 @@ def get_score_zone(score):
     else: return "Very High"
 
 def render_recommendation_engine(crop, score, key_prefix="rec"):
-    """Dynamically builds an input section and assembles agronomic advice."""
+    """Dynamically builds an input section and assembles agronomic advice into a single box."""
     
     # 1. Route the crop to the system
     system = SYSTEM_MAP.get(crop, "Row Crop Rotation") # Default to Row Crop if not found
     zone = get_score_zone(score)
+    
+    # ── DYNAMIC COLOR MAPPING ──
+    if score >= 80: bg_color, border_color = "rgba(26, 150, 65, 0.15)", "#1a9641"    # Dark Green
+    elif score >= 60: bg_color, border_color = "rgba(119, 195, 92, 0.15)", "#77c35c" # Light Green
+    elif score >= 40: bg_color, border_color = "rgba(255, 193, 7, 0.15)", "#ffc107"  # Yellow
+    elif score >= 20: bg_color, border_color = "rgba(244, 109, 67, 0.15)", "#f46d43" # Orange
+    else: bg_color, border_color = "rgba(215, 48, 39, 0.15)", "#d73027"              # Red
     
     st.divider()
     st.markdown("## 📋 Management Recommendations")
@@ -448,14 +455,16 @@ def render_recommendation_engine(crop, score, key_prefix="rec"):
                     key=f"{key_prefix}_{practice_category}"
                 )
             
-    # 4. Assemble and print the final tailored advice below the inputs
+    # 4. Assemble the advice into a SINGLE list
     st.markdown("### Your Custom Agronomic Strategy")
     
+    # We will build the inner bullet points as a single string of HTML first
+    combined_bullets = ""
+    
     for practice_category, user_choice in selections.items():
-        # Look up the specific advice for their zone
         advice = rules[practice_category][user_choice].get(zone)
         
-        # Fallbacks to ensure a clean UI if a specific zone string isn't written
+        # Fallbacks
         if not advice:
             if zone in ["Very Low", "Low"]:
                 advice = "Focus on maximizing biomass inputs and minimizing disturbance to rebuild your baseline."
@@ -464,9 +473,20 @@ def render_recommendation_engine(crop, score, key_prefix="rec"):
             else:
                 advice = "Your practices are currently sustaining a highly functional system. Maintain your baseline."
                 
-        # Render the assembled bullet points dynamically
-        st.info(f"**{practice_category} ({user_choice}):** {advice}")
-
+        # Add this specific recommendation as a bullet point
+        combined_bullets += f"<li style='margin-bottom: 12px;'><strong>{practice_category} ({user_choice}):</strong> {advice}</li>"
+                
+    # 5. Wrap all the bullet points in ONE colored box
+    custom_box = f"""
+    <div style="background-color: {bg_color}; border-left: 5px solid {border_color}; padding: 20px 24px 8px 24px; border-radius: 6px; margin-bottom: 14px; line-height: 1.6;">
+        <ul style="margin: 0; padding-left: 20px;">
+            {combined_bullets}
+        </ul>
+    </div>
+    """
+    
+    # Print the single box to the screen
+    st.markdown(custom_box, unsafe_allow_html=True)
 # ════════════════════════════════════════════════════════════════════
 # 1. PAGE CONFIG & GLOBAL CSS
 # ════════════════════════════════════════════════════════════════════

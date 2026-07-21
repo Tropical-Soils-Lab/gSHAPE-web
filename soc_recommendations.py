@@ -82,11 +82,11 @@ def load_soc_rules(
         "Practical SOC recommendation",
     ]
 
-  blank_rows = df[required_cells].eq("").any(axis=1)
+    blank_rows = df[required_cells].eq("").any(axis=1)
 
-        # Drop the blank rows automatically instead of crashing the app
-        if blank_rows.any():
-            df = df[~blank_rows].reset_index(drop=True)
+    # Drop the blank rows automatically instead of crashing the app
+    if blank_rows.any():
+        df = df[~blank_rows].reset_index(drop=True)
 
     if df["Rule ID"].duplicated().any():
         duplicate_ids = df.loc[

@@ -7,8 +7,8 @@ import plotly.graph_objects as go
 import requests
 from pathlib import Path
 
-# Import your new module
 from soc_recommendations import load_soc_rules, get_management_questions, get_selected_answers, get_soc_recommendation, get_cropping_systems
+
 # ── EXCEL RECOMMENDATION DATABASE SETUP ──
 EXCEL_PATH = Path(__file__).parent / "gSHAPE_SOC_Recommendations.xlsx"
 
@@ -21,7 +21,6 @@ def load_recommendation_database():
         return None
 
 soc_rules_df = load_recommendation_database()
-
 # ── CROP TO SYSTEM ROUTING MAP ──
 SYSTEM_MAP = {
     # 1. Row Crop Rotation

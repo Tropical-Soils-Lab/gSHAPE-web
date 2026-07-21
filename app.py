@@ -71,7 +71,7 @@ FL_REC_ENGINE = {
                 "High": "Your reduced tillage system is effectively protecting carbon. To push into the elite Very High percentiles, aim for continuous no-till or ultra-low disturbance strip-till.",
                 "Very High": "Excellent management. To secure this elite status and stop micro-aggregate breakdown entirely, ensure your planter setups can handle continuous high-residue planting."
             },
-            "No till yes 5+ yrs": {
+            "No till (5+ yrs)": {
                 "Very Low": "You have stopped the bleeding by halting tillage, but the carbon tank is still empty. Your limiting factor is no longer tillage—it is a lack of carbon inputs. You must aggressively increase root and residue biomass.",
                 "Low": "No-till is preserving what little carbon you have, but sandy soils need massive inputs to build SOC. Focus on maximizing root exudates through high-yielding cash crops and heavy cover crops.",
                 "Medium": "Your continuous no-till framework is working perfectly to stabilize biological cycling. You have built a solid foundation; now focus on optimizing your crop rotation to push higher.",

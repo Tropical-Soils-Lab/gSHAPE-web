@@ -419,7 +419,7 @@ def render_recommendation_engine(crop, score, key_prefix="rec"):
     """Dynamically builds an input section and assembles agronomic advice into a single box."""
     
     # 1. Route the crop to the system
-    system = SYSTEM_MAP.get(crop, "Row Crop Rotation") # Default to Row Crop if not found
+    system = SYSTEM_MAP.get(crop.lower(), "Row Crop Rotation") # Default to Row Crop if not found
     zone = get_score_zone(score)
     
     # ── DYNAMIC COLOR MAPPING ──

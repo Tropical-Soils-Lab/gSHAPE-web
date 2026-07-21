@@ -8,7 +8,6 @@ import requests
 from pathlib import Path
 
 from soc_recommendations import load_soc_rules, get_management_questions, get_selected_answers, get_soc_recommendation, get_cropping_systems
-
 # ── EXCEL RECOMMENDATION DATABASE SETUP ──
 EXCEL_PATH = Path(__file__).parent / "gSHAPE_SOC_Recommendations.xlsx"
 

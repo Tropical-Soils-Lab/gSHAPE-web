@@ -5,6 +5,29 @@ from scipy.stats import norm
 from scipy.interpolate import PchipInterpolator
 import plotly.graph_objects as go
 import requests
+from pathlib import Path
+
+# Import your new module
+from soc_recommendations import (
+    load_soc_rules,
+    get_management_questions,
+    get_selected_answers,
+    get_soc_recommendation,
+    get_cropping_systems
+)
+
+# ── EXCEL RECOMMENDATION DATABASE SETUP ──
+EXCEL_PATH = Path(__file__).parent / "gSHAPE_SOC_Recommendations.xlsx"
+
+@st.cache_data(show_spinner=False)
+def load_recommendation_database():
+    try:
+        return load_soc_rules(EXCEL_PATH)
+    except Exception as e:
+        st.error(f"Failed to load recommendation database: {e}")
+        return None
+
+soc_rules_df = load_recommendation_database()
 
 # ── CROP TO SYSTEM ROUTING MAP ──
 SYSTEM_MAP = {
@@ -486,6 +509,86 @@ def render_recommendation_engine(crop, score, key_prefix="rec"):
     """
     
     # Print the single box to the screen
+    st.markdown(custom_box, unsafe_allow_html=True)
+
+def render_excel_recommendation_engine(score, key_prefix="rec"):
+    """Dynamically builds input section directly from the Excel rules database."""
+    if soc_rules_df is None or soc_rules_df.empty:
+        st.info("Recommendation database is currently unavailable.")
+        return
+        
+    zone = get_score_zone(score)
+    
+    st.divider()
+    st.markdown("## 📋 Management Recommendations")
+    
+    # 1. Get available systems from Excel dynamically using your helper function!
+    systems_df = get_cropping_systems(soc_rules_df)
+    system_options = systems_df["Cropping system"].tolist()
+    
+    # 2. Build the UI Dropdowns
+    with st.expander("🌾 Management Practice Inputs", expanded=True):
+        st.markdown("Select your cropping system and current field practices below:")
+        
+        # Let the farmer pick the system exactly as it is written in your Excel sheet
+        selected_system_name = st.selectbox("Cropping System", system_options, key=f"{key_prefix}_sys")
+        
+        # Find the matching Excel "Code" for what they selected (e.g., "MZ-01")
+        selected_code = systems_df.loc[systems_df["Cropping system"] == selected_system_name, "Code"].iloc[0]
+        
+        st.caption(f"Generating custom action plan for: **{selected_system_name} ({selected_code})** | Current Status: **{zone}**")
+        
+        # Fetch available questions for this specific code
+        questions = get_management_questions(soc_rules_df, selected_code)
+        
+        if not questions:
+            st.info(f"Management recommendations are currently being developed for this system.")
+            return
+            
+        # Create columns dynamically based on how many questions the Excel sheet has
+        cols = st.columns(len(questions))
+        selections = {}
+        
+        for idx, q in enumerate(questions):
+            answers = get_selected_answers(soc_rules_df, selected_code, q)
+            with cols[idx % len(cols)]:
+                selections[q] = st.selectbox(q, answers, key=f"{key_prefix}_{q}")
+                
+    # 3. Assemble the advice into the unified UI Box
+    st.markdown("### Your Custom Agronomic Strategy")
+    combined_bullets = ""
+    
+    for q, ans in selections.items():
+        try:
+            # Lookup the specific recommendation using your imported function
+            soc_result = get_soc_recommendation(
+                rules_df=soc_rules_df,
+                code=selected_code,
+                management_question=q,
+                selected_answer=ans,
+                soc_level=zone
+            )
+            interp = soc_result["interpretation"]
+            rec = soc_result["recommendation"]
+            
+            combined_bullets += f"{q} ({ans}): {interp}Action: {rec}"
+        except KeyError:
+            combined_bullets += f"{q} ({ans}): No specific recommendation mapped for the {zone} zone yet."
+            
+    # 4. Color Box Rendering
+    if score >= 80: bg_color, border_color = "rgba(26, 150, 65, 0.15)", "#1a9641"
+    elif score >= 60: bg_color, border_color = "rgba(119, 195, 92, 0.15)", "#77c35c"
+    elif score >= 40: bg_color, border_color = "rgba(255, 193, 7, 0.15)", "#ffc107"
+    elif score >= 20: bg_color, border_color = "rgba(244, 109, 67, 0.15)", "#f46d43"
+    else: bg_color, border_color = "rgba(215, 48, 39, 0.15)", "#d73027"
+    
+    custom_box = f"""
+    
+        
+            {combined_bullets}
+        
+    
+    """
     st.markdown(custom_box, unsafe_allow_html=True)
 # ════════════════════════════════════════════════════════════════════
 # 1. PAGE CONFIG & GLOBAL CSS
@@ -1794,8 +1897,13 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 st.map(pd.DataFrame({"lat": [lat_in], "lon": [lon_in]}), zoom=6)
 
         st.divider()
-        # Render the dynamic management recommendation engine
-        render_recommendation_engine(chosen_crop, score, key_prefix=f"{k}_soc_tab")
+        # 🚦 THE TRAFFIC COP: Routes to the correct engine based on the region tab
+        if region_name == "Sub-Saharan Africa":
+            # Uses the new Excel Database Engine ONLY for SSA
+            render_excel_recommendation_engine(score, key_prefix=f"{k}_soc_tab")
+        else:
+            # Uses your original hardcoded Dictionary Engine for Florida and Brazil
+            render_recommendation_engine(chosen_crop, score, key_prefix=f"{k}_soc_tab")
 
         # ── Carbon Sequestration Calculator ──
         st.divider()

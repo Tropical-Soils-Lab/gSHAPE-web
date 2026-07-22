@@ -1814,6 +1814,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             fig_gauge = go.Figure(go.Indicator(
                 mode="gauge+number",
                 value=round(score, 1),
+                domain={"x": [0, 1], "y": [0, 1]},
                 title={"text": gauge_title, "font": {"size": 13}},
                 number={"suffix": "/100", "font": {"size": 38, "color": color}},
                 gauge={
@@ -1831,10 +1832,9 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 }
             ))
             fig_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                                    height=260, margin=dict(l=20, r=20, t=80, b=10),
-                                    autosize=True)
+                                height=260, margin=dict(l=40, r=40, t=80, b=10))
             st.plotly_chart(fig_gauge, use_container_width=True, key=f"{k}_gauge_chart")
-
+            
             st.divider()
             gap = tgt_oc - oc_val
             m1, m2 = st.columns(2)

@@ -562,6 +562,15 @@ def render_excel_recommendation_engine(crop, score, key_prefix="rec"):
     st.markdown("### Your Custom Agronomic Strategy")
     combined_bullets = ""
     
+    # USING HEX ENCODING TO PREVENT COPY-PASTE STRIPPING
+    li_open = "\x3cli style='margin-bottom: 12px;'\x3e"
+    li_close = "\x3c/li\x3e"
+    strong_open = "\x3cstrong\x3e"
+    strong_close = "\x3c/strong\x3e"
+    br_tag = "\x3cbr\x3e"
+    em_open = "\x3cem\x3e"
+    em_close = "\x3c/em\x3e"
+    
     for q, ans in selections.items():
         try:
             soc_result = get_soc_recommendation(
@@ -578,10 +587,11 @@ def render_excel_recommendation_engine(crop, score, key_prefix="rec"):
             if interp and not interp.endswith('.'):
                 interp += "."
             
-            # HTML Bullet formatting - This is what was stripped!
-            combined_bullets += f"{q} ({ans}): {interp} Action: {rec}"
+            full_advice = f"{interp} {br_tag}{em_open}Action: {rec}{em_close}"
+            combined_bullets += f"{li_open}{strong_open}{q} ({ans}):{strong_close} {full_advice}{li_close}"
+            
         except KeyError:
-            combined_bullets += f"{q} ({ans}): No specific recommendation mapped for the {zone} zone yet."
+            combined_bullets += f"{li_open}{strong_open}{q} ({ans}):{strong_close} No specific recommendation mapped for the {zone} zone yet.{li_close}"
             
     # 4. Color Box Rendering
     if score >= 80: bg_color, border_color = "rgba(26, 150, 65, 0.15)", "#1a9641"    # Dark Green
@@ -590,14 +600,13 @@ def render_excel_recommendation_engine(crop, score, key_prefix="rec"):
     elif score >= 20: bg_color, border_color = "rgba(244, 109, 67, 0.15)", "#f46d43" # Orange
     else: bg_color, border_color = "rgba(215, 48, 39, 0.15)", "#d73027"              # Red
     
-    # Wraps the entire block in the colored border box () and starts the bullet list ()
-    custom_box = f"""
+    # USING HEX ENCODING FOR THE MAIN BOX
+    div_open = f"\x3cdiv style='background-color: {bg_color}; border-left: 5px solid {border_color}; padding: 20px 24px 8px 24px; border-radius: 6px; margin-bottom: 14px; line-height: 1.6;'\x3e"
+    div_close = "\x3c/div\x3e"
+    ul_open = "\x3cul style='margin: 0; padding-left: 20px;'\x3e"
+    ul_close = "\x3c/ul\x3e"
     
-        
-            {combined_bullets}
-        
-    
-    """
+    custom_box = f"{div_open}\n{ul_open}\n{combined_bullets}\n{ul_close}\n{div_close}"
     st.markdown(custom_box, unsafe_allow_html=True)
 # ════════════════════════════════════════════════════════════════════
 # 1. PAGE CONFIG & GLOBAL CSS

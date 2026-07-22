@@ -530,7 +530,6 @@ def render_excel_recommendation_engine(crop, score, key_prefix="rec"):
     systems_df = get_cropping_systems(soc_rules_df)
     system_options = systems_df["Cropping system"].tolist()
     
-    # Ensure it exists in the Excel sheet, fallback to fuzzy match or first option
     if target_sys in system_options:
         selected_system_name = target_sys
     else:
@@ -539,7 +538,7 @@ def render_excel_recommendation_engine(crop, score, key_prefix="rec"):
         
     selected_code = systems_df.loc[systems_df["Cropping system"] == selected_system_name, "Code"].iloc[0]
     
-    # 2. Build the UI Dropdowns (No more System Selectbox!)
+    # 2. Build the UI Dropdowns
     with st.expander("🌾 Management Practice Inputs", expanded=True):
         st.markdown(f"Select current field practices for **{selected_system_name}** below:")
         st.caption(f"Generating custom action plan for: **{selected_system_name} ({selected_code})** | Current Status: **{zone}**")
@@ -574,6 +573,7 @@ def render_excel_recommendation_engine(crop, score, key_prefix="rec"):
             interp = soc_result["interpretation"]
             rec = soc_result["recommendation"]
             
+            # Wraps each answer in an HTML list item () with a bold title
             combined_bullets += f"{q} ({ans}): {interp} Action: {rec}"
         except KeyError:
             combined_bullets += f"{q} ({ans}): No specific recommendation mapped for the {zone} zone yet."
@@ -585,6 +585,7 @@ def render_excel_recommendation_engine(crop, score, key_prefix="rec"):
     elif score >= 20: bg_color, border_color = "rgba(244, 109, 67, 0.15)", "#f46d43"
     else: bg_color, border_color = "rgba(215, 48, 39, 0.15)", "#d73027"
     
+    # Wraps the entire block in the colored border box () and starts the bullet list ()
     custom_box = f"""
     
         

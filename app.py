@@ -1853,13 +1853,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             })
             st.dataframe(bench, hide_index=True, width='stretch')
 
-            fig_cdf.update_yaxes(gridcolor="rgba(150,150,150,0.1)")
-        st.plotly_chart(fig_cdf, width='stretch', key=f"{k}_cdf_chart")
-
-        # ── MOVED EXPORT SECTION ──
-        # We split the wide right column in half so the button stays a normal size!
-        ec1, ec2 = st.columns([1, 1])
-        with ec1:
+            st.divider()
             st.markdown("**📥 Export result**")
             result_df = pd.DataFrame([{
                 "Region": region_name, "Suborder": strip_code(selected_sub), "Texture": strip_code(selected_tex),
@@ -1871,9 +1865,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
             st.download_button("⬇️ Download as CSV", data=result_df.to_csv(index=False).encode("utf-8"),
                                file_name=f"SHAPE_{cfg['key']}_{tax}_{tex}_{oc_val}pct.csv",
                                mime="text/csv", width='stretch', key=f"{k}_export_btn")
-        # ──────────────────────────
-
-        if use_geo and f"{k}_lat" in st.session_state and in_bounds(lat_in, lon_in, cfg):
 
         with col_r:
             st.markdown("#### Scoring Curve")

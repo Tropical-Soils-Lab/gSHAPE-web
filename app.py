@@ -445,7 +445,6 @@ def render_recommendation_engine(crop, score, key_prefix="rec"):
     
     st.divider()
     st.markdown("## 📋 Management Recommendations")
-    st.caption(f"Generating custom action plan for: **{system}** | Current Status: **{zone}** (Score: {score:.1f}/100)")
     
     # 2. Get the rules for this specific system
     rules = FL_REC_ENGINE.get(system, {})
@@ -536,9 +535,6 @@ def render_excel_recommendation_engine(crop, score, key_prefix="rec"):
         selected_system_name = match[0] if match else system_options[0]
         
     selected_code = systems_df.loc[systems_df["Cropping system"] == selected_system_name, "Code"].iloc[0]
-    
-    # Match Florida header caption exactly
-    st.caption(f"Generating custom action plan for: **{selected_system_name} ({selected_code})** | Current Status: **{zone}** (Score: {score:.1f}/100)")
     
     # 2. Build the UI Dropdowns
     with st.expander("🌾 Management Practice Inputs", expanded=True):

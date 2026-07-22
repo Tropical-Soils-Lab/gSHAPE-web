@@ -578,7 +578,7 @@ def render_excel_recommendation_engine(crop, score, key_prefix="rec"):
             if interp and not interp.endswith('.'):
                 interp += "."
             
-            # HTML Bullet formatting
+            # HTML Bullet formatting - This is what was stripped!
             combined_bullets += f"{q} ({ans}): {interp} Action: {rec}"
         except KeyError:
             combined_bullets += f"{q} ({ans}): No specific recommendation mapped for the {zone} zone yet."

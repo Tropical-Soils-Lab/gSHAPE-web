@@ -1585,8 +1585,13 @@ def render_single_sample(region_name, cfg, df, df_hist):
     )
     st.divider()
 
+# ALWAYS calculate the SOC score in the background so the Recommendation Engine 
+# and Carbon Calculator at the bottom of the page don't crash when switching tabs!
+    score = compute_score(oc_val, lp_mean, sigma_val)
+    tgt_oc = percentile_to_oc(target_pct, lp_mean, sigma_val)
+
     col_l, col_r = st.columns([1, 2])
-    # ── CONDITIONAL SCORING LOGIC ──
+# ── CONDITIONAL SCORING LOGIC ──
     if chosen_indicator == "Soil Phosphorus":
         if not SMAF_DATA:
             st.error("Missing `SMAF_lookup.xlsx` file dashboard linkage.")

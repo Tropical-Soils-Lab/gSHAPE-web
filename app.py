@@ -442,8 +442,7 @@ def render_recommendation_engine(crop, score, key_prefix="rec"):
     elif score >= 40: bg_color, border_color = "rgba(255, 193, 7, 0.15)", "#ffc107"  # Yellow
     elif score >= 20: bg_color, border_color = "rgba(244, 109, 67, 0.15)", "#f46d43" # Orange
     else: bg_color, border_color = "rgba(215, 48, 39, 0.15)", "#d73027"              # Red
-    
-    st.divider()
+
     st.markdown("## 📋 Management Recommendations")
     
     # 2. Get the rules for this specific system

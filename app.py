@@ -516,7 +516,6 @@ def render_excel_recommendation_engine(crop, score, key_prefix="rec"):
     # 1. Route crop to system & get available systems from Excel
     base_system = SYSTEM_MAP.get(crop.lower(), "Row Crop Rotation")
     
-    # Map our global system names to the exact spelling used in the Excel sheet
     excel_sys_name_map = {
         "Row Crop Rotation": "Row crops",
         "Vegetables": "Vegetables",
@@ -538,10 +537,12 @@ def render_excel_recommendation_engine(crop, score, key_prefix="rec"):
         
     selected_code = systems_df.loc[systems_df["Cropping system"] == selected_system_name, "Code"].iloc[0]
     
+    # Match Florida header caption exactly
+    st.caption(f"Generating custom action plan for: **{selected_system_name}** | Current Status: **{zone}** (Score: {score:.1f}/100)")
+    
     # 2. Build the UI Dropdowns
     with st.expander("🌾 Management Practice Inputs", expanded=True):
-        st.markdown(f"Select current field practices for **{selected_system_name}** below:")
-        st.caption(f"Generating custom action plan for: **{selected_system_name} ({selected_code})** | Current Status: **{zone}**")
+        st.markdown("Select your current field practices below to generate your tailored action plan:")
         
         questions = get_management_questions(soc_rules_df, selected_code)
         
@@ -570,22 +571,26 @@ def render_excel_recommendation_engine(crop, score, key_prefix="rec"):
                 selected_answer=ans,
                 soc_level=zone
             )
-            interp = soc_result["interpretation"]
-            rec = soc_result["recommendation"]
+            interp = str(soc_result["interpretation"]).strip()
+            rec = str(soc_result["recommendation"]).strip()
             
-            # Wraps each answer in an HTML list item () with a bold title
-            combined_bullets += f"{q} ({ans}): {interp} Action: {rec}"
+            # Combine Interpretation and Action smoothly like Florida
+            if interp and not interp.endswith('.'):
+                interp += "."
+            full_advice = f"{interp} {rec}".strip()
+            
+            # HTML Bullet formatting
+            combined_bullets += f"{q} ({ans}): {full_advice}"
         except KeyError:
             combined_bullets += f"{q} ({ans}): No specific recommendation mapped for the {zone} zone yet."
             
     # 4. Color Box Rendering
-    if score >= 80: bg_color, border_color = "rgba(26, 150, 65, 0.15)", "#1a9641"
-    elif score >= 60: bg_color, border_color = "rgba(119, 195, 92, 0.15)", "#77c35c"
-    elif score >= 40: bg_color, border_color = "rgba(255, 193, 7, 0.15)", "#ffc107"
-    elif score >= 20: bg_color, border_color = "rgba(244, 109, 67, 0.15)", "#f46d43"
-    else: bg_color, border_color = "rgba(215, 48, 39, 0.15)", "#d73027"
+    if score >= 80: bg_color, border_color = "rgba(26, 150, 65, 0.15)", "#1a9641"    # Dark Green
+    elif score >= 60: bg_color, border_color = "rgba(119, 195, 92, 0.15)", "#77c35c" # Light Green
+    elif score >= 40: bg_color, border_color = "rgba(255, 193, 7, 0.15)", "#ffc107"  # Yellow
+    elif score >= 20: bg_color, border_color = "rgba(244, 109, 67, 0.15)", "#f46d43" # Orange
+    else: bg_color, border_color = "rgba(215, 48, 39, 0.15)", "#d73027"              # Red
     
-    # Wraps the entire block in the colored border box () and starts the bullet list ()
     custom_box = f"""
     
         

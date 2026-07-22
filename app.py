@@ -1577,20 +1577,20 @@ def render_single_sample(region_name, cfg, df, df_hist):
             lp_mean, lp_lcl, lp_ucl, sigma_val, plot_max = 0.0, 0.0, 0.0, 1.0, 15.0
 
     # ── INDICATOR SELECTION ──
-indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density"]
-chosen_indicator = st.selectbox(
+    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density"]
+    chosen_indicator = st.selectbox(
     "Soil Health Indicators:",
     indicator_options,
     key=f"{cfg['key']}_indicator_shared"
-)
-st.divider()
+    )
+    st.divider()
 
 # ALWAYS calculate the SOC score in the background so the Recommendation Engine 
 # and Carbon Calculator at the bottom of the page don't crash when switching tabs!
-score = compute_score(oc_val, lp_mean, sigma_val)
-tgt_oc = percentile_to_oc(target_pct, lp_mean, sigma_val)
+   score = compute_score(oc_val, lp_mean, sigma_val)
+   tgt_oc = percentile_to_oc(target_pct, lp_mean, sigma_val)
 
-col_l, col_r = st.columns([1, 2])
+   col_l, col_r = st.columns([1, 2])
 # ── CONDITIONAL SCORING LOGIC ──
     if chosen_indicator == "Soil Phosphorus":
         if not SMAF_DATA:

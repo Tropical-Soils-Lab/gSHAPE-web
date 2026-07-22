@@ -538,7 +538,7 @@ def render_excel_recommendation_engine(crop, score, key_prefix="rec"):
     selected_code = systems_df.loc[systems_df["Cropping system"] == selected_system_name, "Code"].iloc[0]
     
     # Match Florida header caption exactly
-    st.caption(f"Generating custom action plan for: **{selected_system_name}** | Current Status: **{zone}** (Score: {score:.1f}/100)")
+    st.caption(f"Generating custom action plan for: **{selected_system_name} ({selected_code})** | Current Status: **{zone}** (Score: {score:.1f}/100)")
     
     # 2. Build the UI Dropdowns
     with st.expander("🌾 Management Practice Inputs", expanded=True):
@@ -577,10 +577,9 @@ def render_excel_recommendation_engine(crop, score, key_prefix="rec"):
             # Combine Interpretation and Action smoothly like Florida
             if interp and not interp.endswith('.'):
                 interp += "."
-            full_advice = f"{interp} {rec}".strip()
             
             # HTML Bullet formatting
-            combined_bullets += f"{q} ({ans}): {full_advice}"
+            combined_bullets += f"{q} ({ans}): {interp} Action: {rec}"
         except KeyError:
             combined_bullets += f"{q} ({ans}): No specific recommendation mapped for the {zone} zone yet."
             
@@ -591,6 +590,7 @@ def render_excel_recommendation_engine(crop, score, key_prefix="rec"):
     elif score >= 20: bg_color, border_color = "rgba(244, 109, 67, 0.15)", "#f46d43" # Orange
     else: bg_color, border_color = "rgba(215, 48, 39, 0.15)", "#d73027"              # Red
     
+    # Wraps the entire block in the colored border box () and starts the bullet list ()
     custom_box = f"""
     
         

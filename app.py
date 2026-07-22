@@ -508,8 +508,6 @@ def render_excel_recommendation_engine(crop, score, key_prefix="rec"):
         return
         
     zone = get_score_zone(score)
-    
-    st.divider()
     st.markdown("## 📋 Management Recommendations")
     
     # 1. Route crop to system & get available systems from Excel

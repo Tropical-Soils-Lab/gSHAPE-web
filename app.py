@@ -601,6 +601,7 @@ def render_excel_recommendation_engine(crop, score, key_prefix="rec"):
     
     custom_box = f"{div_open}\n{ul_open}\n{combined_bullets}\n{ul_close}\n{div_close}"
     st.markdown(custom_box, unsafe_allow_html=True)
+
 # ════════════════════════════════════════════════════════════════════
 # 1. PAGE CONFIG & GLOBAL CSS
 # ════════════════════════════════════════════════════════════════════
@@ -737,65 +738,67 @@ div[data-testid="stExpander"] {
     background-color: rgba(255,255,255,0.01);
     border-radius: 12px !important;
 }
+</style>
+""", unsafe_allow_html=True)
 
-/* ─── ENHANCED REGION SELECTION TABS LAYOUT ─── */
-/* Targets the master tab row container to stretch across the page full-width */
-.stTabs [data-baseweb="tab-list"] {
+# ─── BULLETPROOF TABS FIX ───
+# USING HEX ENCODING TO PREVENT COPY-PASTE STRIPPING
+style_open = "\x3cstyle\x3e"
+style_close = "\x3c/style\x3e"
+
+tabs_css = f"""{style_open}
+/* 1. Target the top-level tablist to span full width using new Streamlit DOM */
+.stTabs [role="tablist"] {{
     display: flex !important;
     width: 100% !important;
     gap: 0px !important; 
     margin-bottom: 20px;
     border-bottom: 2px solid var(--color-border-tertiary);
-}
+}}
 
-/* Forces each individual region tab item to grow equally and fill the screen space */
-.stTabs [data-baseweb="tab"] {
-    flex-grow: 1 !important;
-    flex-basis: 0 !important;
-    text-align: center !important;
+/* 2. Force region tabs to grow equally and center text */
+.stTabs button[role="tab"] {{
+    flex: 1 1 0px !important;
     justify-content: center !important;
-    font-size: 32px !important; 
+    font-size: 24px !important; 
     font-weight: 700 !important;
-    padding: 20px 24px !important; 
+    padding: 16px 24px !important; 
     border-radius: 8px 8px 0px 0px !important;
-    transition: all 0.2s ease;
-    
-    /* THE MAGIC BULLETPROOF FLAG LINE */
+    transition: all 0.2s ease !important;
     font-family: inherit, "Noto Color Emoji" !important; 
-}
+}}
 
-/* Assign a specific green background tint to active region tab panels */
-.stTabs [data-baseweb="tab"][aria-selected="true"] {
-    background-color: rgba(26, 150, 65, 0.20) !important;
+/* 3. Highlight the active region tab with green tint */
+.stTabs button[role="tab"][aria-selected="true"] {{
+    background-color: rgba(26, 150, 65, 0.15) !important;
     color: #1a9641 !important;
-    border-bottom: 3px solid #1a9641 !important;
-}
+    border-bottom: 4px solid #1a9641 !important;
+}}
 
-/* Give tabs a subtle hover change so users know they are click options */
-.stTabs [data-baseweb="tab"]:hover {
-    background-color: rgba(26,150,65,0.04) !important;
-}
+.stTabs button[role="tab"]:hover {{
+    background-color: rgba(26,150,65,0.05) !important;
+}}
 
-/* Keeps the inner sub-tabs (Single Sample, Batch Scoring, How to Use) normal size and localized */
-.stTabs [data-baseweb="tab-panel"] .stTabs [data-baseweb="tab-list"] {
+/* 4. Reset the inner sub-tabs (Single Sample, Batch Scoring, How to Use) back to normal size */
+.stTabs [data-testid="stTab"] .stTabs [role="tablist"] {{
     display: inline-flex !important;
     width: auto !important;
     gap: 24px !important;
     border-bottom: none !important;
-}
+    margin-bottom: 0px !important;
+}}
 
-.stTabs [data-baseweb="tab-panel"] .stTabs [data-baseweb="tab"] {
-    flex-grow: 0 !important;
-    flex-basis: auto !important;
+.stTabs [data-testid="stTab"] .stTabs button[role="tab"] {{
+    flex: 0 1 auto !important;
     font-size: 15px !important;
     font-weight: 600 !important;
     padding: 6px 12px !important;
-    border-radius: 0px !important;
     background-color: transparent !important;
+    border-radius: 0px !important;
     border-bottom: none !important;
-}
-</style>
-""", unsafe_allow_html=True)
+}}
+{style_close}"""
+st.markdown(tabs_css, unsafe_allow_html=True)
 
 # ════════════════════════════════════════════════════════════════════
 # 2. PEER GROUP DEFINITIONS PER REGION

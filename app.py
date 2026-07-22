@@ -502,7 +502,7 @@ def render_recommendation_engine(crop, score, key_prefix="rec"):
     # Print the single box to the screen
     st.markdown(custom_box, unsafe_allow_html=True)
 
-def render_excel_recommendation_engine(score, key_prefix="rec"):
+def render_excel_recommendation_engine(crop, score, key_prefix="rec"):
     """Dynamically builds input section directly from the Excel rules database."""
     if soc_rules_df is None or soc_rules_df.empty:
         st.info("Recommendation database is currently unavailable.")
@@ -513,30 +513,43 @@ def render_excel_recommendation_engine(score, key_prefix="rec"):
     st.divider()
     st.markdown("## 📋 Management Recommendations")
     
-    # 1. Get available systems from Excel dynamically using your helper function!
+    # 1. Route crop to system & get available systems from Excel
+    base_system = SYSTEM_MAP.get(crop.lower(), "Row Crop Rotation")
+    
+    # Map our global system names to the exact spelling used in the Excel sheet
+    excel_sys_name_map = {
+        "Row Crop Rotation": "Row crops",
+        "Vegetables": "Vegetables",
+        "Perennial Tree Crops": "Perennial crops",
+        "Sugarcane": "Sugarcane",
+        "Commercial Forest": "Commercial forest",
+        "Pasture and Forage": "Pasture"
+    }
+    target_sys = excel_sys_name_map.get(base_system, "Row crops")
+    
     systems_df = get_cropping_systems(soc_rules_df)
     system_options = systems_df["Cropping system"].tolist()
     
-    # 2. Build the UI Dropdowns
+    # Ensure it exists in the Excel sheet, fallback to fuzzy match or first option
+    if target_sys in system_options:
+        selected_system_name = target_sys
+    else:
+        match = [s for s in system_options if target_sys.split()[0].lower() in s.lower()]
+        selected_system_name = match[0] if match else system_options[0]
+        
+    selected_code = systems_df.loc[systems_df["Cropping system"] == selected_system_name, "Code"].iloc[0]
+    
+    # 2. Build the UI Dropdowns (No more System Selectbox!)
     with st.expander("🌾 Management Practice Inputs", expanded=True):
-        st.markdown("Select your cropping system and current field practices below:")
-        
-        # Let the farmer pick the system exactly as it is written in your Excel sheet
-        selected_system_name = st.selectbox("Cropping System", system_options, key=f"{key_prefix}_sys")
-        
-        # Find the matching Excel "Code" for what they selected (e.g., "MZ-01")
-        selected_code = systems_df.loc[systems_df["Cropping system"] == selected_system_name, "Code"].iloc[0]
-        
+        st.markdown(f"Select current field practices for **{selected_system_name}** below:")
         st.caption(f"Generating custom action plan for: **{selected_system_name} ({selected_code})** | Current Status: **{zone}**")
         
-        # Fetch available questions for this specific code
         questions = get_management_questions(soc_rules_df, selected_code)
         
         if not questions:
-            st.info(f"Management recommendations are currently being developed for this system.")
+            st.info("Management recommendations are currently being developed for this system.")
             return
             
-        # Create columns dynamically based on how many questions the Excel sheet has
         cols = st.columns(len(questions))
         selections = {}
         
@@ -551,7 +564,6 @@ def render_excel_recommendation_engine(score, key_prefix="rec"):
     
     for q, ans in selections.items():
         try:
-            # Lookup the specific recommendation using your imported function
             soc_result = get_soc_recommendation(
                 rules_df=soc_rules_df,
                 code=selected_code,
@@ -562,7 +574,7 @@ def render_excel_recommendation_engine(score, key_prefix="rec"):
             interp = soc_result["interpretation"]
             rec = soc_result["recommendation"]
             
-            combined_bullets += f"{q} ({ans}): {interp}Action: {rec}"
+            combined_bullets += f"{q} ({ans}): {interp} Action: {rec}"
         except KeyError:
             combined_bullets += f"{q} ({ans}): No specific recommendation mapped for the {zone} zone yet."
             
@@ -1889,12 +1901,12 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
         st.divider()
         # 🚦 THE TRAFFIC COP: Routes to the correct engine based on the region tab
-        if region_name == "Sub-Saharan Africa":
-            # Uses the new Excel Database Engine ONLY for SSA
-            render_excel_recommendation_engine(score, key_prefix=f"{k}_soc_tab")
-        else:
-            # Uses your original hardcoded Dictionary Engine for Florida and Brazil
-            render_recommendation_engine(chosen_crop, score, key_prefix=f"{k}_soc_tab")
+    if region_name == "Sub-Saharan Africa":
+        # Uses the new Excel Database Engine ONLY for SSA
+        render_excel_recommendation_engine(chosen_crop, score, key_prefix=f"{k}_soc_tab")
+    else:
+        # Uses your original hardcoded Dictionary Engine for Florida and Brazil
+        render_recommendation_engine(chosen_crop, score, key_prefix=f"{k}_soc_tab")
 
         # ── Carbon Sequestration Calculator ──
         st.divider()

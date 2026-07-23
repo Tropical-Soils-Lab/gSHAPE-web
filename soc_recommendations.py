@@ -136,6 +136,9 @@ def load_soc_rules(
             f"{duplicates.to_string(index=False)}"
         )
 
+    # ✨ NEW: Memorize the exact top-to-bottom order of the Excel file
+    df["_excel_row_order"] = df.index
+
     return df
 
 
@@ -161,7 +164,8 @@ def get_management_questions(
     mask = rules_df["_code_key"].eq(normalize_text(code))
 
     return (
-        rules_df.loc[mask, "Management question"]
+        rules_df.loc[mask]
+        .sort_values("_excel_row_order")["Management question"]
         .drop_duplicates()
         .tolist()
     )
@@ -182,7 +186,8 @@ def get_selected_answers(
     )
 
     return (
-        rules_df.loc[mask, "Selected answer"]
+        rules_df.loc[mask]
+        .sort_values("_excel_row_order")["Selected answer"]
         .drop_duplicates()
         .tolist()
     )

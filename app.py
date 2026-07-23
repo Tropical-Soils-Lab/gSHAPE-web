@@ -80,27 +80,42 @@ def render_excel_recommendation_engine(region_name, crop, score, key_prefix="rec
     crop_clean = crop.lower()
     crop_tokens = [c.strip() for c in crop_clean.replace('/', ',').split(',')]
     
+    import re # Needed for strict word boundary matching
+    
+    # PASS 1: Strict match (prevents "Pine" from matching "Pineapple")
     for _, row in sys_df.iterrows():
         excel_crops = str(row['Crops']).lower()
         excel_tokens = [c.strip() for c in excel_crops.replace('/', ',').split(',')]
         
-        # Check for exact word matches 
+        # Check for exact matches
         if set(crop_tokens).intersection(set(excel_tokens)):
             target_system_name = row['Cropping system']
             target_code = row['Code']
             break
             
-        # Fallback: fuzzy/substring match
-        if any(token in excel_crops for token in crop_tokens) or any(ext in crop_clean for ext in excel_tokens):
+        # Check for standalone words (matches "pine" in "pine, slash", ignores "pineapple")
+        if any(re.search(rf'\b{re.escape(token)}\b', excel_crops) for token in crop_tokens):
             target_system_name = row['Cropping system']
             target_code = row['Code']
             break
+            
+    # PASS 2: Loose Fallback (Only runs if Pass 1 finds absolutely nothing)
+    if not target_system_name:
+        for _, row in sys_df.iterrows():
+            excel_crops = str(row['Crops']).lower()
+            if any(token in excel_crops for token in crop_tokens):
+                target_system_name = row['Cropping system']
+                target_code = row['Code']
+                break
     
+    # Default fallback if crop isn't in database at all
     if not target_system_name:
         target_system_name = sys_df['Cropping system'].iloc[0]
         target_code = sys_df['Code'].iloc[0]
         
-    st.caption(f"Generating custom action plan for: **{crop}** | Current Status: **{zone}** (Score: {score:.1f}/100)")    
+    # ✨ Clean, farmer-friendly caption UI
+    st.caption(f"Generating custom action plan for: **{crop}** | Current Status: **{zone}** (Score: {score:.1f}/100)")
+    
     # ─── 3. Build the UI Dropdowns ───
     with st.expander("🌾 Management Practice Inputs", expanded=True):
         st.markdown("Select your current field practices below to generate your tailored action plan:")

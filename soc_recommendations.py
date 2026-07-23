@@ -6,6 +6,7 @@ import pandas as pd
 
 
 REQUIRED_COLUMNS = [
+    "Region",
     "Rule ID",
     "Code",
     "Cropping system",
@@ -72,6 +73,7 @@ def load_soc_rules(
         )
 
     required_cells = [
+        "Region",
         "Rule ID",
         "Code",
         "Cropping system",
@@ -98,6 +100,7 @@ def load_soc_rules(
             f"Duplicate Rule IDs: {duplicate_ids}"
         )
 
+    df["_region_key"] = df["Region"].map(normalize_text)
     df["_code_key"] = df["Code"].map(normalize_text)
     df["_system_key"] = df["Cropping system"].map(normalize_text)
     df["_question_key"] = df["Management question"].map(normalize_text)
@@ -106,6 +109,7 @@ def load_soc_rules(
 
     duplicate_rules = df.duplicated(
         subset=[
+            "_region_key",
             "_code_key",
             "_question_key",
             "_answer_key",
@@ -118,6 +122,7 @@ def load_soc_rules(
         duplicates = df.loc[
             duplicate_rules,
             [
+                "Region",
                 "Rule ID",
                 "Code",
                 "Management question",

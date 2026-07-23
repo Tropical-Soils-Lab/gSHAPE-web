@@ -20,524 +20,85 @@ def load_recommendation_database():
         return None
 
 soc_rules_df = load_recommendation_database()
-# ── CROP TO SYSTEM ROUTING MAP ──
-SYSTEM_MAP = {
-    # 1. Row Crop Rotation
-    "barley, malt barley": "Row Crop Rotation", "beans, dried": "Row Crop Rotation",
-    "fava or broad bean": "Row Crop Rotation", "buckwheat": "Row Crop Rotation",
-    "corn, pop": "Row Crop Rotation", "corn, grain": "Row Crop Rotation",
-    "cotton": "Row Crop Rotation", "cowpea": "Row Crop Rotation",
-    "peanut": "Row Crop Rotation", "lentils": "Row Crop Rotation",
-    "flaxseed; flax": "Row Crop Rotation", "millet": "Row Crop Rotation",
-    "oat": "Row Crop Rotation", "pea, field; peas": "Row Crop Rotation",
-    "rice, paddy": "Row Crop Rotation", "sorghum, grain sorghum": "Row Crop Rotation",
-    "soybean": "Row Crop Rotation", "sunflower": "Row Crop Rotation",
-    "tobacco": "Row Crop Rotation", "triticale": "Row Crop Rotation",
-    "wheat, durum": "Row Crop Rotation", "wheat, spring": "Row Crop Rotation",
-    "winter wheat": "Row Crop Rotation",
 
-    # 2. Vegetables
-    "cabbage": "Vegetables", "cantaloupe": "Vegetables", "carrot": "Vegetables",
-    "pepper": "Vegetables", "corn, sweet": "Vegetables", "cucumber": "Vegetables",
-    "garlic": "Vegetables", "lettuce": "Vegetables", "onion": "Vegetables",
-    "potato": "Vegetables", "squash, scallop": "Vegetables", "strawberry": "Vegetables",
-    "sweet potato": "Vegetables", "tomato": "Vegetables", "watermelon": "Vegetables",
-    "zucchini": "Vegetables",
-
-    # 3. Perennial Tree Crops
-    "apples": "Perennial Tree Crops", "avocado": "Perennial Tree Crops",
-    "banana": "Perennial Tree Crops", "blueberries": "Perennial Tree Crops",
-    "coffee": "Perennial Tree Crops", "date": "Perennial Tree Crops",
-    "grape": "Perennial Tree Crops", "grapefruit": "Perennial Tree Crops",
-    "guava": "Perennial Tree Crops", "olive": "Perennial Tree Crops",
-    "orange": "Perennial Tree Crops", "papaya": "Perennial Tree Crops",
-    "peach": "Perennial Tree Crops", "pineapple": "Perennial Tree Crops",
-    "walnut": "Perennial Tree Crops",
-
-    # 4. Sugarcane
-    "sugarcane": "Sugarcane",
-
-    # 5. Commercial Forest
-    "pine, slash": "Commercial Forest",
-
-    # 6. Pasture and Forage
-    "bermuda grass, coastal": "Pasture and Forage", "fescue, tall": "Pasture and Forage",
-    "orchard grass": "Pasture and Forage", "timothy": "Pasture and Forage",
-    "ryegrass, annual": "Pasture and Forage", "ryegrass, perennial": "Pasture and Forage"
-}
-
-# ── THE AGRONOMIC RULE ENGINE (FULL VERSION) ──
-FL_REC_ENGINE = {
-    # 1. ROW CROP ROTATION
-    "Row Crop Rotation": {
-        "Tillage": {
-            "Conventional Tillage": {
-                "Very Low": "In Florida's sandy soils, heavy tillage injects oxygen and accelerates an already rapid carbon burn-off. You are losing carbon faster than your crops can replace it. Transitioning to strip-till is critical.",
-                "Low": "Continuous tillage is constantly breaking apart fragile micro-aggregates. To climb out of the low zone, you must reduce soil disturbance to protect your organic matter from the Florida heat.",
-                "Medium": "Your carbon inputs are fighting a losing battle against tillage oxidation. You are bottlenecked at this average score; transitioning to strip-till is the most direct path to the High zone.",
-                "High": "Achieving high SOC in Florida with continuous tillage is rare—likely due to massive organic inputs like poultry litter or a heavier soil inclusion. Minimizing passes will lock in these gains and save fuel.",
-                "Very High": "You have elite SOC despite heavy disturbance. However, transitioning to reduced tillage will protect these volatile stocks from rapid mineralization and lower your operational costs."
-            },
-            "No till (0-5)": {
-                "Very Low": "You are making the right move by reducing tillage, but rebuilding SOC in Florida takes time. Fungal networks are just starting to form; combine this with high-biomass cover crops to accelerate recovery.",
-                "Low": "You are in the transitional phase. Keep minimizing disturbance so biological glues (glomalin) can begin to bind your sandy soil particles together.",
-                "Medium": "Great progress. Your soil structure is stabilizing. Continue minimizing passes to prevent the oxidation of the particulate organic matter you've built.",
-                "High": "Your reduced tillage system is effectively protecting carbon. To push into the elite Very High percentiles, aim for continuous no-till or ultra-low disturbance strip-till.",
-                "Very High": "Excellent management. To secure this elite status and stop micro-aggregate breakdown entirely, ensure your planter setups can handle continuous high-residue planting."
-            },
-            "No till (5+ yrs)": {
-                "Very Low": "You have stopped the bleeding by halting tillage, but the carbon tank is still empty. Your limiting factor is no longer tillage—it is a lack of carbon inputs. You must aggressively increase root and residue biomass.",
-                "Low": "No-till is preserving what little carbon you have, but sandy soils need massive inputs to build SOC. Focus on maximizing root exudates through high-yielding cash crops and heavy cover crops.",
-                "Medium": "Your continuous no-till framework is working perfectly to stabilize biological cycling. You have built a solid foundation; now focus on optimizing your crop rotation to push higher.",
-                "High": "Stellar management. By eliminating disturbance, you are successfully protecting your carbon from Florida's intense heat and microbial oxidation.",
-                "Very High": "Elite management. Your continuous no-till system is perfectly preserving maximum carbon capacity. Maintain this exact baseline."
-            }
-        },
-        "Cover Crop": {
-            "No": {
-                "Very Low": "Leaving Florida soils bare during the off-season guarantees carbon loss, nutrient leaching, and wind erosion. Implement a winter cover crop immediately to start feeding the microbial community.",
-                "Low": "Bare fallows are a massive missed opportunity for root exudates. Adding a cover crop is the fastest agronomic lever you can pull to jumpstart your soil biology.",
-                "Medium": "You are maintaining average SOC, but missing out on off-season biomass. A cover crop will provide the soil armor needed to lower soil temperatures and push you into the High zone.",
-                "High": "You have high SOC without cover crops, but adding them will provide critical armor against the summer sun and help cycle nutrients for your cash crop.",
-                "Very High": "To protect this massive carbon investment from leaching and oxidation during off-seasons, keep a living root in the soil year-round."
-            },
-            "Legume": {
-                "Very Low": "Legumes (like sunn hemp or clover) fix nitrogen, but their low C:N ratio means the residue decomposes too quickly in Florida to build long-term SOC. Consider mixing with a grass.",
-                "Low": "Great for nitrogen credits, but the biomass vaporizes quickly. To build lasting particulate organic matter in sandy soils, you need more recalcitrant carbon from grasses.",
-                "Medium": "An excellent tool for fertility, but if your primary goal is pushing SOC higher, consider a mix with a high-carbon grass to leave a more persistent surface mulch.",
-                "High": "A highly efficient choice to offset synthetic N costs while maintaining your already high biological activity.",
-                "Very High": "Your system is biologically hyper-active. Legumes feed this system perfectly without tying up nitrogen for the subsequent cash crop."
-            },
-            "Winter Grass": {
-                "Very Low": "Excellent choice. Winter grasses (like rye or oats) have a high C:N ratio, providing the persistent, recalcitrant carbon bulk needed to rebuild depleted sands.",
-                "Low": "Providing great carbon bulk. The heavy residue will act as a blanket, protecting soil moisture and cooling the soil surface going into the spring.",
-                "Medium": "A strong driver of your average SOC. Watch out for nitrogen tie-up (immobilization) when terminating; consider adding a legume to the mix next season.",
-                "High": "This high-biomass input is actively protecting your elite carbon pools from degrading over the winter.",
-                "Very High": "The massive root systems of these winter grasses are perfectly maintaining your elite deep-soil carbon stocks."
-            },
-            "Summer Grass": {
-                "Very Low": "A massive biomass producer (like Sorghum-Sudangrass) is perfect for pumping liquid carbon into degraded soils quickly during a summer fallow window.",
-                "Low": "Excellent for pushing deep roots through compaction layers while pumping immense amounts of carbon into the profile.",
-                "Medium": "A highly effective strategy for Florida. It provides exceptional armor against summer heat and intense rainfall while suppressing nematodes.",
-                "High": "Maintains high SOC and protects the soil structure from the physical impact of heavy Florida summer thunderstorms.",
-                "Very High": "Maximum biomass generation. This is exactly how elite soils sustain their biological capacity during hot summer fallows."
-            },
-            "Mix": {
-                "Very Low": "Multispecies mixes are great, but in heavily degraded sands, ensure the grass component is dominant enough to leave lasting surface biomass.",
-                "Low": "A solid start. The balanced C:N ratio will help optimize microbial efficiency and start forming stable humus.",
-                "Medium": "The gold standard. Balanced C:N ratios optimize humification, accelerating your climb into the High zone without sacrificing cash crop fertility.",
-                "High": "Your diverse root exudates are feeding a highly efficient microbial food web, locking in your carbon stocks.",
-                "Very High": "Peak biological management. The diversity of root architectures and exudates perfectly sustains your elite soil microbiome."
-            }
-        },
-        "Residue": {
-            "No": {
-                "Very Low": "Baling or removing residue strips carbon directly from the field. You cannot build SOC in Florida if you export the primary biomass. Stop removal immediately.",
-                "Low": "In a hot climate, residue is your only shield against the sun. Removing it guarantees rapid carbon oxidation. Leave it in the field.",
-                "Medium": "Residue removal is acting as a hard ceiling on your SOC potential. Leaving even 50% of your stover could push you into the High zone.",
-                "High": "Your high SOC is at severe risk of rapid depletion if you continue exporting surface residue.",
-                "Very High": "Exporting residue from an elite soil is mining your own carbon bank. This is unsustainable for long-term soil health."
-            },
-            "Yes 50%": {
-                "Very Low": "A good start, but increasing to 75%+ will provide the physical armor needed to cool the soil surface and slow down microbial burnout.",
-                "Low": "Leaving partial residue is maintaining your baseline, but sandy soils need maximum organic return to actively build particulate carbon.",
-                "Medium": "Adequate management. Consider leaving more to fully armor the soil against heavy summer rains and prevent crusting.",
-                "High": "Good, but elite soils benefit from maximum carbon return. Ensure you aren't removing more than the biological system can replace.",
-                "Very High": "To maintain this elite tier, the system demands massive carbon returns. Try to push toward 100% retention where equipment allows."
-            },
-            "Yes 75%": {
-                "Very Low": "You are leaving good biomass, but SOC is still low. Your bottleneck is likely aggressive tillage or a lack of living roots in the off-season.",
-                "Low": "Good residue management. If your SOC is still low, look to fix a pH or fertility issue that is stalling your overall crop biomass production.",
-                "Medium": "Excellent residue management. The system is well-armored and returning significant carbon to the biological cycle.",
-                "High": "This level of residue retention is a key driver of your high soil health status.",
-                "Very High": "Highly sustainable. Leaving the vast majority of your residue is feeding the massive microbial population you have built."
-            },
-            "Yes 100%": {
-                "Very Low": "You are doing the right thing by leaving all residue, but SOC remains low. Ensure your cash crop yields are high enough to actually produce sufficient biomass.",
-                "Low": "Perfect soil armor. This moderates Florida's extreme soil temperatures. If SOC is still low, prioritize reducing tillage passes next.",
-                "Medium": "Maximum carbon return. This ensures your microbial system is constantly fed and protected from the elements.",
-                "High": "This is exactly how high-functioning soils sustain their biological capacity and structural integrity.",
-                "Very High": "Flawless residue management. 100% retention is mandatory to maintain the biological demand of a Very High SOC soil in Florida."
-            }
-        }
-    },
-
-    # 2. SUGARCANE
-    "Sugarcane": {
-        "Harvest Method": {
-            "Pre-harvest Burning": {
-                "Very Low": "Burning volatilizes massive amounts of surface carbon and nitrogen instantly. In degraded soils, this practice guarantees your SOC will remain critically low. Transitioning to green cane harvesting is essential to begin rebuilding.",
-                "Low": "You are exporting immense amounts of potential soil carbon into the atmosphere as smoke. To build biological structure and SOC, you must retain that biomass.",
-                "Medium": "Burning acts as a hard ceiling on your carbon accumulation. While the ash provides short-term potassium and phosphorus, you are sacrificing the long-term particulate organic matter needed to push into the High zone.",
-                "High": "You have high SOC despite burning, likely due to massive root biomass or a high-organic baseline. However, ceasing burning would protect the soil surface from Florida's intense sun and rapid oxidation.",
-                "Very High": "You possess an elite carbon baseline, but burning puts it at risk. The lack of a post-harvest trash blanket exposes the soil surface to intense microbial oxidation and moisture loss."
-            },
-            "Green Cane (Trash Blanket)": {
-                "Very Low": "You have made the right choice to stop burning, but rebuilding SOC takes multiple ratoon cycles. The trash blanket will begin cooling the soil, conserving moisture, and slowly feeding the microbial web.",
-                "Low": "The thick trash blanket is your best defense against Florida's heat. Ensure the residue is distributed evenly to maximize soil contact and humification.",
-                "Medium": "This retained biomass is actively cycling nutrients and building particulate organic carbon. This trash blanket is the primary driver pushing you toward the High zone.",
-                "High": "Excellent management. The trash blanket is perfectly shielding the soil biology, suppressing weeds, and returning massive amounts of carbon to the biological cycle.",
-                "Very High": "This practice is mandatory to maintain your elite SOC. The immense carbon return of the trash blanket feeds a highly active, hyper-efficient biological community year-round."
-            }
-        },
-        "Fallow Management": {
-            "Bare Fallow (Dry)": {
-                "Very Low": "Leaving fields bare and dry between cane replanting cycles accelerates mineralization and wind erosion. You are losing carbon rapidly; you must implement a cover crop or flood fallow.",
-                "Low": "A dry, bare fallow allows Florida's intense heat to oxidize your remaining soil organic matter. This practice actively works against your SOC building efforts.",
-                "Medium": "Your ratoon crops build carbon, but a bare fallow erases much of that progress. Covering the soil during this window is the easiest way to jump into the High zone.",
-                "High": "Bare fallows will rapidly burn through your elite carbon stocks. Protect this investment by keeping the soil covered or flooded during the transition.",
-                "Very High": "Leaving an elite soil bare in Florida is mining your own carbon bank. You must protect the soil surface between cane cycles to maintain this tier."
-            },
-            "Flooded Fallow": {
-                "Very Low": "Flooding the field cuts off oxygen, which effectively hits 'pause' on microbial oxidation (and subsidence in muck soils) while controlling pests like wireworms. A great defensive strategy to stop carbon loss.",
-                "Low": "An excellent practice to halt carbon oxidation and reset pest cycles before replanting. To actively build carbon rather than just save it, consider a flooded rice rotation.",
-                "Medium": "Flooding effectively protects your average SOC from the summer heat. This is a highly sustainable practice for Florida sugarcane transitions.",
-                "High": "By creating an anaerobic environment, you are perfectly preserving your high carbon stocks from oxidizing during the vulnerable replant window.",
-                "Very High": "An excellent defensive maneuver. Flooding ensures zero oxidative loss of your elite carbon pools while the field is out of cane production."
-            },
-            "Cover Crop (Sunn Hemp / Sorghum)": {
-                "Very Low": "Planting a fast-growing cover crop during the fallow period injects liquid carbon through root exudates, which is exactly what your degraded soil needs to jumpstart recovery.",
-                "Low": "Excellent strategy. The biomass from a cover crop will replace the carbon lost during the heavy tillage required to destroy the old cane stools.",
-                "Medium": "This is how you push into the High zone. A high-biomass cover crop diversifies the microbial food web and pumps carbon into the profile before the next multi-year cane cycle.",
-                "High": "Perfect management. Utilizing a cover crop between cane cycles maintains living roots and diverse exudates, protecting your high SOC.",
-                "Very High": "Elite rotational management. This intense biological diversity ensures your microbial populations remain highly active and efficient during the transition."
-            },
-            "Flooded Rice Rotation": {
-                "Very Low": "A flooded rice rotation provides the anaerobic protection of a flood fallow while adding massive root biomass. This is a premier strategy for rebuilding degraded cane soils.",
-                "Low": "Rice straw is highly recalcitrant (high silica and C:N ratio), meaning it breaks down slowly and builds lasting particulate organic matter. Excellent choice.",
-                "Medium": "An incredibly powerful rotation. The rice cycle halts oxidation, controls nematodes, and leaves persistent carbon to push your baseline higher.",
-                "High": "This cash-crop rotation diversifies your economics while perfectly preserving and building upon your high carbon stocks.",
-                "Very High": "The ultimate sustainable sugarcane rotation in Florida. You are maximizing land use while perfectly protecting your elite biological baseline."
-            }
-        },
-        "Replant Tillage": {
-            "Heavy (Multiple Passes)": {
-                "Very Low": "Destroying old cane stools requires tillage, but excessive passes in sandy soils will vaporize your carbon. Try to chemically terminate and use minimum-till planting where possible.",
-                "Low": "Heavy replant tillage is burning off the organic matter you accumulated during the ratoon years. Look for ways to reduce passes during this vulnerable window.",
-                "Medium": "This intensive tillage event sets your carbon progress back every replant cycle. Minimizing disturbance here is the key to breaking through to the High zone.",
-                "High": "Be cautious during the replant year. The heavy disturbance required to prepare the seedbed can oxidize years of carbon accumulation in a matter of weeks if the soil is left bare.",
-                "Very High": "This level of disturbance severely threatens your elite baseline. You must compensate with massive biomass retention during the rest of the cycle."
-            },
-            "Minimum-Till (Zonal)": {
-                "Very Low": "By minimizing disturbance, you are protecting what little structure you have. Combine this with cover crops to start rebuilding.",
-                "Low": "By restricting tillage to the planting zone, you preserve the fungal networks and aggregate stability in the row middles. Keep refining this practice.",
-                "Medium": "Excellent structural preservation. This targeted tillage prevents the massive carbon loss typically associated with cane replanting.",
-                "High": "This is exactly how you maintain high SOC through the destructive replant phase. The preserved row middles act as biological reservoirs.",
-                "Very High": "Limiting disturbance to the furrow is exactly how you maintain elite SOC during the highly destructive replant year. Excellent execution."
-            }
-        }
-    },
-
-    # 3. VEGETABLES
-    "Vegetables": {
-        "Bed Management & Tillage": {
-            "Intensive Plasticulture (Annual Bedding)": {
-                "Very Low": "Intensive bed-forming and plastic mulch create a hot, hyper-oxidative environment that rapidly mineralizes carbon. To offset this mandatory disturbance, you must maximize biomass inputs during the off-season.",
-                "Low": "The aggressive tillage required to shape beds destroys macro-aggregates and exposes protected carbon to Florida's intense heat. You are bottlenecked here unless you aggressively apply organic amendments or cover crops.",
-                "Medium": "You are managing to maintain average SOC despite extreme disturbance, likely through heavy residue return or compost. Plasticulture will act as a hard ceiling preventing you from reaching higher tiers.",
-                "High": "Achieving high SOC in an intensive plasticulture system is exceptionally rare. It suggests massive, continuous inputs of compost or poultry litter. Be cautious of phosphorus overloading.",
-                "Very High": "Maintaining elite SOC under annual plasticulture is virtually impossible without unsustainable levels of imported organic matter. The disturbance simply oxidizes carbon too quickly."
-            },
-            "Bare Ground / Reduced Bedding": {
-                "Very Low": "By moving away from plastic, you allow the soil to breathe and catch rainfall, but your baseline is still depleted. Focus on integrating high-residue cover crops into your rotation.",
-                "Low": "Reducing plastic use and bed height helps lower soil temperatures and slows mineralization. Continue minimizing tillage passes to allow fungal networks to establish.",
-                "Medium": "Excellent structural management. Without the extreme heat of plastic mulch, your soil biology can stabilize and begin efficiently cycling crop residues.",
-                "High": "This lower-disturbance approach is exactly what allows vegetable systems to accumulate meaningful carbon. Protect the soil surface from heavy rains to maintain this.",
-                "Very High": "Elite management. Achieving this level in vegetables requires flawless minimal-disturbance practices and constant living roots."
-            }
-        },
-        "Fumigation Practices": {
-            "Routine Broadcast Fumigation": {
-                "Very Low": "Broad-spectrum fumigants essentially sterilize the soil profile, wiping out the microbial food web required to build humus. Relying on this guarantees your SOC will remain biologically inactive and depleted.",
-                "Low": "Fumigation resets your biological clock to zero every season. Without an active microbiome, plant residues cannot be efficiently converted into stable soil organic carbon.",
-                "Medium": "Your soil is holding carbon physically, but frequent fumigation means it is biologically dead. To push higher, you must transition to targeted applications or biological alternatives.",
-                "High": "You possess a high carbon baseline, but routine fumigation prevents that carbon from cycling nutrients efficiently. You are sitting on a massive, unutilized biological battery.",
-                "Very High": "Highly contradictory. Elite SOC relies on complex, hyper-active microbial webs. Routine fumigation will inevitably crash this system's biological capacity."
-            },
-            "In-Bed Only / Biological Alternatives": {
-                "Very Low": "Restricting fumigants to the bed preserves the biological reservoirs in the row middles. These microbes will recolonize the beds post-harvest, jumpstarting your soil's recovery.",
-                "Low": "A great transitional step. By preserving fungal and bacterial populations in the row middles, you ensure that off-season cover crops can actually be decomposed into stable carbon.",
-                "Medium": "This targeted approach is a key driver of your average SOC. The preserved biology in the middles is actively breaking down residues and building aggregate stability.",
-                "High": "Excellent biological management. By utilizing bio-fumigants or solarization, you are protecting the massive microbial populations that sustain your high carbon stocks.",
-                "Very High": "Flawless execution. Eliminating broad-spectrum fumigants is absolutely mandatory to protect the delicate, highly evolved microbiome of an elite vegetable soil."
-            }
-        },
-        "Off-Season Fallow Management": {
-            "Bare Fallow (Weed Free)": {
-                "Very Low": "Leaving vegetable fields bare after plastic removal exposes the sand to intense summer heat and heavy leaching rains. This is the fastest way to lose carbon. Plant a scavenger crop immediately.",
-                "Low": "A bare summer fallow acts as an incinerator for soil carbon in Florida. You are losing the exact organic matter you need to hold water and nutrients for the next cash crop.",
-                "Medium": "Your in-season practices are good, but this bare fallow is holding you back. A summer cover crop is the single most effective tool to push this soil into the High zone.",
-                "High": "You have high SOC, but a bare summer fallow puts it at severe risk of rapid oxidation. Protect this elite investment by keeping the soil covered.",
-                "Very High": "Leaving an elite soil bare during a Florida summer is mining your own carbon bank. You must maintain a living root to feed this massive microbial population."
-            },
-            "High-Biomass Summer Cover (e.g., Sorghum-Sudangrass)": {
-                "Very Low": "The perfect prescription. A massive summer grass pumps liquid carbon into degraded sands and produces the heavy surface mulch needed to cool the soil before the next vegetable planting.",
-                "Low": "Excellent strategy. This practice adds the necessary carbon bulk while the deep roots break up the compaction pans created by heavy bed-forming equipment.",
-                "Medium": "This is how you build resilient vegetable soils. The high biomass protects against summer thunderstorms while naturally suppressing root-knot nematodes through bio-fumigation.",
-                "High": "This practice perfectly armors your high carbon stocks against the summer elements while simultaneously starving out disease cycles.",
-                "Very High": "Maximum biological return. This is exactly how elite vegetable soils sustain their carbon levels despite the extreme disturbance of the cash crop season."
-            }
-        }
-    },
-
-    # 4. PERENNIAL TREE CROPS
-    "Perennial Tree Crops": {
-        "Orchard Floor Management": {
-            "Bare Soil / Herbicide Strip": {
-                "Very Low": "Maintaining bare soil between rows starves the bulk soil of root exudates and exposes the sand to intense Florida heat. This practice guarantees rapid carbon mineralization. Allow vegetation to establish to stop the bleeding.",
-                "Low": "A clean orchard floor exposes your soil to wind erosion and high summer temperatures, accelerating microbial burnout. To climb out of this zone, you must introduce living roots in the row middles.",
-                "Medium": "Your canopy is dropping enough litter to maintain a baseline, but bare row middles are acting as a hard ceiling on your SOC. Allowing ground cover to grow will significantly lower soil temperatures.",
-                "High": "You have high SOC despite a bare floor, likely due to heavy canopy litter or historical organic inputs. However, these exposed middles are highly vulnerable to rapid oxidation if canopy cover declines.",
-                "Very High": "Maintaining elite SOC is nearly impossible long-term with bare middles. The lack of active root exudates forces microbes to mine your existing carbon bank for energy."
-            },
-            "Mowed Sod / Native Vegetation": {
-                "Very Low": "Native sod provides basic physical armor, but degraded sands need more active biomass. Consider reducing your mowing frequency to allow deeper root expansion and greater exudate release.",
-                "Low": "A solid defensive baseline that protects against erosion. To actively build carbon, look at diversifying the sward or managing mowing heights to maximize root sloughing.",
-                "Medium": "Your permanent ground cover is maintaining a stable biological cycle. To push your score higher, consider overseeding the sod with a winter legume to balance the C:N ratio.",
-                "High": "The permanent root systems of your sod are effectively protecting your carbon from oxidation. This is a highly sustainable practice for mature groves.",
-                "Very High": "Permanent, year-round ground cover is essential to maintaining the high biological activity and structural integrity of your elite row middles."
-            },
-            "Planted Cover Crop (Row Middles)": {
-                "Very Low": "Excellent choice. Diverse cover crops in the middles pump liquid carbon into degraded sands through massive root systems, jumpstarting the recovery of your soil food web.",
-                "Low": "This is the fastest agronomic lever to build soil structure in an orchard. Ensure your mix contains deep-rooted grasses to break compaction and leave lasting surface biomass.",
-                "Medium": "The diverse root exudates are optimizing humification and pushing your SOC higher. This practice builds resilient soils that better buffer the trees against drought stress.",
-                "High": "This active management perfectly feeds the microbial food web. The diverse living roots are locking in your high carbon stocks and cycling nutrients efficiently.",
-                "Very High": "Elite management. Diverse, year-round living roots in the middles effortlessly sustain the massive biological carbon demand of your top-tier soil."
-            }
-        },
-        "Pruning & Canopy Residue": {
-            "Removed or Burned": {
-                "Very Low": "Exporting or burning tree prunings strips highly recalcitrant carbon from the system. You cannot build SOC in an orchard if you export the woody biomass. Mulch it in place.",
-                "Low": "Woody biomass is the ultimate fungal food. By removing it, you are actively selecting against the fungal networks that are required to build stable macro-aggregates.",
-                "Medium": "Burning prunings sacrifices the long-term particulate organic matter needed to push into the High zone. You are throwing away your best source of slow-release carbon.",
-                "High": "Your high SOC is heavily dependent on carbon return. Exporting this woody debris mines your own carbon bank and will eventually degrade your baseline.",
-                "Very High": "Elite orchard soils require massive carbon returns to sustain their biological populations. Burning or removing prunings is highly unsustainable for this tier."
-            },
-            "Chipped & Mulched in Place": {
-                "Very Low": "Woody biomass has a very high C:N ratio, which is exactly what degraded soils need. It breaks down slowly, acting as a long-term fungal food source while protecting soil moisture.",
-                "Low": "Mulching prunings under the canopy creates a fantastic fungal-dominant environment. This is a critical step in rebuilding structural aggregates in sandy soils.",
-                "Medium": "Excellent practice. The chipped wood provides a slow, steady drip of carbon into the system, buffering soil temperatures and pushing your baseline higher.",
-                "High": "Returning woody biomass to the soil surface perfectly mimics natural forest systems, which is the exact mechanism protecting your high carbon stocks.",
-                "Very High": "Maximum carbon return. Chipping and leaving all woody debris is exactly how you feed the massive microbial populations required to maintain elite SOC levels."
-            }
-        }
-    },
-
-    # 5. COMMERCIAL FOREST
-    "Commercial Forest": {
-        "Site Preparation": {
-            "Intensive Mechanical (Root Raking / Bedding)": {
-                "Very Low": "Intensive mechanical prep on degraded Florida sands instantly oxidizes whatever little carbon remains. Avoid root raking entirely, and transition to chemical site prep to stop the carbon hemorrhage.",
-                "Low": "Bedding exposes mineral soil and accelerates microbial burnout. While sometimes necessary for drainage in flatwoods, it sacrifices long-term SOC. Keep beds as low and undisturbed as possible.",
-                "Medium": "Your site prep is acting as a ceiling on your carbon accumulation. The heavy disturbance burns off your surface organic gains early in the rotation, stalling your progress into the High zone.",
-                "High": "You possess a high SOC baseline, but heavy mechanical prep puts it at severe risk. Disrupting the fungal networks built during the previous rotation will rapidly degrade your soil health.",
-                "Very High": "This practice is highly destructive to elite SOC. To maintain this tier, you must move away from heavy mechanical disturbance and preserve the physical integrity of the forest floor."
-            },
-            "Minimal / Chemical Prep Only": {
-                "Very Low": "Leaving stumps and root systems intact is exactly how you start rebuilding. The old root channels and decaying wood will slowly feed the soil biology and improve water infiltration.",
-                "Low": "By avoiding tillage, you are protecting the fragile O-horizon (litter layer) from Florida's intense heat. This is a critical first step in rebuilding particulate organic matter.",
-                "Medium": "Excellent choice. Bypassing heavy tillage preserves established fungal networks and the surface organic layer, pushing your baseline higher right from planting.",
-                "High": "This low-disturbance approach perfectly mimics natural forest succession, which is exactly why your carbon stocks are thriving.",
-                "Very High": "Mandatory for maintaining elite status. Minimal site prep perfectly preserves the massive biological investment and structural aggregates of the previous rotation."
-            }
-        },
-        "Understory & Residue Management": {
-            "Frequent / Hot Prescribed Fire": {
-                "Very Low": "While necessary for hazard reduction, hot fires vaporize the litter layer. In depleted soils, you are literally sending your carbon up in smoke. Try to lengthen burn intervals to allow some accumulation.",
-                "Low": "Frequent burning consumes the surface biomass before it can humify into stable soil carbon. Consider utilizing cooler, patchier burns to leave some unburned residue.",
-                "Medium": "Regular burning acts as a bottleneck on your SOC. The ash provides quick nutrients to the pines, but you lose the slow-release particulate carbon needed to reach the High zone.",
-                "High": "You have high SOC despite burning, likely due to massive pine needle drop. To protect this, ensure fires are lit under high soil-moisture conditions so the duff layer is preserved.",
-                "Very High": "To maintain this elite tier, fire must be managed extremely carefully. A fire that burns too hot and consumes the organic duff layer will instantly erase decades of carbon sequestration."
-            },
-            "Roller Chopping / Cool Patchy Burns": {
-                "Very Low": "Roller chopping understory brush instead of burning it leaves woody debris on the ground. This high C:N material is crucial fungal food that will jumpstart recovery in degraded sands.",
-                "Low": "A great balance. You are managing understory competition while retaining the organic armor needed to shade the soil and lower surface temperatures.",
-                "Medium": "Excellent management. Returning crushed, recalcitrant carbon to the soil surface builds particulate organic matter and feeds the fungal web without risking catastrophic wildfire.",
-                "High": "This practice perfectly sustains your high biological activity. The slow decomposition of this woody debris provides a steady drip of carbon into the mineral soil.",
-                "Very High": "Perfect execution. Leaving unburned woody debris feeds the massive fungal populations that sustain the structural integrity of your elite soil."
-            }
-        },
-        "Rotation Length": {
-            "Short Rotation Pulpwood (<15 Years)": {
-                "Very Low": "Frequent harvesting means frequent heavy equipment traffic and canopy removal. This constant disruption and compaction makes rebuilding SOC in sandy soils exceptionally difficult.",
-                "Low": "The short cycle limits the amount of deep, stable carbon the pine roots can sequester before the system is reset. Minimize harvest traffic to protect what little structure you have.",
-                "Medium": "A 15-year cycle resets the biological clock before peak carbon sequestration occurs. Focus heavily on minimizing site prep disturbance to offset the frequent canopy loss.",
-                "High": "Maintaining high SOC on short pulpwood rotations requires flawless, zero-disturbance harvesting. Ensure logging equipment stays on designated skid trails.",
-                "Very High": "It is incredibly rare to maintain elite SOC with frequent harvest cycles. Your management of harvest residue and soil compaction must be absolutely perfect to sustain this."
-            },
-            "Long Rotation Sawtimber (20+ Years)": {
-                "Very Low": "You have the time horizon needed to rebuild. A long rotation allows pine root systems to expand deeply, pumping carbon into the subsoil over decades. Protect the forest floor.",
-                "Low": "The extended period of undisturbed growth will naturally start to restore fungal networks. Ensure your thinning operations do not cause excessive rutting or compaction.",
-                "Medium": "This long rotation is the primary driver of your current SOC. The lack of major soil disturbance for two decades allows biological glues to finally stabilize the sandy soil.",
-                "High": "This extended biological stability is the exact mechanism that built your high carbon stocks. The massive, undisturbed root systems are locking in your gains.",
-                "Very High": "Elite forestry management. Decades of undisturbed canopy cover and root expansion have created a premier carbon sink. Protect the soil during final harvest at all costs."
-            }
-        }
-    },
-
-    # 6. PASTURE AND FORAGE
-    "Pasture and Forage": {
-        "Biomass Utilization": {
-            "Continuous Hay Baling (Export)": {
-                "Very Low": "Cutting and baling hay exports massive amounts of carbon and nutrients off the field. In degraded sands, this guarantees your SOC will remain critically low. You must apply manure, compost, or biosolids to offset this export.",
-                "Low": "You are mining your soil's organic matter to produce hay. Without returning carbon via grazing animals or heavy organic amendments, your SOC will not recover.",
-                "Medium": "Your soil is holding average carbon, but continuous haying acts as a hard ceiling. To push into the High zone, consider integrating grazing to cycle nutrients and biomass back into the soil.",
-                "High": "You possess a high SOC baseline, likely due to heavy historical manure applications or a very thick root mat. However, continuous haying puts this elite carbon bank at risk of slow depletion over time.",
-                "Very High": "It is nearly impossible to maintain elite SOC under continuous hay export without massive imported organic amendments. The system demands that carbon be returned to the soil."
-            },
-            "Grazed (Nutrient Cycling)": {
-                "Very Low": "Grazing animals return up to 80% of the ingested nutrients and carbon back to the soil via manure and urine. This is the exact mechanism needed to jumpstart biological recovery in your degraded pasture.",
-                "Low": "Excellent strategy. The hoof action incorporates litter, and the manure feeds the microbial food web. Ensure grazing pressure isn't too high so the grass can actually produce enough biomass to cycle.",
-                "Medium": "This biological cycling is the foundation of your pasture's health. The returned carbon is actively building aggregate stability and pushing your score higher.",
-                "High": "Perfect management. The constant return of organic matter from grazing livestock is exactly what sustains your high soil carbon levels.",
-                "Very High": "Elite biological management. Your grazing system has created a hyper-efficient, closed-loop nutrient cycle that effortlessly maintains peak carbon capacity."
-            }
-        },
-        "Grazing Pressure & Rotation": {
-            "Continuous Heavy Grazing": {
-                "Very Low": "Overgrazing forces the grass to cannibalize its own root system to survive, leaving shallow roots that cannot pump carbon into the soil. You must reduce stocking rates or implement rest periods.",
-                "Low": "Heavy continuous grazing creates bare soil spots that expose the sand to Florida's intense heat, accelerating carbon oxidation. Give the pasture time to recover.",
-                "Medium": "Your grass is surviving, but constant grazing pressure prevents deep root expansion. The lack of deep root exudates is stalling your progress into the High zone.",
-                "High": "You have high SOC, but continuous heavy grazing threatens it by compacting the soil and reducing the deep root biomass required to maintain these levels.",
-                "Very High": "To protect this elite carbon stock, you must prevent overgrazing. Compaction and shallow rooting will inevitably crash the biological capacity of this pasture."
-            },
-            "Rotational Grazing (With Rest Periods)": {
-                "Very Low": "Allowing the grass to rest and recover is critical. The flush of new growth post-grazing pumps liquid carbon into the soil, slowly rebuilding your depleted baseline.",
-                "Low": "A great defensive strategy. Rotational grazing prevents bare spots, cools the soil surface, and encourages deeper rooting to build particulate organic matter.",
-                "Medium": "This is how you push into the High zone. The pulse-grazing effect causes 'root sloughing'—where dying roots become immediate fungal food, building stable carbon aggregates.",
-                "High": "This active management perfectly feeds the microbial food web. The even distribution of manure and deep root recovery locks in your high carbon stocks.",
-                "Very High": "Flawless execution. Intensive rotational grazing maximizes forage utilization while perfectly sustaining the massive biological carbon demand of your top-tier soil."
-            }
-        },
-        "Winter Management": {
-            "Overseeded with Winter Forage (Rye/Oats/Clover)": {
-                "Very Low": "Florida's perennial summer grasses go dormant in the winter. Overseeding ensures a living root is still feeding the soil microbes during the cooler months, accelerating recovery.",
-                "Low": "Adding winter biomass prevents carbon oxidation during the dormant season and provides critical armor for the soil surface.",
-                "Medium": "Excellent strategy. Integrating a winter legume (like clover) into the dormant bahiagrass/bermudagrass provides a nitrogen credit while maximizing year-round root exudates.",
-                "High": "This practice perfectly maintains the biological momentum of your pasture, preventing the microbial die-off that typically occurs during winter dormancy.",
-                "Very High": "Maintaining year-round active root exudates through overseeding is exactly how elite pasture soils sustain their hyper-active microbial populations."
-            }
-        }
-    }
-}
-
-def get_score_zone(score):
-    """Translates the 0-100 score into a standardized quintile zone."""
-    if score < 20: return "Very Low"
-    elif score < 40: return "Low"
-    elif score < 60: return "Medium"
-    elif score < 80: return "High"
-    else: return "Very High"
-
-def render_recommendation_engine(crop, score, key_prefix="rec"):
-    """Dynamically builds an input section and assembles agronomic advice into a single box."""
-    
-    # 1. Route the crop to the system
-    system = SYSTEM_MAP.get(crop.lower(), "Row Crop Rotation") # Default to Row Crop if not found
-    zone = get_score_zone(score)
-    
-    # ── DYNAMIC COLOR MAPPING ──
-    if score >= 80: bg_color, border_color = "rgba(26, 150, 65, 0.15)", "#1a9641"    # Dark Green
-    elif score >= 60: bg_color, border_color = "rgba(119, 195, 92, 0.15)", "#77c35c" # Light Green
-    elif score >= 40: bg_color, border_color = "rgba(255, 193, 7, 0.15)", "#ffc107"  # Yellow
-    elif score >= 20: bg_color, border_color = "rgba(244, 109, 67, 0.15)", "#f46d43" # Orange
-    else: bg_color, border_color = "rgba(215, 48, 39, 0.15)", "#d73027"              # Red
-
-    st.markdown("## 📋 Management Recommendations")
-    
-    # 2. Get the rules for this specific system
-    rules = FL_REC_ENGINE.get(system, {})
-    if not rules:
-        st.info("Management recommendations are currently being developed for this specific system.")
-        return
-
-    # 3. Build the "Site Inputs" style box for Management Practices
-    with st.expander("🌾 Management Practice Inputs", expanded=True):
-        st.markdown("Select your current field practices below to generate your tailored action plan:")
-        
-        cols = st.columns(len(rules.keys()))
-        selections = {}
-        
-        for idx, (practice_category, options_dict) in enumerate(rules.items()):
-            options_list = list(options_dict.keys())
-            with cols[idx]:
-                selections[practice_category] = st.selectbox(
-                    practice_category, 
-                    options_list, 
-                    key=f"{key_prefix}_{practice_category}"
-                )
-            
-    # 4. Assemble the advice into a SINGLE list
-    st.markdown("### Your Custom Agronomic Strategy")
-    
-    # We will build the inner bullet points as a single string of HTML first
-    combined_bullets = ""
-    
-    for practice_category, user_choice in selections.items():
-        advice = rules[practice_category][user_choice].get(zone)
-        
-        # Fallbacks
-        if not advice:
-            if zone in ["Very Low", "Low"]:
-                advice = "Focus on maximizing biomass inputs and minimizing disturbance to rebuild your baseline."
-            elif zone == "Medium":
-                advice = "Maintain current practices and look for opportunities to increase organic return."
-            else:
-                advice = "Your practices are currently sustaining a highly functional system. Maintain your baseline."
-                
-        # Add this specific recommendation as a bullet point
-        combined_bullets += f"<li style='margin-bottom: 12px;'><strong>{practice_category} ({user_choice}):</strong> {advice}</li>"
-                
-    # 5. Wrap all the bullet points in ONE colored box
-    custom_box = f"""
-    <div style="background-color: {bg_color}; border-left: 5px solid {border_color}; padding: 20px 24px 8px 24px; border-radius: 6px; margin-bottom: 14px; line-height: 1.6;">
-        <ul style="margin: 0; padding-left: 20px;">
-            {combined_bullets}
-        </ul>
-    </div>
-    """
-    
-    # Print the single box to the screen
-    st.markdown(custom_box, unsafe_allow_html=True)
-
-def render_excel_recommendation_engine(crop, score, key_prefix="rec"):
-    """Dynamically builds input section directly from the Excel rules database."""
+def render_excel_recommendation_engine(region_name, crop, score, key_prefix="rec"):
+    """Dynamically builds input section directly from the Excel rules database filtered by region."""
     if soc_rules_df is None or soc_rules_df.empty:
         st.info("Recommendation database is currently unavailable.")
         return
         
+   # ✨ 1. REGION FILTER (WITH FLORIDA OVERRIDE & INHERITANCE) ✨
+    if "Region" not in soc_rules_df.columns:
+        st.error("Missing 'Region' column in the Excel database.")
+        return
+        
+    if region_name in ["Brazil", "Sub-Saharan Africa"]:
+        # Brazil & Africa pull exclusively from Tropical rules
+        region_rules_df = soc_rules_df[soc_rules_df["Region"] == "Tropical"].copy()
+    else:
+        # Florida pulls both Florida AND Tropical rules
+        combined_df = soc_rules_df[soc_rules_df["Region"].isin(["Florida", "Tropical"])].copy()
+        
+        # Sort so 'Florida' comes before 'Tropical'
+        combined_df["Region"] = pd.Categorical(
+            combined_df["Region"], 
+            categories=["Florida", "Tropical"], 
+            ordered=True
+        )
+        combined_df = combined_df.sort_values("Region")
+        
+        # Deduplicate: Keeps the 'Florida' row if it exists; otherwise falls back to 'Tropical'
+        dedup_keys = ["Code", "Management question", "Selected answer", "SOC level"]
+        valid_keys = [col for col in dedup_keys if col in combined_df.columns]
+        
+        if valid_keys:
+            region_rules_df = combined_df.drop_duplicates(subset=valid_keys, keep="first").copy()
+        else:
+            region_rules_df = combined_df
+            
+    if region_rules_df.empty:
+        st.info(f"Management recommendations are currently being developed for {region_name}.")
+        return
+
     zone = get_score_zone(score)
     st.markdown("## 📋 Management Recommendations")
     
-    # 1. Route crop to system & get available systems from Excel
-    base_system = SYSTEM_MAP.get(crop.lower(), "Row Crop Rotation")
+    # ─── 2. DYNAMIC CROP TO SYSTEM ROUTING (EXCEL-DRIVEN) ───
+    sys_df = region_rules_df[['Code', 'Cropping system', 'Crops']].drop_duplicates().dropna(subset=['Crops'])
     
-    excel_sys_name_map = {
-        "Row Crop Rotation": "Row crops",
-        "Vegetables": "Vegetables",
-        "Perennial Tree Crops": "Perennial crops",
-        "Sugarcane": "Sugarcane",
-        "Commercial Forest": "Commercial forest",
-        "Pasture and Forage": "Pasture"
-    }
-    target_sys = excel_sys_name_map.get(base_system, "Row crops")
+    target_system_name = None
+    target_code = None
     
-    systems_df = get_cropping_systems(soc_rules_df)
-    system_options = systems_df["Cropping system"].tolist()
+    crop_clean = crop.lower()
+    crop_tokens = [c.strip() for c in crop_clean.replace('/', ',').split(',')]
     
-    if target_sys in system_options:
-        selected_system_name = target_sys
-    else:
-        match = [s for s in system_options if target_sys.split()[0].lower() in s.lower()]
-        selected_system_name = match[0] if match else system_options[0]
+    for _, row in sys_df.iterrows():
+        excel_crops = str(row['Crops']).lower()
+        excel_tokens = [c.strip() for c in excel_crops.replace('/', ',').split(',')]
         
-    selected_code = systems_df.loc[systems_df["Cropping system"] == selected_system_name, "Code"].iloc[0]
+        # Check for exact word matches 
+        if set(crop_tokens).intersection(set(excel_tokens)):
+            target_system_name = row['Cropping system']
+            target_code = row['Code']
+            break
+            
+        # Fallback: fuzzy/substring match
+        if any(token in excel_crops for token in crop_tokens) or any(ext in crop_clean for ext in excel_tokens):
+            target_system_name = row['Cropping system']
+            target_code = row['Code']
+            break
     
-    # 2. Build the UI Dropdowns
+    if not target_system_name:
+        target_system_name = sys_df['Cropping system'].iloc[0]
+        target_code = sys_df['Code'].iloc[0]
+        
+    st.caption(f"Generating custom action plan for: **{target_system_name} ({target_code})** | Current Status: **{zone}** (Score: {score:.1f}/100)")
+    
+    # ─── 3. Build the UI Dropdowns ───
     with st.expander("🌾 Management Practice Inputs", expanded=True):
         st.markdown("Select your current field practices below to generate your tailored action plan:")
         
-        questions = get_management_questions(soc_rules_df, selected_code)
+        questions = get_management_questions(region_rules_df, target_code)
         
         if not questions:
             st.info("Management recommendations are currently being developed for this system.")
@@ -547,11 +108,11 @@ def render_excel_recommendation_engine(crop, score, key_prefix="rec"):
         selections = {}
         
         for idx, q in enumerate(questions):
-            answers = get_selected_answers(soc_rules_df, selected_code, q)
+            answers = get_selected_answers(region_rules_df, target_code, q)
             with cols[idx % len(cols)]:
                 selections[q] = st.selectbox(q, answers, key=f"{key_prefix}_{q}")
                 
-    # 3. Assemble the advice into the unified UI Box
+    # ─── 4. Assemble the advice into the unified UI Box ───
     st.markdown("### Your Custom Agronomic Strategy")
     combined_bullets = ""
     
@@ -567,38 +128,39 @@ def render_excel_recommendation_engine(crop, score, key_prefix="rec"):
     for q, ans in selections.items():
         try:
             soc_result = get_soc_recommendation(
-                rules_df=soc_rules_df,
-                code=selected_code,
+                rules_df=region_rules_df,
+                code=target_code,
                 management_question=q,
                 selected_answer=ans,
                 soc_level=zone
             )
-            interp = str(soc_result["interpretation"]).strip()
-            rec = str(soc_result["recommendation"]).strip()
+            interp = str(soc_result.get("interpretation", "")).strip()
+            rec = str(soc_result.get("recommendation", "")).strip()
             
-            # Combine Interpretation and Action smoothly like Florida
             if interp and not interp.endswith('.'):
                 interp += "."
             
-            full_advice = f"{interp} {br_tag}{em_open}Action: {rec}{em_close}"
+            full_advice = f"{interp} {br_tag}{em_open}Action: {rec}{em_close}" if rec else interp
             combined_bullets += f"{li_open}{strong_open}{q} ({ans}):{strong_close} {full_advice}{li_close}"
             
-        except KeyError:
+        except Exception:
             combined_bullets += f"{li_open}{strong_open}{q} ({ans}):{strong_close} No specific recommendation mapped for the {zone} zone yet.{li_close}"
             
-    # 4. Color Box Rendering
-    if score >= 80: bg_color, border_color = "rgba(26, 150, 65, 0.15)", "#1a9641"    # Dark Green
-    elif score >= 60: bg_color, border_color = "rgba(119, 195, 92, 0.15)", "#77c35c" # Light Green
-    elif score >= 40: bg_color, border_color = "rgba(255, 193, 7, 0.15)", "#ffc107"  # Yellow
-    elif score >= 20: bg_color, border_color = "rgba(244, 109, 67, 0.15)", "#f46d43" # Orange
-    else: bg_color, border_color = "rgba(215, 48, 39, 0.15)", "#d73027"              # Red
+    # ─── 5. Color Box Rendering ───
+    if score >= 80: bg_color, border_color = "rgba(26, 150, 65, 0.15)", "#1a9641"
+    elif score >= 60: bg_color, border_color = "rgba(119, 195, 92, 0.15)", "#77c35c"
+    elif score >= 40: bg_color, border_color = "rgba(255, 193, 7, 0.15)", "#ffc107"
+    elif score >= 20: bg_color, border_color = "rgba(244, 109, 67, 0.15)", "#f46d43"
+    else: bg_color, border_color = "rgba(215, 48, 39, 0.15)", "#d73027"
     
-    # USING HEX ENCODING FOR THE MAIN BOX
     div_open = f"\x3cdiv style='background-color: {bg_color}; border-left: 5px solid {border_color}; padding: 20px 24px 8px 24px; border-radius: 6px; margin-bottom: 14px; line-height: 1.6;'\x3e"
     div_close = "\x3c/div\x3e"
     ul_open = "\x3cul style='margin: 0; padding-left: 20px;'\x3e"
     ul_close = "\x3c/ul\x3e"
     
+    if not combined_bullets:
+         combined_bullets = f"{li_open}No exact matching criteria found. Focus on maximizing biomass and minimizing disturbance.{li_close}"
+         
     custom_box = f"{div_open}\n{ul_open}\n{combined_bullets}\n{ul_close}\n{div_close}"
     st.markdown(custom_box, unsafe_allow_html=True)
 # ════════════════════════════════════════════════════════════════════
@@ -1913,13 +1475,8 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 st.map(pd.DataFrame({"lat": [lat_in], "lon": [lon_in]}), zoom=6)
 
         st.divider()
-        # 🚦 THE TRAFFIC COP: Routes to the correct engine based on the region tab
-    if region_name == "Sub-Saharan Africa":
-        # Uses the new Excel Database Engine ONLY for SSA
-        render_excel_recommendation_engine(chosen_crop, score, key_prefix=f"{k}_soc_tab")
-    else:
-        # Uses your original hardcoded Dictionary Engine for Florida and Brazil
-        render_recommendation_engine(chosen_crop, score, key_prefix=f"{k}_soc_tab")
+        # 🚦 THE TRAFFIC COP: All regions now dynamically route through Excel!
+        render_excel_recommendation_engine(region_name, chosen_crop, score, key_prefix=f"{k}_soc_tab")
 
         # ── Carbon Sequestration Calculator ──
         st.divider()

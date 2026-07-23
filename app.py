@@ -100,8 +100,7 @@ def render_excel_recommendation_engine(region_name, crop, score, key_prefix="rec
         target_system_name = sys_df['Cropping system'].iloc[0]
         target_code = sys_df['Code'].iloc[0]
         
-    st.caption(f"Generating custom action plan for: **{target_system_name} ({target_code})** | Current Status: **{zone}** (Score: {score:.1f}/100)")
-    
+st.caption(f"Generating custom action plan for: **{crop}** | Current Status: **{zone}** (Score: {score:.1f}/100)")    
     # ─── 3. Build the UI Dropdowns ───
     with st.expander("🌾 Management Practice Inputs", expanded=True):
         st.markdown("Select your current field practices below to generate your tailored action plan:")

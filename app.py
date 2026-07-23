@@ -135,7 +135,7 @@ def render_excel_recommendation_engine(region_name, crop, score, key_prefix="rec
             for idx, q in enumerate(questions):
                 answers = get_selected_answers(region_rules_df, target_code, q)
                 with cols[idx % len(cols)]:
-                    options = ["— Select Practice —", "None of the above"] + list(answers)
+                    options = ["— Select Practice —"] + list(answers) + ["None of the above"]
                     selections[q] = st.selectbox(q, options)
                     
             # ✨ NEW: The button that triggers the generation

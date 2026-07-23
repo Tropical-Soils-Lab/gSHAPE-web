@@ -126,13 +126,34 @@ def render_excel_recommendation_engine(region_name, crop, score, key_prefix="rec
             st.info("Management recommendations are currently being developed for this system.")
             return
             
-        cols = st.columns(len(questions))
         selections = {}
         
-        for idx, q in enumerate(questions):
-            answers = get_selected_answers(region_rules_df, target_code, q)
-            with cols[idx % len(cols)]:
-                selections[q] = st.selectbox(q, answers, key=f"{key_prefix}_{q}")
+        # ✨ NEW: Wrap the dropdowns inside a form to prevent instant popping
+        with st.form(key=f"{key_prefix}_form"):
+            cols = st.columns(len(questions))
+            
+            for idx, q in enumerate(questions):
+                answers = get_selected_answers(region_rules_df, target_code, q)
+                with cols[idx % len(cols)]:
+                    options = ["— Select Practice —", "None of the above"] + list(answers)
+                    selections[q] = st.selectbox(q, options)
+                    
+            # ✨ NEW: The button that triggers the generation
+            submit_button = st.form_submit_button("Generate Custom Action Plan")
+                
+    # ✨ THE GATEKEEPER: Check button state and dropdown completion
+    if not submit_button:
+        # If they haven't clicked the button yet, stop here.
+        return
+        
+    if any(ans == "— Select Practice —" for ans in selections.values()):
+        # If they clicked the button but left something blank, warn them and stop.
+        st.warning("💡 Please select an option for every management practice above, then click Generate.")
+        return
+
+    # ─── 4. Assemble the advice into the unified UI Box ───
+    st.markdown("### Your Custom Agronomic Strategy")
+    combined_bullets = ""
                 
     # ─── 4. Assemble the advice into the unified UI Box ───
     st.markdown("### Your Custom Agronomic Strategy")
@@ -1049,7 +1070,21 @@ def render_single_sample(region_name, cfg, df, df_hist):
     has_precip = "precip" in cfg["predictors"]
 
     # ── INITIALIZE MASTER KEYS (Prevents KeyErrors) ──
-    if f"{k}_sm_crop" not in st.session_state: st.session_state[f"{k}_sm_crop"] = MASTER_CROP_OPTIONS[0]
+    if f"{k}_sm_crop" not in st.session_state: 
+        default_crop = MASTER_CROP_OPTIONS[0]
+        
+        # Dynamically assign the default crop based on the active region tab
+        for c in MASTER_CROP_OPTIONS:
+            c_lower = c.lower()
+            if region_name == "Florida" and "potato" in c_lower: 
+                default_crop = c
+            elif region_name == "Sub-Saharan Africa" and "teff" in c_lower: 
+                default_crop = c
+            elif region_name == "Brazil" and "cassava" in c_lower: 
+                default_crop = c
+                
+        st.session_state[f"{k}_sm_crop"] = default_crop
+        
     if f"{k}_oc" not in st.session_state: st.session_state[f"{k}_oc"] = 2.00
     if f"{k}_sm_p_input" not in st.session_state: st.session_state[f"{k}_sm_p_input"] = 25.0
     if f"{k}_ph_measured_input" not in st.session_state: st.session_state[f"{k}_ph_measured_input"] = 6.0

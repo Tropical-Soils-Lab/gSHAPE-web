@@ -150,11 +150,6 @@ def render_excel_recommendation_engine(region_name, crop, score, key_prefix="rec
         # If they clicked the button but left something blank, warn them and stop.
         st.warning("💡 Please select an option for every management practice above, then click Generate.")
         return
-
-    # ─── 4. Assemble the advice into the unified UI Box ───
-    st.markdown("### Your Custom Agronomic Strategy")
-    combined_bullets = ""
-                
     # ─── 4. Assemble the advice into the unified UI Box ───
     st.markdown("### Your Custom Agronomic Strategy")
     combined_bullets = ""

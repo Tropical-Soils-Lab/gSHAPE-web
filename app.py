@@ -1081,32 +1081,31 @@ def render_single_sample(region_name, cfg, df, df_hist):
     # ── INITIALIZE MASTER KEYS (Prevents KeyErrors) ──
     if f"{k}_sm_crop" not in st.session_state: 
         default_crop = MASTER_CROP_OPTIONS[0]
-        
-        # Dynamically assign the default crop based on the active region tab
         for c in MASTER_CROP_OPTIONS:
             c_lower = c.lower()
-            if region_name == "Florida" and "corn, grain" in c_lower: 
-                default_crop = c
+            if region_name == "Florida" and "potato" in c_lower: 
+                default_crop = c; break
             elif region_name == "Sub-Saharan Africa" and "teff" in c_lower: 
-                default_crop = c
+                default_crop = c; break
             elif region_name == "Brazil" and "cassava" in c_lower: 
-                default_crop = c
-                
+                default_crop = c; break
         st.session_state[f"{k}_sm_crop"] = default_crop
         
     if f"{k}_oc" not in st.session_state: st.session_state[f"{k}_oc"] = 2.00
     if f"{k}_sm_p_input" not in st.session_state: st.session_state[f"{k}_sm_p_input"] = 25.0
     if f"{k}_ph_measured_input" not in st.session_state: st.session_state[f"{k}_ph_measured_input"] = 6.0
-    if f"{k}_sm_method" not in st.session_state: st.session_state[f"{k}_sm_method"] = list(SMAF_METHOD_MAP.keys())[0]
-    if f"{k}_sm_weather" not in st.session_state: st.session_state[f"{k}_sm_weather"] = list(SMAF_WEATHERING_MAP.keys())[0]
-    if f"{k}_sm_tex" not in st.session_state: st.session_state[f"{k}_sm_tex"] = list(SMAF_TEXTURE_MAP.keys())[0]
-    if f"{k}_sm_slope" not in st.session_state: st.session_state[f"{k}_sm_slope"] = list(SMAF_SLOPE_MAP.keys())[0]
+    
+    # ✨ NEW: Default all these to the blank state instead of the first list item
+    if f"{k}_sm_method" not in st.session_state: st.session_state[f"{k}_sm_method"] = "— Select —"
+    if f"{k}_sm_weather" not in st.session_state: st.session_state[f"{k}_sm_weather"] = "— Select —"
+    if f"{k}_sm_tex" not in st.session_state: st.session_state[f"{k}_sm_tex"] = "— Select —"
+    if f"{k}_sm_slope" not in st.session_state: st.session_state[f"{k}_sm_slope"] = "— Select —"
 
     # ── MASTER SITE INPUTS (Always Visible) ──
     with st.expander("⚙️ Site Inputs", expanded=True):
         c1, c2, c3 = st.columns(3)
         
-        with c1:
+       with c1:
             # Taxonomy & Landscape
             taxon_label = TAXON_LABEL[region_name]
             if region_name == "Brazil":
@@ -1123,25 +1122,25 @@ def render_single_sample(region_name, cfg, df, df_hist):
             else:
                 active_taxon_display = cfg["taxon_display"]
 
-            selected_sub = st.selectbox(taxon_label, active_taxon_display, format_func=strip_code, key=f"{k}_sub")
-            selected_tex = st.selectbox("Texture", list(cfg["texture_map"].keys()), format_func=strip_code, key=f"{k}_tex")
+            # ✨ NEW: Added the blank default and formatted it so it doesn't crash the code parser
+            selected_sub = st.selectbox(taxon_label, ["— Select —"] + active_taxon_display, format_func=lambda x: strip_code(x) if x != "— Select —" else x, key=f"{k}_sub")
+            selected_tex = st.selectbox("Texture", ["— Select —"] + list(cfg["texture_map"].keys()), format_func=lambda x: strip_code(x) if x != "— Select —" else x, key=f"{k}_tex")
             
-            # Shared Texture Profile for Phosphorus & Bulk Density
-            selected_sm_tex = st.selectbox("Texture Profile", list(SMAF_TEXTURE_MAP.keys()), key=f"{k}_sm_tex")
+            selected_sm_tex = st.selectbox("Texture Profile", ["— Select —"] + list(SMAF_TEXTURE_MAP.keys()), key=f"{k}_sm_tex")
             
             # Dynamic Mineralogy Dropdown (Only appears for Clay classes 4 & 5)
-            texture_id = SMAF_TEXTURE_MAP[selected_sm_tex]
+            texture_id = SMAF_TEXTURE_MAP.get(selected_sm_tex, 0)
+            selected_bd_min = None
             if texture_id >= 4:
-                st.selectbox("Clay Mineralogy", list(SMAF_MINERALOGY_MAP.keys()), key=f"{k}_bd_min")
+                selected_bd_min = st.selectbox("Clay Mineralogy", ["— Select —"] + list(SMAF_MINERALOGY_MAP.keys()), key=f"{k}_bd_min")
 
-            selected_sm_slope = st.selectbox("Landscape Slope Profile", list(SMAF_SLOPE_MAP.keys()), key=f"{k}_sm_slope")
+            selected_sm_slope = st.selectbox("Landscape Slope Profile", ["— Select —"] + list(SMAF_SLOPE_MAP.keys()), key=f"{k}_sm_slope")
             chosen_crop = st.selectbox("Target Field Crop", MASTER_CROP_OPTIONS, key=f"{k}_sm_crop")
             
         with c2:
             # Management & Climate
-            selected_method = st.selectbox("P Extraction Method", list(SMAF_METHOD_MAP.keys()), key=f"{k}_sm_method")
-            selected_weath = st.selectbox("Soil Weathering Class", list(SMAF_WEATHERING_MAP.keys()), key=f"{k}_sm_weather")
-            
+            selected_method = st.selectbox("P Extraction Method", ["— Select —"] + list(SMAF_METHOD_MAP.keys()), key=f"{k}_sm_method")
+            selected_weath = st.selectbox("Soil Weathering Class", ["— Select —"] + list(SMAF_WEATHERING_MAP.keys()), key=f"{k}_sm_weather")
             use_geo = st.checkbox("Fetch climate from coordinates", key=f"{k}_geo")
             lat_in, lon_in = cfg["default_latlon"]
             if use_geo:
@@ -1179,6 +1178,15 @@ def render_single_sample(region_name, cfg, df, df_hist):
             bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.5, max_value=2.0, value=1.45, step=0.05, key=f"{k}_bd_input")
             ph_val = st.number_input("Measured Soil pH", 0.0, 14.0, key=f"{k}_ph_measured_input")
             target_pct = st.slider("Benchmark Percentile (SOC)", 50, 99, 90, key=f"{k}_pct")
+
+# ✨ THE MASTER SITE INPUTS GATEKEEPER ✨
+    required_inputs = [selected_sub, selected_tex, selected_sm_tex, selected_sm_slope, selected_method, selected_weath]
+    if selected_bd_min is not None:
+        required_inputs.append(selected_bd_min)
+        
+    if any(val == "— Select —" for val in required_inputs):
+        st.info("💡 Please complete all dropdown selections in the **Site Inputs** above to unlock your soil health scores and recommendations.")
+        return  # This entirely stops the rest of the page from rendering until they finish!
 
     # ── GLOBAL SOC PEER GROUP RESOLUTION ──
     tax = parse_code(selected_sub)

@@ -1071,7 +1071,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
         # Dynamically assign the default crop based on the active region tab
         for c in MASTER_CROP_OPTIONS:
             c_lower = c.lower()
-            if region_name == "Florida" and "potato" in c_lower: 
+            if region_name == "Florida" and "corn, grain" in c_lower: 
                 default_crop = c
             elif region_name == "Sub-Saharan Africa" and "teff" in c_lower: 
                 default_crop = c

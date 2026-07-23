@@ -21,6 +21,14 @@ def load_recommendation_database():
 
 soc_rules_df = load_recommendation_database()
 
+def get_score_zone(score):
+    """Translates the 0-100 score into a standardized quintile zone."""
+    if score < 20: return "Very Low"
+    elif score < 40: return "Low"
+    elif score < 60: return "Medium"
+    elif score < 80: return "High"
+    else: return "Very High"
+
 def render_excel_recommendation_engine(region_name, crop, score, key_prefix="rec"):
     """Dynamically builds input section directly from the Excel rules database filtered by region."""
     if soc_rules_df is None or soc_rules_df.empty:

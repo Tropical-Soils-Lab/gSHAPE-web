@@ -1101,11 +1101,11 @@ def render_single_sample(region_name, cfg, df, df_hist):
     if f"{k}_sm_tex" not in st.session_state: st.session_state[f"{k}_sm_tex"] = "— Select —"
     if f"{k}_sm_slope" not in st.session_state: st.session_state[f"{k}_sm_slope"] = "— Select —"
 
-    # ── MASTER SITE INPUTS (Always Visible) ──
+   # ── MASTER SITE INPUTS (Always Visible) ──
     with st.expander("⚙️ Site Inputs", expanded=True):
         c1, c2, c3 = st.columns(3)
         
-       with c1:
+        with c1:
             # Taxonomy & Landscape
             taxon_label = TAXON_LABEL[region_name]
             if region_name == "Brazil":
@@ -1122,7 +1122,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
             else:
                 active_taxon_display = cfg["taxon_display"]
 
-            # ✨ NEW: Added the blank default and formatted it so it doesn't crash the code parser
             selected_sub = st.selectbox(taxon_label, ["— Select —"] + active_taxon_display, format_func=lambda x: strip_code(x) if x != "— Select —" else x, key=f"{k}_sub")
             selected_tex = st.selectbox("Texture", ["— Select —"] + list(cfg["texture_map"].keys()), format_func=lambda x: strip_code(x) if x != "— Select —" else x, key=f"{k}_tex")
             
@@ -1141,6 +1140,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             # Management & Climate
             selected_method = st.selectbox("P Extraction Method", ["— Select —"] + list(SMAF_METHOD_MAP.keys()), key=f"{k}_sm_method")
             selected_weath = st.selectbox("Soil Weathering Class", ["— Select —"] + list(SMAF_WEATHERING_MAP.keys()), key=f"{k}_sm_weather")
+            
             use_geo = st.checkbox("Fetch climate from coordinates", key=f"{k}_geo")
             lat_in, lon_in = cfg["default_latlon"]
             if use_geo:
@@ -1179,14 +1179,14 @@ def render_single_sample(region_name, cfg, df, df_hist):
             ph_val = st.number_input("Measured Soil pH", 0.0, 14.0, key=f"{k}_ph_measured_input")
             target_pct = st.slider("Benchmark Percentile (SOC)", 50, 99, 90, key=f"{k}_pct")
 
-# ✨ THE MASTER SITE INPUTS GATEKEEPER ✨
+    # ✨ THE MASTER SITE INPUTS GATEKEEPER ✨
     required_inputs = [selected_sub, selected_tex, selected_sm_tex, selected_sm_slope, selected_method, selected_weath]
     if selected_bd_min is not None:
         required_inputs.append(selected_bd_min)
         
     if any(val == "— Select —" for val in required_inputs):
         st.info("💡 Please complete all dropdown selections in the **Site Inputs** above to unlock your soil health scores and recommendations.")
-        return  # This entirely stops the rest of the page from rendering until they finish!
+        return
 
     # ── GLOBAL SOC PEER GROUP RESOLUTION ──
     tax = parse_code(selected_sub)

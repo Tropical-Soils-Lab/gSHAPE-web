@@ -164,6 +164,10 @@ def render_excel_recommendation_engine(region_name, crop, score, key_prefix="rec
     em_close = "\x3c/em\x3e"
     
     for q, ans in selections.items():
+        # ✨ SKIPPER: Skip this category entirely if they select "None of the above"
+        if ans == "None of the above":
+            continue
+            
         try:
             soc_result = get_soc_recommendation(
                 rules_df=region_rules_df,
@@ -172,8 +176,17 @@ def render_excel_recommendation_engine(region_name, crop, score, key_prefix="rec
                 selected_answer=ans,
                 soc_level=zone
             )
+            
             interp = str(soc_result.get("interpretation", "")).strip()
             rec = str(soc_result.get("recommendation", "")).strip()
+            
+            # Pandas sometimes reads empty Excel cells as the string "nan". Let's clear those out.
+            if interp.lower() == "nan": interp = ""
+            if rec.lower() == "nan": rec = ""
+            
+            # ✨ NEW: If both the interpretation and recommendation are completely blank, skip this bullet!
+            if not interp and not rec:
+                continue
             
             if interp and not interp.endswith('.'):
                 interp += "."
@@ -182,7 +195,8 @@ def render_excel_recommendation_engine(region_name, crop, score, key_prefix="rec
             combined_bullets += f"{li_open}{strong_open}{q} ({ans}):{strong_close} {full_advice}{li_close}"
             
         except Exception:
-            combined_bullets += f"{li_open}{strong_open}{q} ({ans}):{strong_close} No specific recommendation mapped for the {zone} zone yet.{li_close}"
+            # ✨ NEW: Do absolutely nothing if there is an error or a missing rule. Just skip it!
+            pass
             
     # ─── 5. Color Box Rendering ───
     if score >= 80: bg_color, border_color = "rgba(26, 150, 65, 0.15)", "#1a9641"

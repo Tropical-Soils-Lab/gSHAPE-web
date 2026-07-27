@@ -1247,6 +1247,9 @@ def render_single_sample(region_name, cfg, df, df_hist):
     summary_labels = ["Bulk Density", "Soil pH", "Phosphorus", "Organic Carbon"]
     summary_colors = [score_color(s) for s in summary_scores]
     summary_text = [f"{s}/100  |  {score_label(s)}" for s in summary_scores]
+    
+    # ✨ NEW: Dynamically assign text position. If score is < 25, force it outside the bar!
+    text_positions = ["inside" if s >= 25 else "outside" for s in summary_scores]
 
     fig_summary = go.Figure(go.Bar(
         x=summary_scores,
@@ -1254,9 +1257,10 @@ def render_single_sample(region_name, cfg, df, df_hist):
         orientation='h',
         marker_color=summary_colors,
         text=summary_text,
-        textposition='auto',  # ✨ Changed from 'inside' to 'auto'
+        textposition=text_positions,  # ✨ Using our dynamic list here
         insidetextanchor='middle',
         textfont=dict(color='white', size=15, family="Arial Black")
+    ))
     ))
 
     fig_summary.update_layout(

@@ -1212,6 +1212,73 @@ def render_single_sample(region_name, cfg, df, df_hist):
         else:
             lp_mean, lp_lcl, lp_ucl, sigma_val, plot_max = 0.0, 0.0, 0.0, 1.0, 15.0
 
+    # ── COMPREHENSIVE SOIL HEALTH SUMMARY ──
+    st.markdown("### 📊 Comprehensive Soil Health Overview")
+    
+    # 1. Silently calculate all indicator scores for the summary chart
+    # SOC Score (Already calculated globally, but let's ensure we have the integer)
+    score_soc = compute_score(oc_val, lp_mean, sigma_val)
+    
+    # Phosphorus Score
+    crop_id_sum = SMAF_DATA["crop_ui_map"].get(st.session_state[f"{k}_sm_crop"].lower(), 0)
+    method_id_sum = SMAF_METHOD_MAP[st.session_state[f"{k}_sm_method"]]
+    weather_id_sum = SMAF_WEATHERING_MAP[st.session_state[f"{k}_sm_weather"]]
+    texture_id_sum = SMAF_TEXTURE_MAP[st.session_state[f"{k}_sm_tex"]]
+    slope_id_sum = SMAF_SLOPE_MAP[st.session_state[f"{k}_sm_slope"]]
+    score_p_sum = run_smaf_p_score(p_val, crop_id_sum, method_id_sum, weather_id_sum, texture_id_sum, slope_id_sum, oc_val)
+    
+    # Bulk Density Score
+    mineral_str = st.session_state.get(f"{k}_bd_min", "— Select —")
+    mineralogy_id_sum = SMAF_MINERALOGY_MAP.get(mineral_str, 0) if mineral_str != "— Select —" else 0
+    score_bd_sum = run_smaf_bd_score(bd_val, texture_id_sum, mineralogy_id_sum)
+    
+    # pH Score
+    crop_selected_name_sum = st.session_state[f"{k}_sm_crop"]
+    ph_benchmarks_sum = SMAF_DATA.get("ph_benchmarks", {}) if SMAF_DATA else {}
+    ph_benchmarks_lower_sum = {key.lower(): val for key, val in ph_benchmarks_sum.items()}
+    benchmarks_sum = ph_benchmarks_lower_sum.get(crop_selected_name_sum.lower())
+    if benchmarks_sum:
+        score_ph_sum = float(100.0 * np.exp(-((ph_val - benchmarks_sum["opt"]) / (2.0 * benchmarks_sum["sigma"])) ** 2))
+    else:
+        score_ph_sum = 0.0 # Fallback if crop is missing pH data
+        
+    # 2. Build the Summary Bar Chart
+    summary_scores = [int(round(score_bd_sum)), int(round(score_ph_sum)), int(round(score_p_sum)), int(round(score_soc))]
+    summary_labels = ["Bulk Density", "Soil pH", "Phosphorus", "Organic Carbon"]
+    summary_colors = [score_color(s) for s in summary_scores]
+    summary_text = [f"{s}/100  |  {score_label(s)}" for s in summary_scores]
+
+    fig_summary = go.Figure(go.Bar(
+        x=summary_scores,
+        y=summary_labels,
+        orientation='h',
+        marker_color=summary_colors,
+        text=summary_text,
+        textposition='inside',
+        insidetextanchor='middle',
+        textfont=dict(color='white', size=15, family="Arial Black")
+    ))
+
+    fig_summary.update_layout(
+        xaxis=dict(range=[0, 100], title="SHAPE Score", gridcolor="rgba(150,150,150,0.1)"),
+        yaxis=dict(autorange="reversed"), # Keeps SOC at the top of the chart
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        height=320,
+        margin=dict(l=10, r=20, t=10, b=10)
+    )
+    
+    st.plotly_chart(fig_summary, use_container_width=True, key=f"{k}_summary_chart")
+    st.divider()
+
+    # ── INDICATOR SELECTION (Your existing code starts here) ──
+    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density"]
+    chosen_indicator = st.selectbox(
+        "🔍 Select an indicator to view detailed scoring curves and recommendations:",
+        indicator_options,
+        key=f"{cfg['key']}_indicator_shared"
+    )
+
     # ── INDICATOR SELECTION ──
     indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density"]
     chosen_indicator = st.selectbox(

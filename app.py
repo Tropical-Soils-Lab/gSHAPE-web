@@ -438,7 +438,7 @@ FL_TAXON_DISPLAY = sorted(
 
 # Dropdown excludes T1 (Sand) — kept in backend for batch scoring, just hidden from the picker
 FL_TEXTURE_MAP = {
-    "Sand (T1)": "T1", Loamy Sand (T2)": "T2", "Sandy Loam (T3)": "T3",
+    "Sand (T1)": "T1", "Loamy Sand (T2)": "T2", "Sandy Loam (T3)": "T3",
     "Loam (T4)": "T4", "Silt Loam (T4)": "T4", "Silt (T4)": "T4",
     "Sandy Clay Loam (T4)": "T4", "Clay Loam (T4)": "T4", "Silty Clay Loam (T4)": "T4",
     "Sandy Clay (T4)": "T4", "Silty Clay (T4)": "T4", "Clay (T4)": "T4",

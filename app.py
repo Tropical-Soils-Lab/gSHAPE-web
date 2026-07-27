@@ -1263,7 +1263,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
     ))
 
     fig_summary.update_layout(
-        xaxis=dict(range=[0, 100], title="SHAPE Score", gridcolor="rgba(150,150,150,0.1)"),
+        xaxis=dict(range=[0, 100], title="Score", gridcolor="rgba(150,150,150,0.1)"),
         yaxis=dict(autorange="reversed"), # Keeps SOC at the top of the chart
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",

@@ -1269,15 +1269,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
     )
     
     st.plotly_chart(fig_summary, use_container_width=True, key=f"{k}_summary_chart")
-    st.divider()
-
-    # ── INDICATOR SELECTION (Your existing code starts here) ──
-    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density"]
-    chosen_indicator = st.selectbox(
-        "🔍 Select an indicator to view detailed scoring curves and recommendations:",
-        indicator_options,
-        key=f"{cfg['key']}_indicator_shared"
-    )
 
     # ── INDICATOR SELECTION ──
     indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density"]

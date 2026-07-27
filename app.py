@@ -1253,7 +1253,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
         with col_l:
             gauge_title = f"<b style='font-size:17px'>{label_p}</b><br><span style='font-size:11px;color:gray'>SMAF Index · {p_val} mg/kg P</span>"
             fig_gauge = go.Figure(go.Indicator(
-                mode="gauge+number", value=round(score_p, 1),
+                mode="gauge+number", value=int(round(score_p)),
                 title={"text": gauge_title, "font": {"size": 13}},
                 number={"suffix": "/100", "font": {"size": 38, "color": color_p}},
                 gauge={
@@ -1325,7 +1325,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
         with col_l:
             gauge_title = f"<b style='font-size:17px'>{label_bd}</b><br><span style='font-size:11px;color:gray'>BD {bd_val} g/cm³</span>"
             fig_gauge = go.Figure(go.Indicator(
-                mode="gauge+number", value=round(score_bd, 1),
+                mode="gauge+number", value=int(round(score_bd)),
                 title={"text": gauge_title, "font": {"size": 13}},
                 number={"suffix": "/100", "font": {"size": 38, "color": color_bd}},
                 gauge={
@@ -1389,7 +1389,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             with col_l:
                 gauge_title = f"<b style='font-size:17px'>{label_ph}</b><br><span style='font-size:11px;color:gray'>{crop_selected_name} · pH {ph_val}</span>"
                 fig_gauge = go.Figure(go.Indicator(
-                    mode="gauge+number", value=round(score_ph, 1),
+                    mode="gauge+number", value=int(round(score_ph)),
                     title={"text": gauge_title, "font": {"size": 13}},
                     number={"suffix": "/100", "font": {"size": 38, "color": color_ph}},
                     gauge={
@@ -1449,7 +1449,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
                            f"<span style='font-size:11px;color:gray'>{strip_code(selected_sub)} · {strip_code(selected_tex)} · {climate_str} · SOC {oc_val}%</span>")
             fig_gauge = go.Figure(go.Indicator(
                 mode="gauge+number",
-                value=round(score, 1),
+                value=int(round(score)),
                 domain={"x": [0, 1], "y": [0, 1]},
                 title={"text": gauge_title, "font": {"size": 13}},
                 number={"suffix": "/100", "font": {"size": 38, "color": color}},
@@ -1475,7 +1475,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             gap = tgt_oc - oc_val
             m1, m2 = st.columns(2)
             with m1:
-                st.metric("Above peer median", f"{score - 50:+.1f} pts",
+                st.metric("Above peer median", f"{score - 50:+.0f} pts",
                           f"{'↑ above' if score >= 50 else '↓ below'} 50th pct")
             with m2:
                 st.metric(f"Gap to {target_pct}th pct", f"{abs(gap):.2f}% SOC",
@@ -1526,7 +1526,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             fig_cdf.add_trace(go.Scatter(
                 x=[oc_val], y=[score / 100], mode="markers",
                 marker=dict(color=color, size=14, symbol="circle", line=dict(color="white", width=2)),
-                name="Your Site", hovertemplate=f"Your site<br>SOC: {oc_val}%<br>Score: {score:.1f}/100<extra></extra>"
+                name="Your Site", hovertemplate=f"Your site<br>SOC: {oc_val}%<br>Score: {score:.0f}/100<extra></extra>"
             ))
             fig_cdf.add_trace(go.Scatter(
                 x=[tgt_oc], y=[target_pct / 100], mode="markers",

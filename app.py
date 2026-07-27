@@ -1495,6 +1495,37 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 if use_geo and f"{k}_lat" in st.session_state and in_bounds(lat_in, lon_in, cfg):
                     st.markdown("#### Site Location")
                     st.map(pd.DataFrame({"lat": [lat_in], "lon": [lon_in]}), zoom=6)
+    # ── 5-TIER pH RECOMMENDATION ENGINE ──
+            st.markdown("### 📋 Agronomic Recommendations")
+            
+            # 1. Determine the direction of the problem
+            opt_ph = benchmarks["opt"]
+            if ph_val > opt_ph:
+                direction = "lower"
+                amendment = "elemental sulfur, acidifying fertilizers (like ammonium sulfate), or organic matter"
+            else:
+                direction = "raise"
+                amendment = "agricultural lime (calcium carbonate) or dolomite"
+
+            # 2. Assign the 5-tier logic
+            if score_ph >= 80:
+                ph_level = "Very High"
+                ph_rec = "Your soil pH is optimal for this crop. Nutrient availability is maximized. Maintain current management practices; no amendments are currently required."
+            elif score_ph >= 60:
+                ph_level = "High"
+                ph_rec = f"Your soil pH is good, though slightly outside the perfect optimum. Monitor in future seasons to ensure it doesn't drift further, but no immediate corrective action is needed."
+            elif score_ph >= 40:
+                ph_level = "Medium"
+                ph_rec = f"Your soil pH is moderately impacting crop potential and nutrient availability. Consider a mild application of {amendment} to gradually {direction} the pH towards the {opt_ph} optimum."
+            elif score_ph >= 20:
+                ph_level = "Low"
+                ph_rec = f"Your soil pH is significantly limiting yield potential. Fertilizer efficiency is likely reduced. A targeted application of {amendment} is recommended to {direction} the pH."
+            else:
+                ph_level = "Very Low"
+                ph_rec = f"Critical limitation. Your soil pH is severely outside the acceptable range for this crop, locking up essential nutrients. Immediate application of {amendment} is strongly advised to {direction} the pH towards {opt_ph}."
+
+            # 3. Render the recommendation box
+            st.info(f"**Score Tier: {ph_level}**\n\n{ph_rec}")
 
     elif chosen_indicator == "Soil Organic Carbon":
         score  = compute_score(oc_val, lp_mean, sigma_val)

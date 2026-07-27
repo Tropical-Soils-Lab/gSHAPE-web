@@ -1473,10 +1473,15 @@ def render_single_sample(region_name, cfg, df, df_hist):
             
             st.divider()
             gap = tgt_oc - oc_val
+            # Calculate the literal SOC percentage for the 50th percentile (the median)
+            median_soc = percentile_to_oc(50, lp_mean, sigma_val)
+            
             m1, m2 = st.columns(2)
             with m1:
-                st.metric("Above peer median", f"{score - 50:+.0f} pts",
-                          f"{'↑ above' if score >= 50 else '↓ below'} 50th pct")
+                # Compare their measured SOC against the peer median
+                soc_diff = oc_val - median_soc
+                st.metric("Peer Group Median", f"{median_soc:.2f}% SOC", 
+                          f"{soc_diff:+.2f}% difference")
             with m2:
                 st.metric(f"Gap to {target_pct}th pct", f"{abs(gap):.2f}% SOC",
                           "✅ Exceeds target" if gap <= 0 else f"+{gap:.2f}% needed")

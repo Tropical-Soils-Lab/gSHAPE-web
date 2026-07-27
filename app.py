@@ -1254,7 +1254,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
         orientation='h',
         marker_color=summary_colors,
         text=summary_text,
-        textposition='inside',
+        textposition='auto',  # ✨ Changed from 'inside' to 'auto'
         insidetextanchor='middle',
         textfont=dict(color='white', size=15, family="Arial Black")
     ))

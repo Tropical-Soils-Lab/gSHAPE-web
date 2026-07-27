@@ -1261,7 +1261,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
         insidetextanchor='middle',
         textfont=dict(color='white', size=15, family="Arial Black")
     ))
-    ))
 
     fig_summary.update_layout(
         xaxis=dict(range=[0, 100], title="SHAPE Score", gridcolor="rgba(150,150,150,0.1)"),

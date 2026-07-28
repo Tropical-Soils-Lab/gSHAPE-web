@@ -1249,7 +1249,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
     # 2. Build the Summary Bar Chart
     summary_scores = [int(round(score_phys)), int(round(score_chem)), int(round(score_bio))]
-    summary_labels = ["Physical", "Chemical", "Biological"]
+    summary_labels = ["Physical", "Chemical", "Soil Organic Carbon"]
     summary_colors = [score_color(s) for s in summary_scores]
     summary_text = [f"{s}/100  |  {score_label(s)}" for s in summary_scores]
     

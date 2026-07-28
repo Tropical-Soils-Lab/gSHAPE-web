@@ -1271,16 +1271,22 @@ def render_single_sample(region_name, cfg, df, df_hist):
     ))
 
     fig_summary.update_layout(
-        xaxis=dict(range=[0, 100], title=" Soil Health Score", gridcolor="rgba(150,150,150,0.1)"), # ✨ Moved range back to X-axis
-        yaxis=dict(autorange="reversed"), # ✨ Reversed Y-axis so Physical is top, Overall is bottom
+        # ✨ NEW: Added fixedrange=True to both axes to disable pinch-to-zoom and panning
+        xaxis=dict(range=[0, 100], fixedrange=True, title="SHAPE Score", gridcolor="rgba(150,150,150,0.1)"), 
+        yaxis=dict(autorange="reversed", fixedrange=True), 
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        height=320, # ✨ Bumped height back up to 320 to fit 4 horizontal bars comfortably
+        height=320, 
         margin=dict(l=10, r=20, t=10, b=10)
     )
     
-    st.plotly_chart(fig_summary, use_container_width=True, key=f"{k}_summary_chart")
-    st.divider()
+    # ✨ NEW: Added config={'displayModeBar': False} to hide the floating Plotly toolbar
+    st.plotly_chart(
+        fig_summary, 
+        use_container_width=True, 
+        key=f"{k}_summary_chart",
+        config={'displayModeBar': False}
+    )
     # ── INDICATOR SELECTION ──
     indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density"]
     chosen_indicator = st.selectbox(

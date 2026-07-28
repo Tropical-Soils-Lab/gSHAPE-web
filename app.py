@@ -1242,24 +1242,29 @@ def render_single_sample(region_name, cfg, df, df_hist):
     else:
         score_ph_sum = 0.0 # Fallback if crop is missing pH data
         
-    # ✨ NEW: Calculate the Category Averages
+    # ✨ Calculate the Category Averages and the new Overall Score
     score_bio = score_soc
     score_chem = (score_ph_sum + score_p_sum) / 2.0
     score_phys = score_bd_sum
+    score_overall = (score_phys + score_chem + score_bio) / 3.0
 
     # 2. Build the Summary Bar Chart
-    summary_scores = [int(round(score_phys)), int(round(score_chem)), int(round(score_bio))]
-    summary_labels = ["Physical", "Chemical", "Soil Organic Carbon"]
-    summary_colors = [score_color(s) for s in summary_scores]
-    summary_text = [f"{s}/100  |  {score_label(s)}" for s in summary_scores]
+    summary_scores = [int(round(score_phys)), int(round(score_chem)), int(round(score_bio)), int(round(score_overall))]
     
-    # Dynamically assign text position. If score is < 25, force it outside the bar!
-    text_positions = ["inside" if s >= 25 else "outside" for s in summary_scores]
+    # ✨ Note: I labeled it "Biological" to match the 3 pillars, but you can change it to "Soil Organic Carbon" if you prefer!
+    summary_labels = ["Physical", "Chemical", "Biological", "<b>OVERALL</b>"]
+    summary_colors = [score_color(s) for s in summary_scores]
+    
+    # ✨ Swapped the " | " for a "<br>" so the text stacks vertically inside the column
+    summary_text = [f"{s}/100<br>{score_label(s)}" for s in summary_scores]
+    
+    # Dynamically assign text position. If a score is < 15, the vertical bar is too short, so we push the text above it.
+    text_positions = ["inside" if s >= 15 else "outside" for s in summary_scores]
 
+    # ✨ Swapped x and y, and removed orientation='h'
     fig_summary = go.Figure(go.Bar(
-        x=summary_scores,
-        y=summary_labels,
-        orientation='h',
+        x=summary_labels,
+        y=summary_scores,
         marker_color=summary_colors,
         text=summary_text,
         textposition=text_positions, 
@@ -1267,13 +1272,14 @@ def render_single_sample(region_name, cfg, df, df_hist):
         textfont=dict(color='white', size=15, family="Arial Black")
     ))
 
+    # ✨ Moved the 0-100 range to the Y-axis and adjusted the height
     fig_summary.update_layout(
-        xaxis=dict(range=[0, 100], title="Score", gridcolor="rgba(150,150,150,0.1)"),
-        yaxis=dict(autorange="reversed"), # Keeps Biological at the top of the chart
+        yaxis=dict(range=[0, 100], title="SHAPE Score", gridcolor="rgba(150,150,150,0.1)"),
+        xaxis=dict(title=""), 
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        height=260, # ✨ Reduced from 320 to 260 since we dropped from 4 bars to 3
-        margin=dict(l=10, r=20, t=10, b=10)
+        height=400, 
+        margin=dict(l=10, r=20, t=20, b=10)
     )
     
     st.plotly_chart(fig_summary, use_container_width=True, key=f"{k}_summary_chart")

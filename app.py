@@ -1660,18 +1660,33 @@ def render_single_sample(region_name, cfg, df, df_hist):
         st.markdown("### 🌍 Carbon Sequestration Calculator")
         st.markdown("Estimate carbon stock, sequestration gap, credit value, and time to target based on the benchmark above.")
 
-        with st.expander("⚙️ Field & Market Parameters", expanded=True):
-            cc1, cc2, cc3, cc4, cc5 = st.columns(5)
-            with cc1:
-                field_area = st.number_input("Field area (acres)", 1.0, 100000.0, 100.0, 10.0, key=f"{k}_area")
-            with cc2:
-                bulk_density = st.number_input("Bulk density (g/cm³)", 0.8, 2.0, 1.45, 0.05, key=f"{k}_bd")
-            with cc3:
-                depth_cm = st.number_input("Sampling depth (cm)", 5, 100, 30, 5, key=f"{k}_depth")
-            with cc4:
-                carbon_price = st.number_input("Carbon price ($/t CO₂e)", 1.0, 500.0, 25.0, 5.0, key=f"{k}_price")
-            with cc5:
-                annual_rate = st.number_input("Annual SOC gain (%/yr)", 0.01, 2.0, 0.20, 0.05, key=f"{k}_rate")
+        # (Your existing expander code above)
+    with st.expander("⚙️ Field & Market Parameters", expanded=True):
+        # ... your 5 number_inputs ...
+        area_val = st.number_input("Field area (acres)", value=0.0, step=10.0, key=f"{k}_area") 
+        # ... (bulk density, depth, price, gain inputs) ...
+
+    # ✨ THE CARBON GATEKEEPER ✨
+    if area_val <= 0.0:
+        st.info("💡 Please enter a **Field area (acres)** greater than 0 in the parameters above to unlock your carbon stock and credit estimates.")
+    else:
+        # Indent your existing metric columns so they only show if area > 0
+        mc1, mc2, mc3, mc4, mc5 = st.columns(5)
+        
+        with mc1:
+            st.metric("Current C stock", f"{current_c_stock:,.1f} t C", f"↑ {current_c_per_acre:,.2f} t C/acre")
+        
+        with mc2:
+            st.metric("Target C stock (90th pct)", f"{target_c_stock:,.1f} t C", f"↑ {target_c_per_acre:,.2f} t C/acre")
+            
+        with mc3:
+            st.metric("Sequestration gap", f"{gap_c_stock:,.1f} t C", f"↑ {gap_co2e:,.1f} t CO₂e")
+            
+        with mc4:
+            st.metric("Potential credit value", f"${credit_value:,.0f}", f"↑ @ ${carbon_price}/t CO₂e")
+            
+        with mc5:
+            st.metric("Years to 90th pct", f"{years_to_target:,.1f} yrs", f"↑ @ {annual_gain_pct}%/yr gain")
 
         def soc_to_tc_per_acre(soc_pct, bd, depth):
             return (soc_pct / 100.0) * bd * depth * 10.0 * 0.4047

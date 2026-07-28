@@ -1281,6 +1281,13 @@ def render_single_sample(region_name, cfg, df, df_hist):
     
     st.plotly_chart(fig_summary, use_container_width=True, key=f"{k}_summary_chart")
     st.divider()
+    # ── INDICATOR SELECTION ──
+    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density"]
+    chosen_indicator = st.selectbox(
+        "Soil Health Indicators:",
+        indicator_options,
+        key=f"{cfg['key']}_indicator_shared"
+    )
 # ALWAYS calculate the SOC score in the background so the Recommendation Engine 
 # and Carbon Calculator at the bottom of the page don't crash when switching tabs!
     score = compute_score(oc_val, lp_mean, sigma_val)

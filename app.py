@@ -1580,8 +1580,9 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 st.metric("Peer Group Median", f"{median_soc:.2f}% SOC", 
                           f"{soc_diff:+.2f}% difference")
             with m2:
-                st.metric(f"Gap to {target_pct}th pct", f"{abs(gap):.2f}% SOC",
-                          "✅ Exceeds target" if gap <= 0 else f"+{gap:.2f}% needed")
+                # ✨ NEW: Display the actual target value as the main number, and the gap in the pill below
+                st.metric(f"Target ({target_pct}th pct)", f"{tgt_oc:.2f}% SOC",
+                          "✅ Exceeds target" if gap <= 0 else f"-{gap:.2f}% needed")
 
             st.divider()
             st.markdown("**SOC targets by percentile**")

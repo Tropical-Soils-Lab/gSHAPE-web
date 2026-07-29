@@ -1701,104 +1701,110 @@ def render_single_sample(region_name, cfg, df, df_hist):
         with st.expander("⚙️ Field & Market Parameters", expanded=True):
             cc1, cc2, cc3, cc4, cc5 = st.columns(5)
             with cc1:
-                field_area = st.number_input("Field area (acres)", 1.0, 100000.0, 100.0, 10.0, key=f"{k}_area")
+                field_area = st.number_input("Field area (acres)", min_value=1.0, max_value=100000.0, value=None, step=10.0, placeholder="—", key=f"{k}_area")
             with cc2:
-                bulk_density = st.number_input("Bulk density (g/cm³)", 0.8, 2.0, 1.45, 0.05, key=f"{k}_bd")
+                bulk_density = st.number_input("Bulk density (g/cm³)", min_value=0.8, max_value=2.0, value=None, step=0.05, placeholder="—", key=f"{k}_bd")
             with cc3:
-                depth_cm = st.number_input("Sampling depth (cm)", 5, 100, 30, 5, key=f"{k}_depth")
+                depth_cm = st.number_input("Sampling depth (cm)", min_value=5, max_value=100, value=None, step=5, placeholder="—", key=f"{k}_depth")
             with cc4:
-                carbon_price = st.number_input("Carbon price ($/t CO₂e)", 1.0, 500.0, 25.0, 5.0, key=f"{k}_price")
+                carbon_price = st.number_input("Carbon price ($/t CO₂e)", min_value=1.0, max_value=500.0, value=None, step=5.0, placeholder="—", key=f"{k}_price")
             with cc5:
-                annual_rate = st.number_input("Annual SOC gain (%/yr)", 0.01, 2.0, 0.20, 0.05, key=f"{k}_rate")
+                annual_rate = st.number_input("Annual SOC gain (%/yr)", min_value=0.01, max_value=2.0, value=None, step=0.05, placeholder="—", key=f"{k}_rate")
 
-        def soc_to_tc_per_acre(soc_pct, bd, depth):
-            return (soc_pct / 100.0) * bd * depth * 10.0 * 0.4047
+        # ✨ THE NEW CARBON GATEKEEPER ✨
+        input_vars = [field_area, bulk_density, depth_cm, carbon_price, annual_rate]
 
-        C_RATIO = 3.667
-        soc_target_90 = percentile_to_oc(90, lp_mean, sigma_val)
-        curr_tc_acre = soc_to_tc_per_acre(oc_val, bulk_density, depth_cm)
-        tgt_tc_acre  = soc_to_tc_per_acre(soc_target_90, bulk_density, depth_cm)
-        curr_tc_field = curr_tc_acre * field_area
-        tgt_tc_field  = tgt_tc_acre * field_area
-        gap_tc_field  = max(0.0, tgt_tc_field - curr_tc_field)
-        gap_co2_field = gap_tc_field * C_RATIO
-        credit_value  = gap_co2_field * carbon_price
-        years_to_tgt  = (max(0.0, soc_target_90 - oc_val) / annual_rate) if annual_rate > 0 else 0
+        if None in input_vars:
+            st.info("💡 Please fill in all **Field & Market Parameters** above to unlock your carbon stock and credit estimates.")
+        else:
+            # ⚠️ All math and charts are now indented below the Gatekeeper!
+            def soc_to_tc_per_acre(soc_pct, bd, depth):
+                return (soc_pct / 100.0) * bd * depth * 10.0 * 0.4047
 
-        sc1, sc2, sc3, sc4, sc5 = st.columns(5)
-        sc1.metric("Current C stock", f"{curr_tc_field:,.1f} t C", f"{curr_tc_acre:.2f} t C/acre")
-        sc2.metric("Target C stock (90th pct)", f"{tgt_tc_field:,.1f} t C", f"{tgt_tc_acre:.2f} t C/acre")
-        sc3.metric("Sequestration gap", f"{gap_tc_field:,.1f} t C", f"{gap_co2_field:,.1f} t CO₂e")
-        sc4.metric("Potential credit value", f"${credit_value:,.0f}", f"@ ${carbon_price}/t CO₂e")
-        sc5.metric("Years to 90th pct", f"{years_to_tgt:.1f} yrs", f"@ {annual_rate}%/yr gain")
+            C_RATIO = 3.667
+            soc_target_90 = percentile_to_oc(90, lp_mean, sigma_val)
+            curr_tc_acre = soc_to_tc_per_acre(oc_val, bulk_density, depth_cm)
+            tgt_tc_acre  = soc_to_tc_per_acre(soc_target_90, bulk_density, depth_cm)
+            curr_tc_field = curr_tc_acre * field_area
+            tgt_tc_field  = tgt_tc_acre * field_area
+            gap_tc_field  = max(0.0, tgt_tc_field - curr_tc_field)
+            gap_co2_field = gap_tc_field * C_RATIO
+            credit_value  = gap_co2_field * carbon_price
+            years_to_tgt  = (max(0.0, soc_target_90 - oc_val) / annual_rate) if annual_rate > 0 else 0
 
-        st.divider()
-        chart_col, table_col = st.columns([3, 2])
-        with chart_col:
-            st.markdown("**Projected SOC trajectory to 90th percentile benchmark**")
-            max_yrs = max(int(np.ceil(years_to_tgt)) + 5, 20)
-            yr_axis = np.arange(0, max_yrs + 1, 1.0)
-            soc_traj = np.minimum(oc_val + annual_rate * yr_axis, soc_target_90)
-            tc_traj  = soc_to_tc_per_acre(soc_traj, bulk_density, depth_cm) * field_area
-            val_traj = (tc_traj - curr_tc_field) * C_RATIO * carbon_price
+            sc1, sc2, sc3, sc4, sc5 = st.columns(5)
+            sc1.metric("Current C stock", f"{curr_tc_field:,.1f} t C", f"{curr_tc_acre:.2f} t C/acre")
+            sc2.metric("Target C stock (90th pct)", f"{tgt_tc_field:,.1f} t C", f"{tgt_tc_acre:.2f} t C/acre")
+            sc3.metric("Sequestration gap", f"{gap_tc_field:,.1f} t C", f"{gap_co2_field:,.1f} t CO₂e")
+            sc4.metric("Potential credit value", f"${credit_value:,.0f}", f"@ ${carbon_price}/t CO₂e")
+            sc5.metric("Years to 90th pct", f"{years_to_tgt:.1f} yrs", f"@ {annual_rate}%/yr gain")
 
-            fig_traj = go.Figure()
-            fig_traj.add_trace(go.Scatter(x=yr_axis, y=soc_traj, mode="lines", name="SOC (%)",
-                                          line=dict(color="#1a9641", width=2.5),
-                                          hovertemplate="Year %{x:.0f}<br>SOC: %{y:.2f}%<extra></extra>"))
-            fig_traj.add_hline(y=soc_target_90, line_dash="dash", line_color="rgba(0,114,178,0.6)",
-                               annotation_text=f"90th pct target ({soc_target_90:.2f}%)", annotation_position="right")
-            fig_traj.add_hline(y=oc_val, line_dash="dot", line_color="rgba(200,100,0,0.5)",
-                               annotation_text=f"Current ({oc_val}%)", annotation_position="right")
-            if years_to_tgt > 0:
-                fig_traj.add_trace(go.Scatter(
-                    x=[years_to_tgt], y=[soc_target_90], mode="markers+text",
-                    marker=dict(color="#0072B2", size=12, line=dict(color="white", width=2)),
-                    text=[f"  Yr {years_to_tgt:.1f}"], textposition="middle right", name="Target reached"
-                ))
-            fig_traj.add_trace(go.Scatter(x=yr_axis, y=val_traj, mode="lines", name="Cumulative credit value ($)",
-                                          line=dict(color="#E69F00", width=2, dash="dot"), yaxis="y2",
-                                          hovertemplate="Year %{x:.0f}<br>Value: $%{y:,.0f}<extra></extra>"))
-            fig_traj.update_layout(
-                xaxis_title="Years from now",
-                yaxis=dict(title="SOC (%)", gridcolor="rgba(150,150,150,0.1)"),
-                yaxis2=dict(title="Cumulative credit value ($)", overlaying="y", side="right",
-                            showgrid=False, tickformat="$,.0f"),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02),
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                height=360, margin=dict(l=10, r=60, t=40, b=10)
-            )
-            st.plotly_chart(fig_traj, width='stretch', key=f"{k}_traj_chart")
+            st.divider()
+            chart_col, table_col = st.columns([3, 2])
+            with chart_col:
+                st.markdown("**Projected SOC trajectory to 90th percentile benchmark**")
+                max_yrs = max(int(np.ceil(years_to_tgt)) + 5, 20)
+                yr_axis = np.arange(0, max_yrs + 1, 1.0)
+                soc_traj = np.minimum(oc_val + annual_rate * yr_axis, soc_target_90)
+                tc_traj  = soc_to_tc_per_acre(soc_traj, bulk_density, depth_cm) * field_area
+                val_traj = (tc_traj - curr_tc_field) * C_RATIO * carbon_price
 
-        with table_col:
-            st.markdown("**Credit value sensitivity ($/t CO₂e)**")
-            price_scenarios = [10, 25, 50, 100, 200]
-            milestone_years = sorted(set([5, 10, 20, int(np.ceil(years_to_tgt))] if years_to_tgt > 0 else [5, 10, 20]))
-            rows = []
-            for yr in milestone_years:
-                soc_at_yr = min(oc_val + annual_rate * yr, soc_target_90)
-                tc_at_yr = soc_to_tc_per_acre(soc_at_yr, bulk_density, depth_cm) * field_area
-                co2_at_yr = max(0.0, tc_at_yr - curr_tc_field) * C_RATIO
-                row_vals = {"Year": f"Yr {yr}"}
-                for p in price_scenarios:
-                    row_vals[f"${p}"] = f"${co2_at_yr * p:,.0f}"
-                rows.append(row_vals)
-            st.dataframe(pd.DataFrame(rows), hide_index=True, width='stretch')
+                fig_traj = go.Figure()
+                fig_traj.add_trace(go.Scatter(x=yr_axis, y=soc_traj, mode="lines", name="SOC (%)",
+                                              line=dict(color="#1a9641", width=2.5),
+                                              hovertemplate="Year %{x:.0f}<br>SOC: %{y:.2f}%<extra></extra>"))
+                fig_traj.add_hline(y=soc_target_90, line_dash="dash", line_color="rgba(0,114,178,0.6)",
+                                   annotation_text=f"90th pct target ({soc_target_90:.2f}%)", annotation_position="right")
+                fig_traj.add_hline(y=oc_val, line_dash="dot", line_color="rgba(200,100,0,0.5)",
+                                   annotation_text=f"Current ({oc_val}%)", annotation_position="right")
+                if years_to_tgt > 0:
+                    fig_traj.add_trace(go.Scatter(
+                        x=[years_to_tgt], y=[soc_target_90], mode="markers+text",
+                        marker=dict(color="#0072B2", size=12, line=dict(color="white", width=2)),
+                        text=[f"  Yr {years_to_tgt:.1f}"], textposition="middle right", name="Target reached"
+                    ))
+                fig_traj.add_trace(go.Scatter(x=yr_axis, y=val_traj, mode="lines", name="Cumulative credit value ($)",
+                                              line=dict(color="#E69F00", width=2, dash="dot"), yaxis="y2",
+                                              hovertemplate="Year %{x:.0f}<br>Value: $%{y:,.0f}<extra></extra>"))
+                fig_traj.update_layout(
+                    xaxis_title="Years from now",
+                    yaxis=dict(title="SOC (%)", gridcolor="rgba(150,150,150,0.1)"),
+                    yaxis2=dict(title="Cumulative credit value ($)", overlaying="y", side="right",
+                                showgrid=False, tickformat="$,.0f"),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                    height=360, margin=dict(l=10, r=60, t=40, b=10)
+                )
+                st.plotly_chart(fig_traj, width='stretch', key=f"{k}_traj_chart")
 
-            ann_tc = soc_to_tc_per_acre(annual_rate, bulk_density, depth_cm) * field_area
-            ann_co2 = ann_tc * C_RATIO
-            ann_value = ann_co2 * carbon_price
-            st.markdown(f"""
+            with table_col:
+                st.markdown("**Credit value sensitivity ($/t CO₂e)**")
+                price_scenarios = [10, 25, 50, 100, 200]
+                milestone_years = sorted(set([5, 10, 20, int(np.ceil(years_to_tgt))] if years_to_tgt > 0 else [5, 10, 20]))
+                rows = []
+                for yr in milestone_years:
+                    soc_at_yr = min(oc_val + annual_rate * yr, soc_target_90)
+                    tc_at_yr = soc_to_tc_per_acre(soc_at_yr, bulk_density, depth_cm) * field_area
+                    co2_at_yr = max(0.0, tc_at_yr - curr_tc_field) * C_RATIO
+                    row_vals = {"Year": f"Yr {yr}"}
+                    for p in price_scenarios:
+                        row_vals[f"${p}"] = f"${co2_at_yr * p:,.0f}"
+                    rows.append(row_vals)
+                st.dataframe(pd.DataFrame(rows), hide_index=True, width='stretch')
+
+                ann_tc = soc_to_tc_per_acre(annual_rate, bulk_density, depth_cm) * field_area
+                ann_co2 = ann_tc * C_RATIO
+                ann_value = ann_co2 * carbon_price
+                st.markdown(f"""
 | Metric | Value |
 |---|---|
 | Annual C gain | {ann_tc:.2f} t C/yr |
 | Annual CO₂e | {ann_co2:.2f} t CO₂e/yr |
 | Annual credit value | ${ann_value:,.0f}/yr |
 """)
-            st.caption("⚠️ Estimates assume linear SOC accumulation. Actual sequestration is nonlinear "
-                       "and depends on management, soil type, and climate. Consult a certified carbon "
-                       "project developer before trading.")
-
+                st.caption("⚠️ Estimates assume linear SOC accumulation. Actual sequestration is nonlinear "
+                           "and depends on management, soil type, and climate. Consult a certified carbon "
+                           "project developer before trading.")
     st.divider()
     st.markdown("#### 📚 Resources")
     rc1, rc2, rc3 = st.columns(3)

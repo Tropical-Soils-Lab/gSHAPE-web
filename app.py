@@ -1518,24 +1518,22 @@ def render_single_sample(region_name, cfg, df, df_hist):
             else:
                 direction = "raise"
                 amendment = "agricultural lime (calcium carbonate) or dolomite"
-
             # 2. Assign the 5-tier logic
             if score_ph >= 80:
                 ph_level = "Very High"
-                ph_rec = "Your soil pH is optimal for this crop. Nutrient availability is maximized. Maintain current management practices; no amendments are currently required."
+                ph_rec = "Your soil pH is optimal for this crop, supporting maximum nutrient availability. Maintain current management practices; no amendments appear necessary at this time."
             elif score_ph >= 60:
                 ph_level = "High"
-                ph_rec = f"Your soil pH is good, though slightly outside the perfect optimum. Monitor in future seasons to ensure it doesn't drift further, but no immediate corrective action is needed."
+                ph_rec = f"Your soil pH is adequate, though slightly outside the perfect optimum. Monitor in future seasons to ensure it doesn't drift further. Routine management is likely sufficient."
             elif score_ph >= 40:
                 ph_level = "Medium"
-                ph_rec = f"Your soil pH is moderately impacting crop potential and nutrient availability. Consider a mild application of {amendment} to gradually {direction} the pH towards the {opt_ph} optimum."
+                ph_rec = f"Your soil pH may be moderately limiting crop potential and nutrient availability. You might consider a targeted application of {amendment} to gradually {direction} the pH towards the {opt_ph} optimum. Please consult a local agronomist to determine the precise application rate for your specific soil type."
             elif score_ph >= 20:
                 ph_level = "Low"
-                ph_rec = f"Your soil pH is significantly limiting yield potential. Fertilizer efficiency is likely reduced. A targeted application of {amendment} is recommended to {direction} the pH."
+                ph_rec = f"Your soil pH is likely limiting yield potential and reducing fertilizer efficiency. An application of {amendment} is recommended to {direction} the pH. We suggest consulting a local agronomist or extension agent to calculate an accurate and safe application rate."
             else:
                 ph_level = "Very Low"
-                ph_rec = f"Critical limitation. Your soil pH is severely outside the acceptable range for this crop, locking up essential nutrients. Immediate application of {amendment} is strongly advised to {direction} the pH towards {opt_ph}."
-
+                ph_rec = f"Your soil pH is substantially outside the optimal range for this crop, which can severely lock up essential nutrients. A corrective application of {amendment} to {direction} the pH towards {opt_ph} is highly recommended. Please consult with a certified agronomist for an accurate prescription and safe application strategy."
             # 3. Render the recommendation box
             st.info(f"**Score Tier: {ph_level}**\n\n{ph_rec}")
 

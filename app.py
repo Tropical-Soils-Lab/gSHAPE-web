@@ -1371,13 +1371,28 @@ def render_single_sample(region_name, cfg, df, df_hist):
             )
             st.plotly_chart(fig_p, width='stretch', key=f"{k}_p_curve_plot")
 
-            st.markdown("##### Agronomic Interpretation")
-            if corrected_p < pmax_lim:
-                st.error("📉 **Deficient Zone:** Available phosphorus constraints restrict agronomic production potential.")
-            elif score_p > 99.0:
-                st.success("🎯 **Optimum sufficiency plateau:** Maximum vegetative performance profile verified.")
+# ── 5-TIER PHOSPHORUS RECOMMENDATION ENGINE ──
+            st.markdown("### 📋 Agronomic Recommendations")
+            
+            # 1. Assign the 5-tier logic
+            if score_p >= 80:
+                p_level = "Very High"
+                p_rec = "Your soil phosphorus level is optimal, fully meeting crop demand. Additional phosphorus application is generally unnecessary and should be avoided to minimize risk of environmental runoff."
+            elif score_p >= 60:
+                p_level = "High"
+                p_rec = "Your soil phosphorus level is adequate for healthy crop production. Routine soil testing and maintenance-level applications (matching crop removal rates) are recommended to maintain fertility."
+            elif score_p >= 40:
+                p_level = "Medium"
+                p_rec = "Your soil phosphorus level is moderate and may occasionally limit yield during high-demand growth stages. Consider a modest application or targeted starter fertilizer. We suggest consulting a local agronomist to align application rates with crop removal."
+            elif score_p >= 20:
+                p_level = "Low"
+                p_rec = "Your soil phosphorus level is low and likely restricting early root development and crop yield. A corrective application of phosphorus fertilizer or organic amendments is recommended. Please consult a certified agronomist for a soil-test based fertilizer prescription."
             else:
-                st.warning("⚠️ **Environmental Hazard Threshold:** Runoff risk flagged due to high baseline matrix saturation.")
+                p_level = "Very Low"
+                p_rec = "Your soil phosphorus level is severely deficient, presenting a major constraint on crop growth. A structured nutrient management plan is recommended. Please consult with a certified agronomist or extension specialist to establish a safe, soil-test based application strategy."
+
+            # 2. Render the recommendation box
+            st.info(f"**Score Tier: {p_level}**\n\n{p_rec}")
 
     elif chosen_indicator == "Bulk Density":
         
@@ -1435,10 +1450,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
             )
             st.plotly_chart(fig_bd, width='stretch', key=f"{k}_bd_curve_plot")
             
-            if bd_val > 1.6 and texture_id >= 4:
-                st.error("📉 **Severe Compaction Risk:** Values above 1.6 g/cm³ in fine-textured soils restrict root penetration and aeration.")
-            elif score_bd > 80:
-                st.success("🎯 **Optimum Structure:** Excellent porosity and aggregation supporting maximum root proliferation.")
     # ── 5-TIER BULK DENSITY RECOMMENDATION ENGINE ──
             st.markdown("### 📋 Agronomic Recommendations")
             

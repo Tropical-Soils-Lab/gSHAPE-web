@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+from diagnostics import render_constraints_table
 from scipy.stats import norm
 from scipy.interpolate import PchipInterpolator
 import plotly.graph_objects as go
@@ -1287,6 +1288,23 @@ def render_single_sample(region_name, cfg, df, df_hist):
         key=f"{k}_summary_chart",
         config={'displayModeBar': False}
     )
+
+    # =========================================================================
+    # ✨ ✨ NEW: SOIL HEALTH CONSTRAINTS DIAGNOSTIC TABLE ✨ ✨
+    # =========================================================================
+    user_final_diagnostics = {
+        "Physical": int(round(score_phys)),
+        "Chemical": int(round(score_chem)),
+        "SOC":      int(round(score_bio))     
+    }
+
+    st.markdown("### 📋 Soil Health Constraint Diagnostic")
+    st.markdown("Address these critical functional constraints to unlock full soil and crop potential:")
+    
+    render_constraints_table(user_final_diagnostics)
+    
+    st.divider()
+    
     # ── INDICATOR SELECTION ──
     indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density"]
     chosen_indicator = st.selectbox(

@@ -1634,54 +1634,96 @@ def render_single_sample(region_name, cfg, df, df_hist):
             # 2. Render the recommendation box
             st.info(f"**Score Tier: {bd_level}**\n\n{bd_rec}")
     elif chosen_indicator == "Electrical Conductivity":
-        st.markdown("### ⚡ Electrical Conductivity (EC)")
-        
         # 1. Grab Global Variables
         ec_method_id = 1 if "Saturated Paste" in ec_method_str else 2
         crop_name = st.session_state[f"{k}_sm_crop"]
         crop_id = SMAF_DATA["crop_ui_map"].get(crop_name.lower(), 0)
         texture_id = SMAF_TEXTURE_MAP[st.session_state[f"{k}_sm_tex"]]
         
-        # 2. Calculate Score using the global ec_val
-        score_ec = run_smaf_ec_score(ec_val, crop_id, ec_method_id, texture_id, SMAF_DATA)
+        # 2. Calculate Score securely
+        raw_score_ec = run_smaf_ec_score(ec_val, crop_id, ec_method_id, texture_id, SMAF_DATA)
+        score_ec = safe_float(raw_score_ec)
+        ec_color = score_color(score_ec)
+        ec_label = score_label(score_ec)
         
-        # 3. Display Metric
-        st.metric("EC Score", f"{score_ec:.0f}/100", score_label(score_ec))
+        # 3. Create the 1:2 Column Layout (matching pH)
+        col_l, col_r = st.columns([1, 2])
         
-        # 4. Build the Plotly Curve
-        hi_range = 9.0 if ec_method_id == 1 else 6.0
-        xs = np.linspace(0, hi_range, 300)
-        ys = [run_smaf_ec_score(x, crop_id, ec_method_id, texture_id, SMAF_DATA) for x in xs]
-        
-        fig_ec = go.Figure()
-        fig_ec.add_trace(go.Scatter(
-            x=xs, y=ys, mode="lines", 
-            line=dict(color="#B5651D", width=3), 
-            name="Score Curve",
-            hovertemplate="EC: %{x:.2f} dS/m<br>Score: %{y:.0f}<extra></extra>"
-        ))
-        
-        fig_ec.add_trace(go.Scatter(
-            x=[ec_val], y=[score_ec], mode="markers", 
-            marker=dict(color=score_color(score_ec), size=14, line=dict(color="white", width=2)), 
-            name="Your Soil"
-        ))
-        
-        fig_ec.update_layout(
-            xaxis_title=f"{'ECsat' if ec_method_id == 1 else 'EC 1:1'} (dS/m)", 
-            yaxis_title="SHAPE Score",
-            yaxis=dict(range=[0, 105]), 
-            xaxis=dict(range=[0, hi_range]),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02),
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
-            height=400, margin=dict(l=10, r=10, t=40, b=10)
-        )
-        st.plotly_chart(fig_ec, use_container_width=True, key=f"{k}_ec_curve_plot")
+        with col_l:
+            # Header text matching pH style
+            st.markdown(f"<h4 style='text-align: center; margin-bottom: 0px;'>{ec_label}</h4>", unsafe_allow_html=True)
+            st.markdown(f"<p style='text-align: center; color: #888; font-size: 13px;'>{crop_name} - EC {ec_val}</p>", unsafe_allow_html=True)
+            
+            # The Gauge Chart
+            fig_ec_gauge = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=score_ec,
+                number={'font': {'color': ec_color, 'size': 45}, 'suffix': "/100"},
+                domain={'x': [0, 1], 'y': [0, 1]},
+                gauge={
+                    'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "white"},
+                    'bar': {'color': ec_color, 'thickness': 0.2},
+                    'steps': [
+                        {'range': [0, 20], 'color': "rgba(215, 25, 28, 0.4)"},
+                        {'range': [20, 40], 'color': "rgba(253, 174, 97, 0.4)"},
+                        {'range': [40, 60], 'color': "rgba(255, 255, 191, 0.4)"},
+                        {'range': [60, 80], 'color': "rgba(166, 217, 106, 0.4)"},
+                        {'range': [80, 100], 'color': "rgba(26, 150, 65, 0.4)"}
+                    ],
+                }
+            ))
+            fig_ec_gauge.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                height=220,
+                margin=dict(l=10, r=10, t=10, b=10)
+            )
+            st.plotly_chart(fig_ec_gauge, use_container_width=True, key=f"{k}_ec_gauge_plot")
+            
+            # Variance/Threshold Info
+            threshold_val = smaf_ec_threshold(crop_id, ec_method_id, texture_id, SMAF_DATA)
+            st.markdown("##### EC Threshold")
+            st.markdown(f"**{threshold_val:.2f} dS/m**")
+            
+            if ec_val > threshold_val:
+                st.markdown(f"<span style='color: #d7191c; font-size: 14px; font-weight: bold;'>↑ Exceeds Tolerance by {ec_val - threshold_val:.2f}</span>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<span style='color: #1a9641; font-size: 14px; font-weight: bold;'>✓ Within Tolerance</span>", unsafe_allow_html=True)
+
+        with col_r:
+            st.markdown("### Scoring Curve")
+            hi_range = 9.0 if ec_method_id == 1 else 6.0
+            xs = np.linspace(0, hi_range, 300)
+            ys = [run_smaf_ec_score(x, crop_id, ec_method_id, texture_id, SMAF_DATA) for x in xs]
+            
+            fig_ec = go.Figure()
+            fig_ec.add_trace(go.Scatter(
+                x=xs, y=ys, mode="lines", 
+                line=dict(color="#B5651D", width=3), 
+                name="Score Curve",
+                hovertemplate="EC: %{x:.2f} dS/m<br>Score: %{y:.0f}<extra></extra>"
+            ))
+            
+            fig_ec.add_trace(go.Scatter(
+                x=[ec_val], y=[score_ec], mode="markers", 
+                marker=dict(color=ec_color, size=14, line=dict(color="white", width=2)), 
+                name="Your Soil"
+            ))
+            
+            fig_ec.update_layout(
+                xaxis_title=f"{'ECsat' if ec_method_id == 1 else 'EC 1:1'} (dS/m)", 
+                yaxis_title="SHAPE Score",
+                yaxis=dict(range=[0, 105]), 
+                xaxis=dict(range=[0, hi_range]),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
+                height=350, margin=dict(l=10, r=10, t=20, b=10)
+            )
+            st.plotly_chart(fig_ec, use_container_width=True, key=f"{k}_ec_curve_plot")
 
         # ── 5-TIER EC RECOMMENDATION ENGINE ──
         st.markdown("### 📋 Agronomic Recommendations")
         
-        threshold_val = smaf_ec_threshold(crop_id, ec_method_id, texture_id, SMAF_DATA)
         if ec_val > threshold_val:
             issue_type = "salinity"
             amendment = "leaching fractions, improving drainage, or applying gypsum to displace sodium"
@@ -1706,7 +1748,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
             ec_rec = f"Critical limitation. Your soil EC is severely restricting crop growth and soil biological function due to extreme {issue_type}. Immediate consultation with a certified agronomist is strongly advised to establish a safe remediation strategy."
 
         st.info(f"**Score Tier: {ec_level}**\n\n{ec_rec}")
-
     elif chosen_indicator == "pH":
         # Global definition prevents NameError
         crop_selected_name = st.session_state[f"{k}_sm_crop"]

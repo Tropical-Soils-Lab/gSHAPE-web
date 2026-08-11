@@ -1051,7 +1051,7 @@ def run_smaf_agg_score(agg_val, om_class, texture_id, fe_class, smaf_data, clamp
     import math
     y = K.get("a", 0.0) + K.get("b", 0.0) * math.cos(K.get("c", 0.0) * agg_val - d)
     
-    if agg_val > K.get("plateau_x", 50.0) and y < K.get("plateau_score", 1.0):
+    if agg_val >= K.get("plateau_x", 50.0) and y < K.get("plateau_score", 1.0):
         y = K.get("plateau_score", 1.0)
         
     if clamp:
@@ -1831,19 +1831,25 @@ def render_single_sample(region_name, cfg, df, df_hist):
             st.plotly_chart(fig_agg_gauge, use_container_width=True, key=f"{k}_agg_gauge_plot")
             
         with col_r:
-            st.markdown("### Scoring Curve")
+            st.markdown("#### Scoring Curve")
+            
+            # Smooth the hard SMAF plateau cutoff using PchipInterpolator
+            grid = np.array([0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 80, 100.0])
+            gy = np.array([run_smaf_agg_score(x, om_id, texture_id, fe_id, SMAF_DATA) for x in grid])
+            
+            spl = PchipInterpolator(grid, gy / 100.0)
             xs = np.linspace(0, 100, 300)
-            ys = [run_smaf_agg_score(x, om_id, texture_id, fe_id, SMAF_DATA) for x in xs]
+            ys = np.clip(spl(xs), 0.0, 1.0)
             
             fig_agg = go.Figure()
             fig_agg.add_trace(go.Scatter(
                 x=xs, y=ys, mode="lines", 
                 line=dict(color="#7A5C3E", width=3), 
-                name="Score Curve", hovertemplate="Stability: %{x:.1f}%<br>Score: %{y:.0f}<extra></extra>"
+                name="Score Curve", hovertemplate="Stability: %{x:.1f}%<br>Score: %{y:.0%}<extra></extra>"
             ))
             
             fig_agg.add_trace(go.Scatter(
-                x=[agg_val], y=[score_agg], mode="markers", 
+                x=[agg_val], y=[score_agg / 100.0], mode="markers", 
                 marker=dict(color=agg_color, size=14, line=dict(color="white", width=2)), 
                 name="Your Soil"
             ))
@@ -1851,12 +1857,12 @@ def render_single_sample(region_name, cfg, df, df_hist):
             fig_agg.update_layout(
                 xaxis_title="Macroaggregate Stability (%)", 
                 yaxis_title="SHAPE Score",
-                yaxis=dict(range=[0, 105]), xaxis=dict(range=[0, 100]),
+                yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0, 100]),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02),
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
-                height=350, margin=dict(l=10, r=10, t=20, b=10)
+                height=400, margin=dict(l=10, r=10, t=40, b=10)
             )
-            st.plotly_chart(fig_agg, use_container_width=True, key=f"{k}_agg_curve_plot")
+            st.plotly_chart(fig_agg, width='stretch', key=f"{k}_agg_curve_plot")
 
         # ── 5-TIER AGG RECOMMENDATION ENGINE ──
         st.markdown("### 📋 Agronomic Recommendations")

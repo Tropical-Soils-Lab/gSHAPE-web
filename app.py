@@ -1396,7 +1396,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
     # =========================================================================
     
     # ── INDICATOR SELECTION ──
-indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density", "Electrical Conductivity"]    chosen_indicator = st.selectbox(
+    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density", "Electrical Conductivity"]    chosen_indicator = st.selectbox(
         "Soil Health Indicators:",
         indicator_options,
         key=f"{cfg['key']}_indicator_shared"

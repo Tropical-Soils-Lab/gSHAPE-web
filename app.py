@@ -1334,11 +1334,27 @@ def render_single_sample(region_name, cfg, df, df_hist):
     else:
         score_ph_sum = 0.0 # Fallback if crop is missing pH data
         
+    # =========================================================================
     # ✨ Calculate the Category Averages and the Overall Score
-    score_bio = score_soc
-    score_chem = (score_ph_sum + score_p_sum + score_ec_sum) / 3.0
-    score_phys = score_bd_sum
+    # We use a sanitizer to prevent TypeErrors if any input is missing or None
+    def safe_float(val):
+        try:
+            return float(val) if val is not None else 0.0
+        except (ValueError, TypeError):
+            return 0.0
+
+    # Clean all individual scores
+    score_bio = safe_float(score_soc)
+    score_phys = safe_float(score_bd_sum)
+    
+    ph_clean = safe_float(score_ph_sum)
+    p_clean = safe_float(score_p_sum)
+    ec_clean = safe_float(score_ec_sum)
+    
+    # Calculate averages safely
+    score_chem = (ph_clean + p_clean + ec_clean) / 3.0
     score_overall = (score_phys + score_chem + score_bio) / 3.0
+    # =========================================================================
 
     # 2. Build the Summary Bar Chart
     summary_scores = [int(round(score_phys)), int(round(score_chem)), int(round(score_bio)), int(round(score_overall))]

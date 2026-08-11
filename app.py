@@ -1807,27 +1807,27 @@ def render_single_sample(region_name, cfg, df, df_hist):
         col_l, col_r = st.columns([1, 2])
         
         with col_l:
-            st.markdown(f"<h4 style='text-align: center; margin-bottom: 0px;'>{agg_label}</h4>", unsafe_allow_html=True)
-            st.markdown(f"<p style='text-align: center; color: #888; font-size: 13px;'>Measured Stability: {agg_val}%</p>", unsafe_allow_html=True)
+            gauge_title = f"<b style='font-size:17px'>{agg_label}</b><br><span style='font-size:11px;color:gray'>Agg. Stability {agg_val}%</span>"
             
             fig_agg_gauge = go.Figure(go.Indicator(
-                mode="gauge+number",
-                value=score_agg,
-                number={'font': {'color': agg_color, 'size': 45}, 'suffix': "/100"},
-                domain={'x': [0, 1], 'y': [0, 1]},
+                mode="gauge+number", value=int(round(score_agg)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": agg_color}},
                 gauge={
-                    'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "white"},
-                    'bar': {'color': agg_color, 'thickness': 0.2},
-                    'steps': [
-                        {'range': [0, 20], 'color': "rgba(215, 25, 28, 0.4)"},
-                        {'range': [20, 40], 'color': "rgba(253, 174, 97, 0.4)"},
-                        {'range': [40, 60], 'color': "rgba(255, 255, 191, 0.4)"},
-                        {'range': [60, 80], 'color': "rgba(166, 217, 106, 0.4)"},
-                        {'range': [80, 100], 'color': "rgba(26, 150, 65, 0.4)"}
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": agg_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
                     ],
+                    "threshold": {"line": {"color": agg_color, "width": 5}, "thickness": 0.8, "value": score_agg}
                 }
             ))
-            fig_agg_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=220, margin=dict(l=10, r=10, t=10, b=10))
+            fig_agg_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
             st.plotly_chart(fig_agg_gauge, use_container_width=True, key=f"{k}_agg_gauge_plot")
             
         with col_r:

@@ -821,13 +821,11 @@ def run_smaf_bd_score(bd, texture_id, mineralogy_id=0):
     # --- AUTO-LOADER: Reads BD sheets and cleans headers ---
     if "bd_constants" not in SMAF_DATA:
         try:
-            # Read the file
             sh = pd.read_excel("SMAF_lookup.xlsx", sheet_name=None, dtype=str)
             
             def get_clean_df(sheet_name):
-                """Extracts a sheet and strips hidden spaces from column headers"""
                 if sheet_name not in sh: 
-                    st.error(f"Diagnostic: Could not find a sheet exactly named '{sheet_name}' in Excel.")
+                    st.error(f"Diagnostic: Could not find '{sheet_name}' in Excel.")
                     return pd.DataFrame()
                 df = sh[sheet_name].copy()
                 df.columns = [str(c).strip() for c in df.columns]
@@ -877,12 +875,41 @@ def run_smaf_bd_score(bd, texture_id, mineralogy_id=0):
         except Exception as e:
             st.error(f"Diagnostic: Excel loading crashed with error: {e}")
             return 0.0
+
+    # --- MATH EXECUTION ---
+    K = SMAF_DATA.get("bd_constants", {})
+    if not K: 
+        st.error("Diagnostic: 'bd_constants' loaded, but is empty.")
+        return 0.0
+    
+    a = K.get("a")
+    t = SMAF_DATA["bd_texture_factors"].get(texture_id)
+    if not t: 
+        return 0.0
+    
+    if texture_id < 4:
+        b, c, d = t["b1"], t["c1"], t["d1"]
+    else:
+        m = SMAF_DATA["bd_mineralogy_factors"].get(mineralogy_id, {"range_shift": 0.0, "delta_b": 0.0})
+        r = t["range_lo"] + m["range_shift"]
+        b = t["b1"] + m["delta_b"]
+        c = K["c2_coef_a"] * np.exp(K["c2_coef_b"] * r)
+        d = K["d2_coef_a"] + K["d2_coef_b"] * r
+
+    if None in [a, b, c, d]:
+        return 0.0
+
+    try:
+        y = a - b * np.exp(-c * (bd ** d))
+        return float(max(K["score_min"], min(K["score_max"], y)) * 100.0)
+    except Exception as e:
+        return 0.0
+
 # ----------------------------------------------------------------------
 # SMAF ELECTRICAL CONDUCTIVITY (EC) BACKEND ENGINE
 # ----------------------------------------------------------------------
 def load_ec_data(smaf_data, path="SMAF_lookup.xlsx"):
     """Injects the 4 new EC sheets into the global SMAF_DATA dictionary safely."""
-    # If we already loaded it once, skip to save time!
     if "ec_K" in smaf_data: return 
     
     import math
@@ -895,28 +922,24 @@ def load_ec_data(smaf_data, path="SMAF_lookup.xlsx"):
             return None if math.isnan(v) else v
         except (ValueError, TypeError): return None
 
-    # Load Constants
     ec_K = {}
     for _, r in sh["ec_constants"].iterrows():
         v = num(r["value"])
         if str(r["param_name"]) != "nan" and v is not None:
             ec_K[str(r["param_name"]).strip()] = v
             
-    # Load Crops
     ec_crops = {}
     for _, r in sh["ec_crop_factors"].iterrows():
         cc = num(r["crop_code"])
         if cc is not None:
             ec_crops[int(cc)] = {"tsat": num(r["tsat"]), "dt": num(r["dt"])}
             
-    # Load Textures
     ec_texture = {}
     for _, r in sh["ec_texture_factors"].iterrows():
         tc = num(r["texture_code"])
         if tc is not None:
             ec_texture[int(tc)] = num(r["f_txt"])
 
-    # Safely attach to global dictionary with 'ec_' prefix to prevent clashing!
     smaf_data["ec_K"] = ec_K
     smaf_data["ec_crops"] = ec_crops
     smaf_data["ec_texture"] = ec_texture
@@ -927,7 +950,6 @@ def smaf_ec_slope_m(dt, K):
 
 def smaf_ec_threshold(crop_id, method, texture_id, smaf_data, tsat=None):
     K = smaf_data["ec_K"]
-    # Fallback to standard values (4.0) if a crop isn't found to prevent KeyError crashes!
     crop_info = smaf_data["ec_crops"].get(crop_id, {"tsat": 4.0, "dt": 0.5}) 
     
     if tsat is None:
@@ -938,7 +960,6 @@ def smaf_ec_threshold(crop_id, method, texture_id, smaf_data, tsat=None):
     return (tsat / K["dilution_factor"]) * smaf_data["ec_texture"].get(texture_id, 1.0)
 
 def run_smaf_ec_score(ec_val, crop_id, method, texture_id, smaf_data, clamp=True):
-    # 1. Ensure Excel data is loaded before running math!
     load_ec_data(smaf_data)
     
     K = smaf_data["ec_K"]
@@ -963,43 +984,6 @@ def run_smaf_ec_score(ec_val, crop_id, method, texture_id, smaf_data, clamp=True
         y = max(K["score_min"], min(K["score_max"], y))
         
     return y * 100.0
-
-    # --- MATH EXECUTION ---
-    K = SMAF_DATA.get("bd_constants", {})
-    if not K: 
-        st.error("Diagnostic: 'bd_constants' loaded, but is empty (check column names 'param_name' and 'value').")
-        return 0.0
-    
-    a = K.get("a")
-    if a is None:
-        st.error("Diagnostic: Could not find parameter 'a' in bd_constants.")
-        return 0.0
-
-    t = SMAF_DATA["bd_texture_factors"].get(texture_id)
-    if not t: 
-        st.error(f"Diagnostic: Could not find texture_code '{texture_id}' in bd_texture_factors.")
-        return 0.0
-    
-    if texture_id < 4:
-        b, c, d = t["b1"], t["c1"], t["d1"]
-    else:
-        m = SMAF_DATA["bd_mineralogy_factors"].get(mineralogy_id, {"range_shift": 0.0, "delta_b": 0.0})
-        r = t["range_lo"] + m["range_shift"]
-        b = t["b1"] + m["delta_b"]
-        c = K["c2_coef_a"] * np.exp(K["c2_coef_b"] * r)
-        d = K["d2_coef_a"] + K["d2_coef_b"] * r
-
-    # Check for missing variables before math
-    if None in [a, b, c, d]:
-        st.error(f"Diagnostic: Missing variables -> a:{a}, b:{b}, c:{c}, d:{d}")
-        return 0.0
-
-    try:
-        y = a - b * np.exp(-c * (bd ** d))
-        return float(max(K["score_min"], min(K["score_max"], y)) * 100.0)
-    except Exception as e:
-        st.error(f"Diagnostic: Math domain error: {e}")
-        return 0.0
 
 def fetch_climate(lat, lon, need_precip=False):
     """Fetch MAT (and optionally MAP) from NASA POWER climatology."""

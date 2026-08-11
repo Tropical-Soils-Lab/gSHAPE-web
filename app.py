@@ -1171,9 +1171,9 @@ def render_single_sample(region_name, cfg, df, df_hist):
     if f"{k}_sm_tex" not in st.session_state: st.session_state[f"{k}_sm_tex"] = "— Select —"
     if f"{k}_sm_slope" not in st.session_state: st.session_state[f"{k}_sm_slope"] = "— Select —"
 
-   # ── MASTER SITE INPUTS (Always Visible) ──
-    with st.expander("⚙️ Site Inputs", expanded=True):
-        c1, c2, c3 = st.columns(3)
+  # ── MASTER SITE INPUTS (Always Visible) ──
+    with st.expander("⚙️ Site & Management Inputs", expanded=True):
+        c1, c2 = st.columns(2)
         
         with c1:
             # Taxonomy & Landscape
@@ -1210,6 +1210,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             # Management & Climate
             selected_method = st.selectbox("P Extraction Method", ["— Select —"] + list(SMAF_METHOD_MAP.keys()), key=f"{k}_sm_method")
             selected_weath = st.selectbox("Soil Weathering Class", ["— Select —"] + list(SMAF_WEATHERING_MAP.keys()), key=f"{k}_sm_weather")
+            ec_method_str = st.selectbox("EC Method", ["Saturated Paste (ECsat)", "1:1 Soil:Water (EC1:1)"], key=f"{k}_ec_method")
             
             use_geo = st.checkbox("Fetch climate from coordinates", key=f"{k}_geo")
             lat_in, lon_in = cfg["default_latlon"]
@@ -1241,16 +1242,21 @@ def render_single_sample(region_name, cfg, df, df_hist):
             else:
                 hist_toggle = False
 
-        with c3:
-            # Core Lab Measurements
+    # ── MASTER LAB INPUTS (Always Visible) ──
+    with st.expander("🧪 Laboratory Measurements", expanded=True):
+        lc1, lc2, lc3 = st.columns(3)
+        
+        with lc1:
             oc_val = st.number_input("Measured SOC (%)", 0.01, 80.0, key=f"{k}_oc")
-            p_val = st.number_input("Measured Extractable P (mg/kg)", 0.0, 500.0, key=f"{k}_sm_p_input")
-            bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.5, max_value=2.0, value=1.45, step=0.05, key=f"{k}_bd_input")
-            ec_val = st.number_input("EC (dS/m)", min_value=0.0, max_value=20.0, value=1.5, step=0.1, key=f"{k}_ec_val")
-            ec_method_str = st.selectbox("EC Method", ["Saturated Paste (ECsat)", "1:1 Soil:Water (EC1:1)"], key=f"{k}_ec_method")
             ph_val = st.number_input("Measured Soil pH", 0.0, 14.0, key=f"{k}_ph_measured_input")
+            
+        with lc2:
+            p_val = st.number_input("Measured Extractable P (mg/kg)", 0.0, 500.0, key=f"{k}_sm_p_input")
+            ec_val = st.number_input("Measured EC (dS/m)", min_value=0.0, max_value=20.0, value=1.5, step=0.1, key=f"{k}_ec_val")
+            
+        with lc3:
+            bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.5, max_value=2.0, value=1.45, step=0.05, key=f"{k}_bd_input")
             target_pct = st.slider("Benchmark Percentile (SOC)", 50, 99, 90, key=f"{k}_pct")
-
     # ✨ THE MASTER SITE INPUTS GATEKEEPER ✨
     required_inputs = [selected_sub, selected_tex, selected_sm_tex, selected_sm_slope, selected_method, selected_weath]
     if selected_bd_min is not None:

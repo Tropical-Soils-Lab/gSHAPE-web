@@ -1058,6 +1058,87 @@ def run_smaf_agg_score(agg_val, om_class, texture_id, fe_class, smaf_data, clamp
         y = max(K.get("score_min", 0.0), min(K.get("score_max", 1.0), y))
         
     return y * 100.0
+# ----------------------------------------------------------------------
+# SMAF SODIUM ADSORPTION RATIO (SAR) BACKEND ENGINE
+# ----------------------------------------------------------------------
+def load_sar_data(smaf_data, path="SMAF_lookup.xlsx"):
+    """Injects the 2 new SAR sheets into the global SMAF_DATA dictionary safely."""
+    if "sar_K" in smaf_data: return 
+    
+    import math, pandas as pd
+    sh = pd.read_excel(path, sheet_name=None, dtype=str)
+    
+    def num(x):
+        try: return float(x) if not pd.isna(x) else None
+        except: return None
+        
+    sar_K = {}
+    if "sar_constants" in sh:
+        for _, r in sh["sar_constants"].iterrows():
+            v = num(r.get("value"))
+            p = str(r.get("param_name")).strip()
+            if p != "nan" and v is not None: sar_K[p] = v
+            
+    sar_branches = {}
+    if "sar_branch_params" in sh:
+        for _, r in sh["sar_branch_params"].iterrows():
+            b = str(r.get("branch")).strip()
+            form = str(r.get("form")).strip()
+            if b != "nan" and form != "nan":
+                sar_branches[b] = {
+                    "form": form,
+                    "coef": [num(r.get(k)) for k in "abcdefg"]
+                }
+                
+    smaf_data["sar_K"] = sar_K
+    smaf_data["sar_branches"] = sar_branches
+
+def sar_branch_for(ec_sat, K):
+    if ec_sat < K.get("ec_break_lo", 0.2): return "lo"
+    if ec_sat > K.get("ec_break_hi", 0.55): return "hi"
+    return "med"
+
+def run_smaf_sar_score(sar_val, ec_val, method_id, texture_id, smaf_data, clamp=True):
+    load_sar_data(smaf_data)
+    # Ensure EC data is loaded too, because we need texture/dilution factors!
+    load_ec_data(smaf_data) 
+    
+    K = smaf_data.get("sar_K", {})
+    branches = smaf_data.get("sar_branches", {})
+    if not K or not branches: return 0.0
+    
+    # 1. Convert measured EC to ECsat equivalent if 1:1 method was used
+    if method_id == 1:
+        ec_sat = ec_val
+    else:
+        f_txt = smaf_data.get("ec_texture", {}).get(texture_id, 1.0)
+        dfact = smaf_data.get("ec_K", {}).get("dilution_factor", 1.77)
+        ec_sat = (ec_val * dfact) / f_txt if f_txt else (ec_val * 1.77)
+        
+    # 2. Select the correct formula branch
+    branch_key = sar_branch_for(ec_sat, K)
+    b = branches.get(branch_key)
+    if not b: return 0.0
+    
+    a, bb, c, d, e, f, g = b["coef"]
+    
+    # 3. Calculate Score
+    if b["form"] == "reciprocal_power":
+        # y = 1 / (a + b * SAR^c)
+        denominator = a + bb * (sar_val ** c)
+        y = 1.0 / denominator if denominator != 0 else 0.0
+    elif b["form"] == "polynomial":
+        y = 0.0
+        for i, coef in enumerate([a, bb, c, d, e, f, g]):
+            if coef is not None:
+                y += coef * (sar_val ** i)
+    else:
+        y = 0.0
+        
+    if clamp:
+        y = max(K.get("score_min", 0.0), min(K.get("score_max", 1.0), y))
+        
+    return y * 100.0
 
 def fetch_climate(lat, lon, need_precip=False):
     """Fetch MAT (and optionally MAP) from NASA POWER climatology."""
@@ -1319,7 +1400,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
             else:
                 hist_toggle = False
 
-    # ── MASTER LAB INPUTS (Always Visible) ──
     with st.expander("🧪 Laboratory Measurements", expanded=True):
         lc1, lc2, lc3 = st.columns(3)
         
@@ -1331,11 +1411,13 @@ def render_single_sample(region_name, cfg, df, df_hist):
         with lc2:
             p_val = st.number_input("Measured Extractable P (mg/kg)", 0.0, 500.0, key=f"{k}_sm_p_input")
             ec_val = st.number_input("Measured EC (dS/m)", min_value=0.0, max_value=20.0, value=1.5, step=0.1, key=f"{k}_ec_val")
+            # ✨ NEW: SAR Input Box added to center column
+            sar_val = st.number_input("Measured SAR", min_value=0.0, max_value=50.0, value=2.0, step=0.5, key=f"{k}_sar_val")
             
         with lc3:
             bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.5, max_value=2.0, value=1.45, step=0.05, key=f"{k}_bd_input")
             target_pct = st.slider("Benchmark Percentile (SOC)", 50, 99, 90, key=f"{k}_pct")
-
+            
     # ✨ THE MASTER SITE INPUTS GATEKEEPER ✨
     required_inputs = [selected_sub, selected_tex, selected_sm_tex, selected_sm_slope, selected_method, selected_weath, ec_method_str, selected_om_class, selected_fe_class]
     
@@ -1397,6 +1479,9 @@ def render_single_sample(region_name, cfg, df, df_hist):
     om_id_sum = SMAF_OM_MAP.get(selected_om_class, 2)
     fe_id_sum = SMAF_FE_MAP.get(selected_fe_class, 2)
     raw_score_agg_sum = run_smaf_agg_score(agg_val, om_id_sum, texture_id_sum, fe_id_sum, SMAF_DATA)
+
+    # Sodium Adsorption Ratio (SAR) Score (Silent Calculation)
+    raw_score_sar_sum = run_smaf_sar_score(sar_val, ec_val, ec_method_id_sum, texture_id_sum, SMAF_DATA)
     
     # pH Score
     crop_selected_name_sum = st.session_state[f"{k}_sm_crop"]
@@ -1421,8 +1506,8 @@ def render_single_sample(region_name, cfg, df, df_hist):
     # Physical = Average of BD and AGG
     score_phys = (safe_float(raw_score_bd_sum) + safe_float(raw_score_agg_sum)) / 2.0
     
-    # Chemical = Average of pH, P, and EC
-    score_chem = (safe_float(raw_score_ph_sum) + safe_float(score_p_sum) + safe_float(raw_score_ec_sum)) / 3.0
+    # ✨ Chemical = Average of pH, P, EC, and SAR (Divide by 4.0!)
+    score_chem = (safe_float(raw_score_ph_sum) + safe_float(score_p_sum) + safe_float(raw_score_ec_sum) + safe_float(raw_score_sar_sum)) / 4.0
     
     score_overall = (score_phys + score_chem + score_bio) / 3.0
     # =========================================================================
@@ -1520,7 +1605,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
     # =========================================================================
     
     # ── INDICATOR SELECTION ──
-    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density", "Electrical Conductivity", "Macroaggregate Stability"]    
+    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density", "Electrical Conductivity", "Macroaggregate Stability", "Sodium Adsorption Ratio"]   
     chosen_indicator = st.selectbox(
         "Soil Health Indicators:",
         indicator_options,
@@ -1863,6 +1948,103 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 height=400, margin=dict(l=10, r=10, t=40, b=10)
             )
             st.plotly_chart(fig_agg, width='stretch', key=f"{k}_agg_curve_plot")
+    elif chosen_indicator == "Sodium Adsorption Ratio":
+        # 1. Grab Global Variables
+        ec_method_id = 1 if "Saturated Paste" in ec_method_str else 2
+        texture_id = SMAF_TEXTURE_MAP[st.session_state[f"{k}_sm_tex"]]
+        
+        # 2. Calculate Score securely
+        raw_score_sar = run_smaf_sar_score(sar_val, ec_val, ec_method_id, texture_id, SMAF_DATA)
+        
+        try:
+            score_sar = float(raw_score_sar) if raw_score_sar is not None else 0.0
+        except (ValueError, TypeError):
+            score_sar = 0.0
+            
+        sar_color = score_color(score_sar)
+        sar_label = score_label(score_sar)
+        
+        # 3. Create the 1:2 Column Layout
+        col_l, col_r = st.columns([1, 2])
+        
+        with col_l:
+            gauge_title = f"<b style='font-size:17px'>{sar_label}</b><br><span style='font-size:11px;color:gray'>Measured SAR {sar_val}</span>"
+            
+            fig_sar_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_sar)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": sar_color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": sar_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
+                    ],
+                    "threshold": {"line": {"color": sar_color, "width": 5}, "thickness": 0.8, "value": score_sar}
+                }
+            ))
+            fig_sar_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
+            st.plotly_chart(fig_sar_gauge, use_container_width=True, key=f"{k}_sar_gauge_plot")
+            
+        with col_r:
+            st.markdown("#### Scoring Curve")
+            
+            # Use PchipInterpolator for a flawlessly smooth curve across the polynomials
+            grid = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12.0])
+            gy = np.array([run_smaf_sar_score(x, ec_val, ec_method_id, texture_id, SMAF_DATA) for x in grid])
+            
+            spl = PchipInterpolator(grid, gy / 100.0)
+            xs = np.linspace(0, 12, 300)
+            ys = np.clip(spl(xs), 0.0, 1.0)
+            
+            fig_sar = go.Figure()
+            fig_sar.add_trace(go.Scatter(
+                x=xs, y=ys, mode="lines", 
+                line=dict(color="#2E5E8C", width=3), 
+                name="Score Curve", hovertemplate="SAR: %{x:.1f}<br>Score: %{y:.0%}<extra></extra>"
+            ))
+            
+            fig_sar.add_trace(go.Scatter(
+                x=[sar_val], y=[score_sar / 100.0], mode="markers", 
+                marker=dict(color=sar_color, size=14, line=dict(color="white", width=2)), 
+                name="Your Soil"
+            ))
+            
+            fig_sar.update_layout(
+                xaxis_title="Sodium Adsorption Ratio (SAR)", 
+                yaxis_title="SHAPE Score",
+                yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0, 12]),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
+                height=400, margin=dict(l=10, r=10, t=40, b=10)
+            )
+            st.plotly_chart(fig_sar, width='stretch', key=f"{k}_sar_curve_plot")
+
+        # ── 5-TIER SAR RECOMMENDATION ENGINE ──
+        st.markdown("### 📋 Agronomic Recommendations")
+
+        if score_sar >= 80:
+            sar_level = "Very High"
+            sar_rec = "Your soil sodium levels are optimal and pose no threat to soil structure or plant health. Water infiltration and aeration are unrestricted by sodicity."
+        elif score_sar >= 60:
+            sar_level = "High"
+            sar_rec = "Your soil SAR is at a safe, manageable level. Continue routine monitoring, especially if irrigating with groundwater, to prevent slow sodium accumulation."
+        elif score_sar >= 40:
+            sar_level = "Medium"
+            sar_rec = "Your soil indicates a moderate sodium hazard. You may begin to notice minor surface crusting or slightly reduced water infiltration. Consider a preventative application of a soluble calcium source (like gypsum) to displace sodium from the clay exchange sites."
+        elif score_sar >= 20:
+            sar_level = "Low"
+            sar_rec = "Your soil has high sodicity, which is likely causing soil dispersion, severe crusting, and poor drainage. A structured remediation plan involving gypsum application followed by heavy leaching irrigation is recommended. Consult a local agronomist."
+        else:
+            sar_level = "Very Low"
+            sar_rec = "Critical sodicity limitation. High sodium levels are causing severe structural collapse, rendering the soil highly impermeable and toxic to most crops. Immediate and aggressive remediation with calcium amendments and intensive leaching is required."
+
+        st.info(f"**Score Tier: {sar_level}**\n\n{sar_rec}")
 
         # ── 5-TIER AGG RECOMMENDATION ENGINE ──
         st.markdown("### 📋 Agronomic Recommendations")

@@ -877,6 +877,58 @@ def run_smaf_bd_score(bd, texture_id, mineralogy_id=0):
         except Exception as e:
             st.error(f"Diagnostic: Excel loading crashed with error: {e}")
             return 0.0
+# ----------------------------------------------------------------------
+# SMAF ELECTRICAL CONDUCTIVITY (EC) BACKEND ENGINE
+# ----------------------------------------------------------------------
+def smaf_ec_slope_m(dt, K):
+    """Calculates the rate of score decline once EC exceeds the threshold."""
+    den = K["m_den_a"] + K["m_den_b"] * dt - K["m_den_c"] * dt ** 2
+    return (K["m_num_a"] - K["m_num_b"] * dt) / den
+
+def smaf_ec_threshold(crop_id, method, texture_id, smaf_data, tsat=None):
+    """Calculates the EC threshold (T) for the selected method."""
+    K = smaf_data["K"]
+    crop_info = smaf_data["crops"].get(crop_id)
+    
+    if tsat is None:
+        tsat = crop_info["tsat"]
+        
+    if method == 1: # Saturated Paste
+        return tsat
+    
+    # 1:1 soil:water method requires texture modifier
+    f_txt = smaf_data["texture"].get(texture_id, 1.0)
+    return (tsat / K["dilution_factor"]) * f_txt
+
+def run_smaf_ec_score(ec_val, crop_id, method, texture_id, smaf_data, clamp=True):
+    """Calculates the 0-100 SMAF score for EC."""
+    K = smaf_data["K"]
+    crop_info = smaf_data["crops"].get(crop_id)
+    
+    tsat = crop_info["tsat"]
+    dt = crop_info["dt"]
+    T = smaf_ec_threshold(crop_id, method, texture_id, smaf_data, tsat)
+
+    # Determine breaks based on method (1 = Sat Paste, 2 = 1:1)
+    if method == 1:
+        brk, rise = K["sat_break"], K["sat_rise_slope"]
+    else:
+        brk, rise = K["ec11_break"], K["ec11_rise_slope"]
+
+    # Rising limb -> Plateau -> Linear decline
+    if ec_val < brk:                                  
+        y = rise * ec_val
+    elif ec_val > T:                                  
+        m = smaf_ec_slope_m(dt, K)
+        y = m * ec_val + (K["plateau"] - m * T)
+    else:                                             
+        y = K["plateau"]
+
+    if clamp:
+        y = max(K["score_min"], min(K["score_max"], y))
+        
+    # Scale from 0.0-1.0 to 0-100 to match the rest of the app
+    return y * 100.0
 
     # --- MATH EXECUTION ---
     K = SMAF_DATA.get("bd_constants", {})
@@ -1231,6 +1283,10 @@ def render_single_sample(region_name, cfg, df, df_hist):
     mineral_str = st.session_state.get(f"{k}_bd_min", "— Select —")
     mineralogy_id_sum = SMAF_MINERALOGY_MAP.get(mineral_str, 0) if mineral_str != "— Select —" else 0
     score_bd_sum = run_smaf_bd_score(bd_val, texture_id_sum, mineralogy_id_sum)
+
+    # Electrical Conductivity Score (Silent Calculation)
+    ec_val_sum = st.session_state.get(f"{k}_ec_input", 1.5) 
+    score_ec_sum = run_smaf_ec_score(ec_val_sum, crop_id_sum, 2, texture_id_sum, SMAF_DATA)
     
     # pH Score
     crop_selected_name_sum = st.session_state[f"{k}_sm_crop"]
@@ -1244,7 +1300,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
         
     # ✨ Calculate the Category Averages and the Overall Score
     score_bio = score_soc
-    score_chem = (score_ph_sum + score_p_sum) / 2.0
+    score_chem = (score_ph_sum + score_p_sum + score_ec_sum) / 3.0
     score_phys = score_bd_sum
     score_overall = (score_phys + score_chem + score_bio) / 3.0
 
@@ -1340,8 +1396,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
     # =========================================================================
     
     # ── INDICATOR SELECTION ──
-    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density"]
-    chosen_indicator = st.selectbox(
+indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density", "Electrical Conductivity"]    chosen_indicator = st.selectbox(
         "Soil Health Indicators:",
         indicator_options,
         key=f"{cfg['key']}_indicator_shared"
@@ -1524,6 +1579,92 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
             # 2. Render the recommendation box
             st.info(f"**Score Tier: {bd_level}**\n\n{bd_rec}")
+    elif chosen_indicator == "Electrical Conductivity":
+        st.markdown("### ⚡ Electrical Conductivity (EC)")
+        
+        # 1. Inputs
+        col1, col2 = st.columns(2)
+        with col1:
+            ec_val = st.number_input("Measured EC (dS/m)", min_value=0.0, max_value=20.0, value=1.5, step=0.1, key=f"{k}_ec_input")
+        with col2:
+            ec_method_str = st.selectbox(
+                "Extraction Method", 
+                ["Saturated Paste (ECsat)", "1:1 Soil:Water (EC1:1)"], 
+                key=f"{k}_ec_method"
+            )
+            
+        ec_method_id = 1 if "Saturated Paste" in ec_method_str else 2
+
+        # 2. Grab Global Variables (Crop and Texture)
+        crop_name = st.session_state[f"{k}_sm_crop"]
+        crop_id = SMAF_DATA["crop_ui_map"].get(crop_name.lower(), 0)
+        texture_id = SMAF_TEXTURE_MAP[st.session_state[f"{k}_sm_tex"]]
+        
+        # 3. Calculate Score
+        score_ec = run_smaf_ec_score(ec_val, crop_id, ec_method_id, texture_id, SMAF_DATA)
+        
+        # 4. Display Metric
+        st.metric("EC Score", f"{score_ec:.0f}/100", score_label(score_ec))
+        
+        # 5. Build the Plotly Curve
+        hi_range = 9.0 if ec_method_id == 1 else 6.0
+        xs = np.linspace(0, hi_range, 300)
+        ys = [run_smaf_ec_score(x, crop_id, ec_method_id, texture_id, SMAF_DATA) for x in xs]
+        
+        fig_ec = go.Figure()
+        fig_ec.add_trace(go.Scatter(
+            x=xs, y=ys, mode="lines", 
+            line=dict(color="#B5651D", width=3), 
+            name="Score Curve",
+            hovertemplate="EC: %{x:.2f} dS/m<br>Score: %{y:.0f}<extra></extra>"
+        ))
+        
+        fig_ec.add_trace(go.Scatter(
+            x=[ec_val], y=[score_ec], mode="markers", 
+            marker=dict(color=score_color(score_ec), size=14, line=dict(color="white", width=2)), 
+            name="Your Soil"
+        ))
+        
+        fig_ec.update_layout(
+            xaxis_title=f"{'ECsat' if ec_method_id == 1 else 'EC 1:1'} (dS/m)", 
+            yaxis_title="SHAPE Score",
+            yaxis=dict(range=[0, 105]), 
+            xaxis=dict(range=[0, hi_range]),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02),
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
+            height=400, margin=dict(l=10, r=10, t=40, b=10)
+        )
+        st.plotly_chart(fig_ec, use_container_width=True, key=f"{k}_ec_curve_plot")
+
+        # ── 5-TIER EC RECOMMENDATION ENGINE ──
+        st.markdown("### 📋 Agronomic Recommendations")
+        
+        # Determine if the problem is salinity (too high) or lack of soluble ions (too low)
+        threshold_val = smaf_ec_threshold(crop_id, ec_method_id, texture_id, SMAF_DATA)
+        if ec_val > threshold_val:
+            issue_type = "salinity"
+            amendment = "leaching fractions, improving drainage, or applying gypsum to displace sodium"
+        else:
+            issue_type = "low solubility"
+            amendment = "reviewing your fertilizer program and organic matter inputs to ensure adequate nutrient availability"
+
+        if score_ec >= 80:
+            ec_level = "Very High"
+            ec_rec = "Your soil electrical conductivity is optimal. Soluble salts are at an ideal level to support active microbial life and crop nutrient uptake without causing osmotic stress."
+        elif score_ec >= 60:
+            ec_level = "High"
+            ec_rec = "Your soil EC is adequate for healthy crop production. Continue routine monitoring, especially if irrigating with well water, to prevent long-term salt accumulation."
+        elif score_ec >= 40:
+            ec_level = "Medium"
+            ec_rec = f"Your soil EC is moderately limiting crop potential due to {issue_type}. Consider {amendment}. We suggest consulting a local agronomist to adjust your management plan."
+        elif score_ec >= 20:
+            ec_level = "Low"
+            ec_rec = f"Your soil EC indicates significant {issue_type} constraints. Osmotic stress or poor nutrient availability is likely reducing yields. A targeted intervention plan involving {amendment} is recommended."
+        else:
+            ec_level = "Very Low"
+            ec_rec = f"Critical limitation. Your soil EC is severely restricting crop growth and soil biological function due to extreme {issue_type}. Immediate consultation with a certified agronomist is strongly advised to establish a safe remediation strategy."
+
+        st.info(f"**Score Tier: {ec_level}**\n\n{ec_rec}")
 
     elif chosen_indicator == "pH":
         # Global definition prevents NameError

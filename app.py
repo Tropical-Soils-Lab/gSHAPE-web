@@ -880,42 +880,77 @@ def run_smaf_bd_score(bd, texture_id, mineralogy_id=0):
 # ----------------------------------------------------------------------
 # SMAF ELECTRICAL CONDUCTIVITY (EC) BACKEND ENGINE
 # ----------------------------------------------------------------------
+def load_ec_data(smaf_data, path="SMAF_lookup.xlsx"):
+    """Injects the 4 new EC sheets into the global SMAF_DATA dictionary safely."""
+    # If we already loaded it once, skip to save time!
+    if "ec_K" in smaf_data: return 
+    
+    import math
+    import pandas as pd
+    
+    sh = pd.read_excel(path, sheet_name=None, dtype=str)
+    def num(x):
+        try:
+            v = float(x)
+            return None if math.isnan(v) else v
+        except (ValueError, TypeError): return None
+
+    # Load Constants
+    ec_K = {}
+    for _, r in sh["ec_constants"].iterrows():
+        v = num(r["value"])
+        if str(r["param_name"]) != "nan" and v is not None:
+            ec_K[str(r["param_name"]).strip()] = v
+            
+    # Load Crops
+    ec_crops = {}
+    for _, r in sh["ec_crop_factors"].iterrows():
+        cc = num(r["crop_code"])
+        if cc is not None:
+            ec_crops[int(cc)] = {"tsat": num(r["tsat"]), "dt": num(r["dt"])}
+            
+    # Load Textures
+    ec_texture = {}
+    for _, r in sh["ec_texture_factors"].iterrows():
+        tc = num(r["texture_code"])
+        if tc is not None:
+            ec_texture[int(tc)] = num(r["f_txt"])
+
+    # Safely attach to global dictionary with 'ec_' prefix to prevent clashing!
+    smaf_data["ec_K"] = ec_K
+    smaf_data["ec_crops"] = ec_crops
+    smaf_data["ec_texture"] = ec_texture
+
 def smaf_ec_slope_m(dt, K):
-    """Calculates the rate of score decline once EC exceeds the threshold."""
     den = K["m_den_a"] + K["m_den_b"] * dt - K["m_den_c"] * dt ** 2
     return (K["m_num_a"] - K["m_num_b"] * dt) / den
 
 def smaf_ec_threshold(crop_id, method, texture_id, smaf_data, tsat=None):
-    """Calculates the EC threshold (T) for the selected method."""
-    K = smaf_data["K"]
-    crop_info = smaf_data["crops"].get(crop_id)
+    K = smaf_data["ec_K"]
+    # Fallback to standard values (4.0) if a crop isn't found to prevent KeyError crashes!
+    crop_info = smaf_data["ec_crops"].get(crop_id, {"tsat": 4.0, "dt": 0.5}) 
     
     if tsat is None:
         tsat = crop_info["tsat"]
         
-    if method == 1: # Saturated Paste
+    if method == 1: 
         return tsat
-    
-    # 1:1 soil:water method requires texture modifier
-    f_txt = smaf_data["texture"].get(texture_id, 1.0)
-    return (tsat / K["dilution_factor"]) * f_txt
+    return (tsat / K["dilution_factor"]) * smaf_data["ec_texture"].get(texture_id, 1.0)
 
 def run_smaf_ec_score(ec_val, crop_id, method, texture_id, smaf_data, clamp=True):
-    """Calculates the 0-100 SMAF score for EC."""
-    K = smaf_data["K"]
-    crop_info = smaf_data["crops"].get(crop_id)
+    # 1. Ensure Excel data is loaded before running math!
+    load_ec_data(smaf_data)
+    
+    K = smaf_data["ec_K"]
+    crop_info = smaf_data["ec_crops"].get(crop_id, {"tsat": 4.0, "dt": 0.5}) 
     
     tsat = crop_info["tsat"]
     dt = crop_info["dt"]
     T = smaf_ec_threshold(crop_id, method, texture_id, smaf_data, tsat)
 
-    # Determine breaks based on method (1 = Sat Paste, 2 = 1:1)
-    if method == 1:
-        brk, rise = K["sat_break"], K["sat_rise_slope"]
-    else:
-        brk, rise = K["ec11_break"], K["ec11_rise_slope"]
+    brk = K["sat_break"] if method == 1 else K["ec11_break"]
+    rise = K["sat_rise_slope"] if method == 1 else K["ec11_rise_slope"]
 
-    # Rising limb -> Plateau -> Linear decline
     if ec_val < brk:                                  
         y = rise * ec_val
     elif ec_val > T:                                  
@@ -927,7 +962,6 @@ def run_smaf_ec_score(ec_val, crop_id, method, texture_id, smaf_data, clamp=True
     if clamp:
         y = max(K["score_min"], min(K["score_max"], y))
         
-    # Scale from 0.0-1.0 to 0-100 to match the rest of the app
     return y * 100.0
 
     # --- MATH EXECUTION ---
@@ -1228,6 +1262,8 @@ def render_single_sample(region_name, cfg, df, df_hist):
             oc_val = st.number_input("Measured SOC (%)", 0.01, 80.0, key=f"{k}_oc")
             p_val = st.number_input("Measured Extractable P (mg/kg)", 0.0, 500.0, key=f"{k}_sm_p_input")
             bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.5, max_value=2.0, value=1.45, step=0.05, key=f"{k}_bd_input")
+            ec_val = st.number_input("EC (dS/m)", min_value=0.0, max_value=20.0, value=1.5, step=0.1, key=f"{k}_ec_val")
+            ec_method_str = st.selectbox("EC Method", ["Saturated Paste (ECsat)", "1:1 Soil:Water (EC1:1)"], key=f"{k}_ec_method")
             ph_val = st.number_input("Measured Soil pH", 0.0, 14.0, key=f"{k}_ph_measured_input")
             target_pct = st.slider("Benchmark Percentile (SOC)", 50, 99, 90, key=f"{k}_pct")
 
@@ -1285,8 +1321,8 @@ def render_single_sample(region_name, cfg, df, df_hist):
     score_bd_sum = run_smaf_bd_score(bd_val, texture_id_sum, mineralogy_id_sum)
 
     # Electrical Conductivity Score (Silent Calculation)
-    ec_val_sum = st.session_state.get(f"{k}_ec_input", 1.5) 
-    score_ec_sum = run_smaf_ec_score(ec_val_sum, crop_id_sum, 2, texture_id_sum, SMAF_DATA)
+    ec_method_id_sum = 1 if "Saturated Paste" in ec_method_str else 2
+    score_ec_sum = run_smaf_ec_score(ec_val, crop_id_sum, ec_method_id_sum, texture_id_sum, SMAF_DATA)
     
     # pH Score
     crop_selected_name_sum = st.session_state[f"{k}_sm_crop"]
@@ -1584,31 +1620,19 @@ def render_single_sample(region_name, cfg, df, df_hist):
     elif chosen_indicator == "Electrical Conductivity":
         st.markdown("### ⚡ Electrical Conductivity (EC)")
         
-        # 1. Inputs
-        col1, col2 = st.columns(2)
-        with col1:
-            ec_val = st.number_input("Measured EC (dS/m)", min_value=0.0, max_value=20.0, value=1.5, step=0.1, key=f"{k}_ec_input")
-        with col2:
-            ec_method_str = st.selectbox(
-                "Extraction Method", 
-                ["Saturated Paste (ECsat)", "1:1 Soil:Water (EC1:1)"], 
-                key=f"{k}_ec_method"
-            )
-            
+        # 1. Grab Global Variables
         ec_method_id = 1 if "Saturated Paste" in ec_method_str else 2
-
-        # 2. Grab Global Variables (Crop and Texture)
         crop_name = st.session_state[f"{k}_sm_crop"]
         crop_id = SMAF_DATA["crop_ui_map"].get(crop_name.lower(), 0)
         texture_id = SMAF_TEXTURE_MAP[st.session_state[f"{k}_sm_tex"]]
         
-        # 3. Calculate Score
+        # 2. Calculate Score using the global ec_val
         score_ec = run_smaf_ec_score(ec_val, crop_id, ec_method_id, texture_id, SMAF_DATA)
         
-        # 4. Display Metric
+        # 3. Display Metric
         st.metric("EC Score", f"{score_ec:.0f}/100", score_label(score_ec))
         
-        # 5. Build the Plotly Curve
+        # 4. Build the Plotly Curve
         hi_range = 9.0 if ec_method_id == 1 else 6.0
         xs = np.linspace(0, hi_range, 300)
         ys = [run_smaf_ec_score(x, crop_id, ec_method_id, texture_id, SMAF_DATA) for x in xs]
@@ -1641,7 +1665,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
         # ── 5-TIER EC RECOMMENDATION ENGINE ──
         st.markdown("### 📋 Agronomic Recommendations")
         
-        # Determine if the problem is salinity (too high) or lack of soluble ions (too low)
         threshold_val = smaf_ec_threshold(crop_id, ec_method_id, texture_id, SMAF_DATA)
         if ec_val > threshold_val:
             issue_type = "salinity"

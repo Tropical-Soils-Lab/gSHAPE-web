@@ -1805,77 +1805,103 @@ def render_single_sample(region_name, cfg, df, df_hist):
         
         # 2. Calculate Score securely
         raw_score_ec = run_smaf_ec_score(ec_val, crop_id, ec_method_id, texture_id, SMAF_DATA)
-        score_ec = safe_float(raw_score_ec)
+        try:
+            score_ec = float(raw_score_ec) if raw_score_ec is not None else 0.0
+        except (ValueError, TypeError):
+            score_ec = 0.0
+            
         ec_color = score_color(score_ec)
         ec_label = score_label(score_ec)
         
-        # 3. Create the 1:2 Column Layout (matching pH)
+        # 3. Create the 1:2 Column Layout
         col_l, col_r = st.columns([1, 2])
         
         with col_l:
-            # Header text matching pH style
-            st.markdown(f"<h4 style='text-align: center; margin-bottom: 0px;'>{ec_label}</h4>", unsafe_allow_html=True)
-            st.markdown(f"<p style='text-align: center; color: #888; font-size: 13px;'>{crop_name} - EC {ec_val}</p>", unsafe_allow_html=True)
-            
-            # The Gauge Chart
+            gauge_title = f"<b style='font-size:17px'>{ec_label}</b><br><span style='font-size:11px;color:gray'>{crop_name} - EC {ec_val}</span>"
             fig_ec_gauge = go.Figure(go.Indicator(
-                mode="gauge+number",
-                value=score_ec,
-                number={'font': {'color': ec_color, 'size': 45}, 'suffix': "/100"},
-                domain={'x': [0, 1], 'y': [0, 1]},
+                mode="gauge+number", value=int(round(score_ec)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": ec_color}},
                 gauge={
-                    'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "white"},
-                    'bar': {'color': ec_color, 'thickness': 0.2},
-                    'steps': [
-                        {'range': [0, 20], 'color': "rgba(215, 25, 28, 0.4)"},
-                        {'range': [20, 40], 'color': "rgba(253, 174, 97, 0.4)"},
-                        {'range': [40, 60], 'color': "rgba(255, 255, 191, 0.4)"},
-                        {'range': [60, 80], 'color': "rgba(166, 217, 106, 0.4)"},
-                        {'range': [80, 100], 'color': "rgba(26, 150, 65, 0.4)"}
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": ec_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
                     ],
+                    "threshold": {"line": {"color": ec_color, "width": 5}, "thickness": 0.8, "value": score_ec}
                 }
             ))
-            fig_ec_gauge.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
-                height=220,
-                margin=dict(l=10, r=10, t=10, b=10)
-            )
+            fig_ec_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
             st.plotly_chart(fig_ec_gauge, use_container_width=True, key=f"{k}_ec_gauge_plot")
             
             # Variance/Threshold Info
             threshold_val = smaf_ec_threshold(crop_id, ec_method_id, texture_id, SMAF_DATA)
-        
+            st.markdown("##### EC Threshold")
+            st.markdown(f"**{threshold_val:.2f} dS/m**")
+            
+            if ec_val > threshold_val:
+                st.markdown(f"<span style='color: #d7191c; font-size: 14px; font-weight: bold;'>↑ Exceeds Tolerance by {ec_val - threshold_val:.2f}</span>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<span style='color: #1a9641; font-size: 14px; font-weight: bold;'>✓ Within Tolerance</span>", unsafe_allow_html=True)
+
         with col_r:
-            st.markdown("### Scoring Curve")
+            st.markdown("#### Scoring Curve")
             hi_range = 9.0 if ec_method_id == 1 else 6.0
             xs = np.linspace(0, hi_range, 300)
             ys = [run_smaf_ec_score(x, crop_id, ec_method_id, texture_id, SMAF_DATA) for x in xs]
             
             fig_ec = go.Figure()
             fig_ec.add_trace(go.Scatter(
-                x=xs, y=ys, mode="lines", 
+                x=xs, y=np.array(ys) / 100.0, mode="lines", 
                 line=dict(color="#B5651D", width=3), 
-                name="Score Curve",
-                hovertemplate="EC: %{x:.2f} dS/m<br>Score: %{y:.0f}<extra></extra>"
+                name="Score Curve", hovertemplate="EC: %{x:.2f} dS/m<br>Score: %{y:.0%}<extra></extra>"
             ))
-            
             fig_ec.add_trace(go.Scatter(
-                x=[ec_val], y=[score_ec], mode="markers", 
+                x=[ec_val], y=[score_ec / 100.0], mode="markers", 
                 marker=dict(color=ec_color, size=14, line=dict(color="white", width=2)), 
                 name="Your Soil"
             ))
-            
             fig_ec.update_layout(
                 xaxis_title=f"{'ECsat' if ec_method_id == 1 else 'EC 1:1'} (dS/m)", 
                 yaxis_title="SHAPE Score",
-                yaxis=dict(range=[0, 105]), 
-                xaxis=dict(range=[0, hi_range]),
+                yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0, hi_range]),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02),
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
-                height=350, margin=dict(l=10, r=10, t=20, b=10)
+                height=400, margin=dict(l=10, r=10, t=40, b=10)
             )
-            st.plotly_chart(fig_ec, use_container_width=True, key=f"{k}_ec_curve_plot")
+            st.plotly_chart(fig_ec, width='stretch', key=f"{k}_ec_curve_plot")
+
+        # ── 5-TIER EC RECOMMENDATION ENGINE ──
+        st.markdown("### 📋 Agronomic Recommendations")
+        if ec_val > threshold_val:
+            issue_type = "salinity"
+            amendment = "leaching fractions, improving drainage, or applying gypsum to displace sodium"
+        else:
+            issue_type = "low solubility"
+            amendment = "reviewing your fertilizer program and organic matter inputs to ensure adequate nutrient availability"
+
+        if score_ec >= 80:
+            ec_level = "Very High"
+            ec_rec = "Your soil electrical conductivity is optimal. Soluble salts are at an ideal level to support active microbial life and crop nutrient uptake without causing osmotic stress."
+        elif score_ec >= 60:
+            ec_level = "High"
+            ec_rec = "Your soil EC is adequate for healthy crop production. Continue routine monitoring, especially if irrigating with well water, to prevent long-term salt accumulation."
+        elif score_ec >= 40:
+            ec_level = "Medium"
+            ec_rec = f"Your soil EC is moderately limiting crop potential due to {issue_type}. Consider {amendment}. We suggest consulting a local agronomist to adjust your management plan."
+        elif score_ec >= 20:
+            ec_level = "Low"
+            ec_rec = f"Your soil EC indicates significant {issue_type} constraints. Osmotic stress or poor nutrient availability is likely reducing yields. A targeted intervention plan involving {amendment} is recommended."
+        else:
+            ec_level = "Very Low"
+            ec_rec = f"Critical limitation. Your soil EC is severely restricting crop growth and soil biological function due to extreme {issue_type}. Immediate consultation with a certified agronomist is strongly advised to establish a safe remediation strategy."
+        st.info(f"**Score Tier: {ec_level}**\n\n{ec_rec}")
+
     elif chosen_indicator == "Macroaggregate Stability":
         # 1. Grab Global Variables
         texture_id = SMAF_TEXTURE_MAP[st.session_state[f"{k}_sm_tex"]]
@@ -1884,7 +1910,11 @@ def render_single_sample(region_name, cfg, df, df_hist):
         
         # 2. Calculate Score securely
         raw_score_agg = run_smaf_agg_score(agg_val, om_id, texture_id, fe_id, SMAF_DATA)
-        score_agg = safe_float(raw_score_agg)
+        try:
+            score_agg = float(raw_score_agg) if raw_score_agg is not None else 0.0
+        except (ValueError, TypeError):
+            score_agg = 0.0
+            
         agg_color = score_color(score_agg)
         agg_label = score_label(score_agg)
         
@@ -1893,7 +1923,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
         
         with col_l:
             gauge_title = f"<b style='font-size:17px'>{agg_label}</b><br><span style='font-size:11px;color:gray'>Agg. Stability {agg_val}%</span>"
-            
             fig_agg_gauge = go.Figure(go.Indicator(
                 mode="gauge+number", value=int(round(score_agg)),
                 title={"text": gauge_title, "font": {"size": 13}},
@@ -1917,11 +1946,8 @@ def render_single_sample(region_name, cfg, df, df_hist):
             
         with col_r:
             st.markdown("#### Scoring Curve")
-            
-            # Smooth the hard SMAF plateau cutoff using PchipInterpolator
             grid = np.array([0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 80, 100.0])
             gy = np.array([run_smaf_agg_score(x, om_id, texture_id, fe_id, SMAF_DATA) for x in grid])
-            
             spl = PchipInterpolator(grid, gy / 100.0)
             xs = np.linspace(0, 100, 300)
             ys = np.clip(spl(xs), 0.0, 1.0)
@@ -1932,13 +1958,11 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 line=dict(color="#7A5C3E", width=3), 
                 name="Score Curve", hovertemplate="Stability: %{x:.1f}%<br>Score: %{y:.0%}<extra></extra>"
             ))
-            
             fig_agg.add_trace(go.Scatter(
                 x=[agg_val], y=[score_agg / 100.0], mode="markers", 
                 marker=dict(color=agg_color, size=14, line=dict(color="white", width=2)), 
                 name="Your Soil"
             ))
-            
             fig_agg.update_layout(
                 xaxis_title="Macroaggregate Stability (%)", 
                 yaxis_title="SHAPE Score",
@@ -1948,6 +1972,26 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 height=400, margin=dict(l=10, r=10, t=40, b=10)
             )
             st.plotly_chart(fig_agg, width='stretch', key=f"{k}_agg_curve_plot")
+
+        # ── 5-TIER AGG RECOMMENDATION ENGINE ──
+        st.markdown("### 📋 Agronomic Recommendations")
+        if score_agg >= 80:
+            agg_level = "Very High"
+            agg_rec = "Your soil structure is optimal. The macroaggregates are highly stable, resisting slaking and crusting under heavy rainfall. This ensures excellent water infiltration and aeration. Continue minimal disturbance practices."
+        elif score_agg >= 60:
+            agg_level = "High"
+            agg_rec = "Your soil structure is good and provides adequate resistance to erosion and compaction. Maintain current organic matter inputs and monitor heavy field traffic."
+        elif score_agg >= 40:
+            agg_level = "Medium"
+            agg_rec = "Your macroaggregate stability is moderate, leaving the soil prone to crusting or sealing during intense rain events. Consider reducing tillage intensity or integrating short-term cover crops to build biological glues."
+        elif score_agg >= 20:
+            agg_level = "Low"
+            agg_rec = "Your soil has weak structural integrity, creating a high risk of slaking, surface runoff, and erosion. Implementing no-till practices alongside active carbon inputs (like manure or dense cover crops) is strongly recommended."
+        else:
+            agg_level = "Very Low"
+            agg_rec = "Critical structural degradation. Your soil aggregates fall apart rapidly when wet, severely limiting infiltration and root growth. Immediate intervention utilizing deep-rooted cover crops and significant organic amendments is required to rebuild soil structure."
+        st.info(f"**Score Tier: {agg_level}**\n\n{agg_rec}")
+
     elif chosen_indicator == "Sodium Adsorption Ratio":
         # 1. Grab Global Variables
         ec_method_id = 1 if "Saturated Paste" in ec_method_str else 2
@@ -1955,7 +1999,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
         
         # 2. Calculate Score securely
         raw_score_sar = run_smaf_sar_score(sar_val, ec_val, ec_method_id, texture_id, SMAF_DATA)
-        
         try:
             score_sar = float(raw_score_sar) if raw_score_sar is not None else 0.0
         except (ValueError, TypeError):
@@ -1969,7 +2012,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
         
         with col_l:
             gauge_title = f"<b style='font-size:17px'>{sar_label}</b><br><span style='font-size:11px;color:gray'>Measured SAR {sar_val}</span>"
-            
             fig_sar_gauge = go.Figure(go.Indicator(
                 mode="gauge+number", value=int(round(score_sar)),
                 title={"text": gauge_title, "font": {"size": 13}},
@@ -1993,11 +2035,8 @@ def render_single_sample(region_name, cfg, df, df_hist):
             
         with col_r:
             st.markdown("#### Scoring Curve")
-            
-            # Use PchipInterpolator for a flawlessly smooth curve across the polynomials
             grid = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12.0])
             gy = np.array([run_smaf_sar_score(x, ec_val, ec_method_id, texture_id, SMAF_DATA) for x in grid])
-            
             spl = PchipInterpolator(grid, gy / 100.0)
             xs = np.linspace(0, 12, 300)
             ys = np.clip(spl(xs), 0.0, 1.0)
@@ -2008,13 +2047,11 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 line=dict(color="#2E5E8C", width=3), 
                 name="Score Curve", hovertemplate="SAR: %{x:.1f}<br>Score: %{y:.0%}<extra></extra>"
             ))
-            
             fig_sar.add_trace(go.Scatter(
                 x=[sar_val], y=[score_sar / 100.0], mode="markers", 
                 marker=dict(color=sar_color, size=14, line=dict(color="white", width=2)), 
                 name="Your Soil"
             ))
-            
             fig_sar.update_layout(
                 xaxis_title="Sodium Adsorption Ratio (SAR)", 
                 yaxis_title="SHAPE Score",
@@ -2027,7 +2064,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
         # ── 5-TIER SAR RECOMMENDATION ENGINE ──
         st.markdown("### 📋 Agronomic Recommendations")
-
         if score_sar >= 80:
             sar_level = "Very High"
             sar_rec = "Your soil sodium levels are optimal and pose no threat to soil structure or plant health. Water infiltration and aeration are unrestricted by sodicity."
@@ -2043,7 +2079,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
         else:
             sar_level = "Very Low"
             sar_rec = "Critical sodicity limitation. High sodium levels are causing severe structural collapse, rendering the soil highly impermeable and toxic to most crops. Immediate and aggressive remediation with calcium amendments and intensive leaching is required."
-
         st.info(f"**Score Tier: {sar_level}**\n\n{sar_rec}")
 
         # ── 5-TIER AGG RECOMMENDATION ENGINE ──

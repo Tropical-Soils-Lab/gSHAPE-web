@@ -1567,7 +1567,14 @@ def render_single_sample(region_name, cfg, df, df_hist):
         bd_val = st.session_state[f"{k}_bd_input"]
         
         # 2. Score Calculation
-        score_bd = run_smaf_bd_score(bd_val, texture_id, mineralogy_id)
+        raw_score_bd = run_smaf_bd_score(bd_val, texture_id, mineralogy_id)
+        
+        # Shield against empty inputs! Converts 'None' to 0.0 before coloring.
+        try:
+            score_bd = float(raw_score_bd) if raw_score_bd is not None else 0.0
+        except (ValueError, TypeError):
+            score_bd = 0.0
+            
         color_bd = score_color(score_bd)
         label_bd = score_label(score_bd)
         
@@ -1682,14 +1689,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             
             # Variance/Threshold Info
             threshold_val = smaf_ec_threshold(crop_id, ec_method_id, texture_id, SMAF_DATA)
-            st.markdown("##### EC Threshold")
-            st.markdown(f"**{threshold_val:.2f} dS/m**")
-            
-            if ec_val > threshold_val:
-                st.markdown(f"<span style='color: #d7191c; font-size: 14px; font-weight: bold;'>↑ Exceeds Tolerance by {ec_val - threshold_val:.2f}</span>", unsafe_allow_html=True)
-            else:
-                st.markdown(f"<span style='color: #1a9641; font-size: 14px; font-weight: bold;'>✓ Within Tolerance</span>", unsafe_allow_html=True)
-
+        
         with col_r:
             st.markdown("### Scoring Curve")
             hi_range = 9.0 if ec_method_id == 1 else 6.0

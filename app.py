@@ -782,6 +782,18 @@ SMAF_MINERALOGY_MAP = {
     "Glassy": 2,
     "Other": 3
 }
+# ✨ NEW: Macroaggregate Stability Maps
+SMAF_OM_MAP = {
+    "Class 1 (Highest OM)": 1, 
+    "Class 2 (Med-High OM)": 2, 
+    "Class 3 (Med-Low OM)": 3, 
+    "Class 4 (Lowest OM)": 4
+}
+
+SMAF_FE_MAP = {
+    "Ultisols (High Iron-Oxide)": 1,
+    "All Other Soil Orders": 2
+}
 # ════════════════════════════════════════════════════════════════════
 # 5. HELPER FUNCTIONS
 # ════════════════════════════════════════════════════════════════════
@@ -984,6 +996,68 @@ def run_smaf_ec_score(ec_val, crop_id, method, texture_id, smaf_data, clamp=True
         y = max(K["score_min"], min(K["score_max"], y))
         
     return y * 100.0
+# ----------------------------------------------------------------------
+# SMAF MACROAGGREGATE STABILITY (AGG) BACKEND ENGINE
+# ----------------------------------------------------------------------
+def load_agg_data(smaf_data, path="SMAF_lookup.xlsx"):
+    """Injects the 4 new AGG sheets into the global SMAF_DATA dictionary safely."""
+    if "agg_K" in smaf_data: return 
+    
+    import math, pandas as pd
+    sh = pd.read_excel(path, sheet_name=None, dtype=str)
+    
+    def num(x):
+        try: return float(x) if not pd.isna(x) else None
+        except: return None
+
+    agg_K, agg_om, agg_texture, agg_fe = {}, {}, {}, {}
+    
+    if "agg_constants" in sh:
+        for _, r in sh["agg_constants"].iterrows():
+            v = num(r.get("value"))
+            p = str(r.get("param_name")).strip()
+            if p != "nan" and v is not None: agg_K[p] = v
+            
+    if "agg_om_factors" in sh:
+        for _, r in sh["agg_om_factors"].iterrows():
+            oc = num(r.get("om_class"))
+            if oc is not None: agg_om[int(oc)] = num(r.get("d1"))
+            
+    if "agg_texture_factors" in sh:
+        for _, r in sh["agg_texture_factors"].iterrows():
+            tc = num(r.get("texture_code"))
+            if tc is not None: agg_texture[int(tc)] = num(r.get("d2"))
+            
+    if "agg_fe_factors" in sh:
+        for _, r in sh["agg_fe_factors"].iterrows():
+            fc = num(r.get("fe_class"))
+            if fc is not None: agg_fe[int(fc)] = num(r.get("d3"))
+
+    smaf_data["agg_K"] = agg_K
+    smaf_data["agg_om"] = agg_om
+    smaf_data["agg_texture"] = agg_texture
+    smaf_data["agg_fe"] = agg_fe
+
+def run_smaf_agg_score(agg_val, om_class, texture_id, fe_class, smaf_data, clamp=True):
+    load_agg_data(smaf_data)
+    K = smaf_data.get("agg_K", {})
+    if not K: return 0.0
+    
+    d1 = smaf_data.get("agg_om", {}).get(om_class, 1.0)
+    d2 = smaf_data.get("agg_texture", {}).get(texture_id, 1.0)
+    d3 = smaf_data.get("agg_fe", {}).get(fe_class, 1.0)
+    d = d1 * d2 * d3
+    
+    import math
+    y = K.get("a", 0.0) + K.get("b", 0.0) * math.cos(K.get("c", 0.0) * agg_val - d)
+    
+    if agg_val > K.get("plateau_x", 50.0) and y < K.get("plateau_score", 1.0):
+        y = K.get("plateau_score", 1.0)
+        
+    if clamp:
+        y = max(K.get("score_min", 0.0), min(K.get("score_max", 1.0), y))
+        
+    return y * 100.0
 
 def fetch_climate(lat, lon, need_precip=False):
     """Fetch MAT (and optionally MAP) from NASA POWER climatology."""
@@ -1171,13 +1245,14 @@ def render_single_sample(region_name, cfg, df, df_hist):
     if f"{k}_sm_tex" not in st.session_state: st.session_state[f"{k}_sm_tex"] = "— Select —"
     if f"{k}_sm_slope" not in st.session_state: st.session_state[f"{k}_sm_slope"] = "— Select —"
     if f"{k}_ec_method" not in st.session_state: st.session_state[f"{k}_ec_method"] = "— Select —"
+    if f"{k}_sm_om_class" not in st.session_state: st.session_state[f"{k}_sm_om_class"] = "— Select —"
+    if f"{k}_sm_fe_class" not in st.session_state: st.session_state[f"{k}_sm_fe_class"] = "— Select —"
 
-  # ── MASTER SITE INPUTS (Always Visible) ──
+   # ── MASTER SITE INPUTS (Always Visible) ──
     with st.expander("⚙️ Site & Management Inputs", expanded=True):
         c1, c2 = st.columns(2)
         
         with c1:
-            # Taxonomy & Landscape
             taxon_label = TAXON_LABEL[region_name]
             if region_name == "Brazil":
                 br_tax_system = st.selectbox(
@@ -1198,7 +1273,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
             
             selected_sm_tex = st.selectbox("Texture Profile", ["— Select —"] + list(SMAF_TEXTURE_MAP.keys()), key=f"{k}_sm_tex")
             
-            # Dynamic Mineralogy Dropdown (Only appears for Clay classes 4 & 5)
             texture_id = SMAF_TEXTURE_MAP.get(selected_sm_tex, 0)
             selected_bd_min = None
             if texture_id >= 4:
@@ -1208,10 +1282,13 @@ def render_single_sample(region_name, cfg, df, df_hist):
             chosen_crop = st.selectbox("Target Field Crop", MASTER_CROP_OPTIONS, key=f"{k}_sm_crop")
             
         with c2:
-            # Management & Climate
             selected_method = st.selectbox("P Extraction Method", ["— Select —"] + list(SMAF_METHOD_MAP.keys()), key=f"{k}_sm_method")
             selected_weath = st.selectbox("Soil Weathering Class", ["— Select —"] + list(SMAF_WEATHERING_MAP.keys()), key=f"{k}_sm_weather")
-            ec_method_str = st.selectbox("EC Method", ["— Select —", "Saturated Paste (ECsat)", "1:1 Soil:Water (EC1:1)"], key=f"{k}_ec_method")            
+            ec_method_str = st.selectbox("EC Method", ["— Select —", "Saturated Paste (ECsat)", "1:1 Soil:Water (EC1:1)"], key=f"{k}_ec_method")
+            
+            selected_om_class = st.selectbox("Organic Matter Class (for Agg. Stability)", ["— Select —"] + list(SMAF_OM_MAP.keys()), key=f"{k}_sm_om_class")
+            selected_fe_class = st.selectbox("Iron-Oxide Class (for Agg. Stability)", ["— Select —"] + list(SMAF_FE_MAP.keys()), key=f"{k}_sm_fe_class")
+            
             use_geo = st.checkbox("Fetch climate from coordinates", key=f"{k}_geo")
             lat_in, lon_in = cfg["default_latlon"]
             if use_geo:
@@ -1249,6 +1326,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
         with lc1:
             oc_val = st.number_input("Measured SOC (%)", 0.01, 80.0, key=f"{k}_oc")
             ph_val = st.number_input("Measured Soil pH", 0.0, 14.0, key=f"{k}_ph_measured_input")
+            agg_val = st.number_input("Agg. Stability (%)", min_value=0.0, max_value=100.0, value=40.0, step=1.0, key=f"{k}_agg_val")
             
         with lc2:
             p_val = st.number_input("Measured Extractable P (mg/kg)", 0.0, 500.0, key=f"{k}_sm_p_input")
@@ -1257,8 +1335,9 @@ def render_single_sample(region_name, cfg, df, df_hist):
         with lc3:
             bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.5, max_value=2.0, value=1.45, step=0.05, key=f"{k}_bd_input")
             target_pct = st.slider("Benchmark Percentile (SOC)", 50, 99, 90, key=f"{k}_pct")
+
     # ✨ THE MASTER SITE INPUTS GATEKEEPER ✨
-    required_inputs = [selected_sub, selected_tex, selected_sm_tex, selected_sm_slope, selected_method, selected_weath, ec_method_str]
+    required_inputs = [selected_sub, selected_tex, selected_sm_tex, selected_sm_slope, selected_method, selected_weath, ec_method_str, selected_om_class, selected_fe_class]
     
     if selected_bd_min is not None:
         required_inputs.append(selected_bd_min)
@@ -1308,11 +1387,16 @@ def render_single_sample(region_name, cfg, df, df_hist):
     # Bulk Density Score
     mineral_str = st.session_state.get(f"{k}_bd_min", "— Select —")
     mineralogy_id_sum = SMAF_MINERALOGY_MAP.get(mineral_str, 0) if mineral_str != "— Select —" else 0
-    score_bd_sum = run_smaf_bd_score(bd_val, texture_id_sum, mineralogy_id_sum)
+    raw_score_bd_sum = run_smaf_bd_score(bd_val, texture_id_sum, mineralogy_id_sum)
 
-    # Electrical Conductivity Score (Silent Calculation)
+    # Electrical Conductivity Score 
     ec_method_id_sum = 1 if "Saturated Paste" in ec_method_str else 2
-    score_ec_sum = run_smaf_ec_score(ec_val, crop_id_sum, ec_method_id_sum, texture_id_sum, SMAF_DATA)
+    raw_score_ec_sum = run_smaf_ec_score(ec_val, crop_id_sum, ec_method_id_sum, texture_id_sum, SMAF_DATA)
+
+    # Macroaggregate Stability Score (Silent Calculation)
+    om_id_sum = SMAF_OM_MAP.get(selected_om_class, 2)
+    fe_id_sum = SMAF_FE_MAP.get(selected_fe_class, 2)
+    raw_score_agg_sum = run_smaf_agg_score(agg_val, om_id_sum, texture_id_sum, fe_id_sum, SMAF_DATA)
     
     # pH Score
     crop_selected_name_sum = st.session_state[f"{k}_sm_crop"]
@@ -1320,30 +1404,28 @@ def render_single_sample(region_name, cfg, df, df_hist):
     ph_benchmarks_lower_sum = {key.lower(): val for key, val in ph_benchmarks_sum.items()}
     benchmarks_sum = ph_benchmarks_lower_sum.get(crop_selected_name_sum.lower())
     if benchmarks_sum:
-        score_ph_sum = float(100.0 * np.exp(-((ph_val - benchmarks_sum["opt"]) / (2.0 * benchmarks_sum["sigma"])) ** 2))
+        raw_score_ph_sum = float(100.0 * np.exp(-((ph_val - benchmarks_sum["opt"]) / (2.0 * benchmarks_sum["sigma"])) ** 2))
     else:
-        score_ph_sum = 0.0 # Fallback if crop is missing pH data
+        raw_score_ph_sum = 0.0
         
     # =========================================================================
     # ✨ Calculate the Category Averages and the Overall Score
-    # We use a sanitizer to prevent TypeErrors if any input is missing or None
     def safe_float(val):
         try:
             return float(val) if val is not None else 0.0
         except (ValueError, TypeError):
             return 0.0
 
-    # Clean all individual scores
     score_bio = safe_float(score_soc)
-    score_phys = safe_float(score_bd_sum)
     
-    ph_clean = safe_float(score_ph_sum)
-    p_clean = safe_float(score_p_sum)
-    ec_clean = safe_float(score_ec_sum)
+    # Physical = Average of BD and AGG
+    score_phys = (safe_float(raw_score_bd_sum) + safe_float(raw_score_agg_sum)) / 2.0
     
-    # Calculate averages safely
-    score_chem = (ph_clean + p_clean + ec_clean) / 3.0
+    # Chemical = Average of pH, P, and EC
+    score_chem = (safe_float(raw_score_ph_sum) + safe_float(score_p_sum) + safe_float(raw_score_ec_sum)) / 3.0
+    
     score_overall = (score_phys + score_chem + score_bio) / 3.0
+    # =========================================================================
     # =========================================================================
 
     # 2. Build the Summary Bar Chart
@@ -1438,8 +1520,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
     # =========================================================================
     
     # ── INDICATOR SELECTION ──
-    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density", "Electrical Conductivity"]
-    
+indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density", "Electrical Conductivity", "Macroaggregate Stability"]    
     chosen_indicator = st.selectbox(
         "Soil Health Indicators:",
         indicator_options,
@@ -1710,6 +1791,93 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 height=350, margin=dict(l=10, r=10, t=20, b=10)
             )
             st.plotly_chart(fig_ec, use_container_width=True, key=f"{k}_ec_curve_plot")
+    elif chosen_indicator == "Macroaggregate Stability":
+        # 1. Grab Global Variables
+        texture_id = SMAF_TEXTURE_MAP[st.session_state[f"{k}_sm_tex"]]
+        om_id = SMAF_OM_MAP.get(st.session_state[f"{k}_sm_om_class"], 2)
+        fe_id = SMAF_FE_MAP.get(st.session_state[f"{k}_sm_fe_class"], 2)
+        
+        # 2. Calculate Score securely
+        raw_score_agg = run_smaf_agg_score(agg_val, om_id, texture_id, fe_id, SMAF_DATA)
+        score_agg = safe_float(raw_score_agg)
+        agg_color = score_color(score_agg)
+        agg_label = score_label(score_agg)
+        
+        # 3. Create the 1:2 Column Layout
+        col_l, col_r = st.columns([1, 2])
+        
+        with col_l:
+            st.markdown(f"<h4 style='text-align: center; margin-bottom: 0px;'>{agg_label}</h4>", unsafe_allow_html=True)
+            st.markdown(f"<p style='text-align: center; color: #888; font-size: 13px;'>Measured Stability: {agg_val}%</p>", unsafe_allow_html=True)
+            
+            fig_agg_gauge = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=score_agg,
+                number={'font': {'color': agg_color, 'size': 45}, 'suffix': "/100"},
+                domain={'x': [0, 1], 'y': [0, 1]},
+                gauge={
+                    'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "white"},
+                    'bar': {'color': agg_color, 'thickness': 0.2},
+                    'steps': [
+                        {'range': [0, 20], 'color': "rgba(215, 25, 28, 0.4)"},
+                        {'range': [20, 40], 'color': "rgba(253, 174, 97, 0.4)"},
+                        {'range': [40, 60], 'color': "rgba(255, 255, 191, 0.4)"},
+                        {'range': [60, 80], 'color': "rgba(166, 217, 106, 0.4)"},
+                        {'range': [80, 100], 'color': "rgba(26, 150, 65, 0.4)"}
+                    ],
+                }
+            ))
+            fig_agg_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=220, margin=dict(l=10, r=10, t=10, b=10))
+            st.plotly_chart(fig_agg_gauge, use_container_width=True, key=f"{k}_agg_gauge_plot")
+            
+        with col_r:
+            st.markdown("### Scoring Curve")
+            xs = np.linspace(0, 100, 300)
+            ys = [run_smaf_agg_score(x, om_id, texture_id, fe_id, SMAF_DATA) for x in xs]
+            
+            fig_agg = go.Figure()
+            fig_agg.add_trace(go.Scatter(
+                x=xs, y=ys, mode="lines", 
+                line=dict(color="#7A5C3E", width=3), 
+                name="Score Curve", hovertemplate="Stability: %{x:.1f}%<br>Score: %{y:.0f}<extra></extra>"
+            ))
+            
+            fig_agg.add_trace(go.Scatter(
+                x=[agg_val], y=[score_agg], mode="markers", 
+                marker=dict(color=agg_color, size=14, line=dict(color="white", width=2)), 
+                name="Your Soil"
+            ))
+            
+            fig_agg.update_layout(
+                xaxis_title="Macroaggregate Stability (%)", 
+                yaxis_title="SHAPE Score",
+                yaxis=dict(range=[0, 105]), xaxis=dict(range=[0, 100]),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
+                height=350, margin=dict(l=10, r=10, t=20, b=10)
+            )
+            st.plotly_chart(fig_agg, use_container_width=True, key=f"{k}_agg_curve_plot")
+
+        # ── 5-TIER AGG RECOMMENDATION ENGINE ──
+        st.markdown("### 📋 Agronomic Recommendations")
+
+        if score_agg >= 80:
+            agg_level = "Very High"
+            agg_rec = "Your soil structure is optimal. The macroaggregates are highly stable, resisting slaking and crusting under heavy rainfall. This ensures excellent water infiltration and aeration. Continue minimal disturbance practices."
+        elif score_agg >= 60:
+            agg_level = "High"
+            agg_rec = "Your soil structure is good and provides adequate resistance to erosion and compaction. Maintain current organic matter inputs and monitor heavy field traffic."
+        elif score_agg >= 40:
+            agg_level = "Medium"
+            agg_rec = "Your macroaggregate stability is moderate, leaving the soil prone to crusting or sealing during intense rain events. Consider reducing tillage intensity or integrating short-term cover crops to build biological glues."
+        elif score_agg >= 20:
+            agg_level = "Low"
+            agg_rec = "Your soil has weak structural integrity, creating a high risk of slaking, surface runoff, and erosion. Implementing no-till practices alongside active carbon inputs (like manure or dense cover crops) is strongly recommended."
+        else:
+            agg_level = "Very Low"
+            agg_rec = "Critical structural degradation. Your soil aggregates fall apart rapidly when wet, severely limiting infiltration and root growth. Immediate intervention utilizing deep-rooted cover crops and significant organic amendments is required to rebuild soil structure."
+
+        st.info(f"**Score Tier: {agg_level}**\n\n{agg_rec}")
 
         # ── 5-TIER EC RECOMMENDATION ENGINE ──
         st.markdown("### 📋 Agronomic Recommendations")

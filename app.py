@@ -1286,8 +1286,8 @@ def render_single_sample(region_name, cfg, df, df_hist):
             selected_weath = st.selectbox("Soil Weathering Class", ["— Select —"] + list(SMAF_WEATHERING_MAP.keys()), key=f"{k}_sm_weather")
             ec_method_str = st.selectbox("EC Method", ["— Select —", "Saturated Paste (ECsat)", "1:1 Soil:Water (EC1:1)"], key=f"{k}_ec_method")
             
-            selected_om_class = st.selectbox("Organic Matter Class (for Agg. Stability)", ["— Select —"] + list(SMAF_OM_MAP.keys()), key=f"{k}_sm_om_class")
-            selected_fe_class = st.selectbox("Iron-Oxide Class (for Agg. Stability)", ["— Select —"] + list(SMAF_FE_MAP.keys()), key=f"{k}_sm_fe_class")
+            selected_om_class = st.selectbox("Organic Matter Class", ["— Select —"] + list(SMAF_OM_MAP.keys()), key=f"{k}_sm_om_class")
+            selected_fe_class = st.selectbox("Iron-Oxide Class", ["— Select —"] + list(SMAF_FE_MAP.keys()), key=f"{k}_sm_fe_class")
             
             use_geo = st.checkbox("Fetch climate from coordinates", key=f"{k}_geo")
             lat_in, lon_in = cfg["default_latlon"]

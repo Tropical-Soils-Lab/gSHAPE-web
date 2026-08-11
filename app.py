@@ -2061,6 +2061,26 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 height=400, margin=dict(l=10, r=10, t=40, b=10)
             )
             st.plotly_chart(fig_sar, width='stretch', key=f"{k}_sar_curve_plot")
+            # ── 5-TIER SAR RECOMMENDATION ENGINE ──
+        st.markdown("### 📋 Agronomic Recommendations")
+
+        if score_sar >= 80:
+            sar_level = "Very High"
+            sar_rec = "Your soil sodium levels are optimal and pose no threat to soil structure or plant health. Water infiltration and aeration are unrestricted by sodicity."
+        elif score_sar >= 60:
+            sar_level = "High"
+            sar_rec = "Your soil SAR is at a safe, manageable level. Continue routine monitoring, especially if irrigating with groundwater, to prevent slow sodium accumulation."
+        elif score_sar >= 40:
+            sar_level = "Medium"
+            sar_rec = "Your soil indicates a moderate sodium hazard. You may begin to notice minor surface crusting or slightly reduced water infiltration. Consider a preventative application of a soluble calcium source (like gypsum) to displace sodium from the clay exchange sites."
+        elif score_sar >= 20:
+            sar_level = "Low"
+            sar_rec = "Your soil has high sodicity, which is likely causing soil dispersion, severe crusting, and poor drainage. A structured remediation plan involving gypsum application followed by heavy leaching irrigation is recommended. Consult a local agronomist."
+        else:
+            sar_level = "Very Low"
+            sar_rec = "Critical sodicity limitation. High sodium levels are causing severe structural collapse, rendering the soil highly impermeable and toxic to most crops. Immediate and aggressive remediation with calcium amendments and intensive leaching is required."
+
+        st.info(f"**Score Tier: {sar_level}**\n\n{sar_rec}")
     elif chosen_indicator == "pH":
         # Global definition prevents NameError
         crop_selected_name = st.session_state[f"{k}_sm_crop"]

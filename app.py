@@ -1170,6 +1170,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
     if f"{k}_sm_weather" not in st.session_state: st.session_state[f"{k}_sm_weather"] = "— Select —"
     if f"{k}_sm_tex" not in st.session_state: st.session_state[f"{k}_sm_tex"] = "— Select —"
     if f"{k}_sm_slope" not in st.session_state: st.session_state[f"{k}_sm_slope"] = "— Select —"
+    if f"{k}_ec_method" not in st.session_state: st.session_state[f"{k}_ec_method"] = "— Select —"
 
   # ── MASTER SITE INPUTS (Always Visible) ──
     with st.expander("⚙️ Site & Management Inputs", expanded=True):
@@ -1210,8 +1211,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             # Management & Climate
             selected_method = st.selectbox("P Extraction Method", ["— Select —"] + list(SMAF_METHOD_MAP.keys()), key=f"{k}_sm_method")
             selected_weath = st.selectbox("Soil Weathering Class", ["— Select —"] + list(SMAF_WEATHERING_MAP.keys()), key=f"{k}_sm_weather")
-            ec_method_str = st.selectbox("EC Method", ["Saturated Paste (ECsat)", "1:1 Soil:Water (EC1:1)"], key=f"{k}_ec_method")
-            
+            ec_method_str = st.selectbox("EC Method", ["— Select —", "Saturated Paste (ECsat)", "1:1 Soil:Water (EC1:1)"], key=f"{k}_ec_method")            
             use_geo = st.checkbox("Fetch climate from coordinates", key=f"{k}_geo")
             lat_in, lon_in = cfg["default_latlon"]
             if use_geo:
@@ -1258,14 +1258,14 @@ def render_single_sample(region_name, cfg, df, df_hist):
             bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.5, max_value=2.0, value=1.45, step=0.05, key=f"{k}_bd_input")
             target_pct = st.slider("Benchmark Percentile (SOC)", 50, 99, 90, key=f"{k}_pct")
     # ✨ THE MASTER SITE INPUTS GATEKEEPER ✨
-    required_inputs = [selected_sub, selected_tex, selected_sm_tex, selected_sm_slope, selected_method, selected_weath]
+    required_inputs = [selected_sub, selected_tex, selected_sm_tex, selected_sm_slope, selected_method, selected_weath, ec_method_str]
+    
     if selected_bd_min is not None:
         required_inputs.append(selected_bd_min)
         
     if any(val == "— Select —" for val in required_inputs):
         st.info("💡 Please complete all dropdown selections in the **Site Inputs** above to unlock your soil health scores and recommendations.")
         return
-
     # ── GLOBAL SOC PEER GROUP RESOLUTION ──
     tax = parse_code(selected_sub)
     tex = cfg["texture_map"][selected_tex]

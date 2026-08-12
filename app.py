@@ -1687,8 +1687,10 @@ def render_single_sample(region_name, cfg, df, df_hist):
     st.divider()
     # =========================================================================
     
-    # ── INDICATOR SELECTION ──
-    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density", "Electrical Conductivity", "Macroaggregate Stability", "Sodium Adsorption Ratio", "Potentially Mineralizable Nitrogen"]    chosen_indicator = st.selectbox(
+   # ── INDICATOR SELECTION ──
+    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density", "Electrical Conductivity", "Macroaggregate Stability", "Sodium Adsorption Ratio", "Potentially Mineralizable Nitrogen"]
+    
+    chosen_indicator = st.selectbox(
         "Soil Health Indicators:",
         indicator_options,
         key=f"{cfg['key']}_indicator_shared"

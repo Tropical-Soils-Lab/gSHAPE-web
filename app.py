@@ -1580,10 +1580,11 @@ def render_single_sample(region_name, cfg, df, df_hist):
     raw_score_ec_sum = run_smaf_ec_score(ec_val, crop_id_sum, ec_method_id_sum, texture_id_sum, SMAF_DATA)
 
     # Macroaggregate Stability Score (Silent Calculation)
-    om_id_sum = SMAF_OM_MAP.get(selected_om_class, 2)
+    om_string_sum = st.session_state.get(f"{k}_sm_om_class", "Class 2 (Med-High OM)")
+    om_id_sum = SMAF_OM_MAP.get(om_string_sum, 2)
+    
     fe_id_sum = SMAF_FE_MAP.get(selected_fe_class, 2)
     raw_score_agg_sum = run_smaf_agg_score(agg_val, om_id_sum, texture_id_sum, fe_id_sum, SMAF_DATA)
-
     # Sodium Adsorption Ratio (SAR) Score (Silent Calculation)
     raw_score_sar_sum = run_smaf_sar_score(sar_val, ec_val, ec_method_id_sum, texture_id_sum, SMAF_DATA)
 

@@ -1414,11 +1414,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
         with c1:
             taxon_label = TAXON_LABEL[region_name]
             if region_name == "Brazil":
-                br_tax_system = st.selectbox(
-                    "Taxonomy System", 
-                    ["World Reference Base (WRB)", "Sistema Brasileiro de Classificação (SiBC)"],
-                    key=f"{k}_tax_system"
-                )
+                br_tax_system = st.selectbox("Taxonomy System", ["World Reference Base (WRB)", "Sistema Brasileiro de Classificação (SiBC)"], key=f"{k}_tax_system")
                 if "SiBC" in br_tax_system:
                     active_taxon_display = cfg["taxon_display_sibc"]
                     taxon_label = "Ordem / Subordem (SiBC)"
@@ -1429,7 +1425,20 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
             selected_sub = st.selectbox(taxon_label, ["— Select —"] + active_taxon_display, format_func=lambda x: strip_code(x) if x != "— Select —" else x, key=f"{k}_sub")
             selected_tex = st.selectbox("Texture", ["— Select —"] + list(cfg["texture_map"].keys()), format_func=lambda x: strip_code(x) if x != "— Select —" else x, key=f"{k}_tex")
-            selected_sm_tex = st.selectbox("Texture Profile", ["— Select —"] + list(SMAF_TEXTURE_MAP.keys()), key=f"{k}_sm_tex")
+            
+            # ✨ SMART UI: Auto-select Texture Profile ✨
+            raw_tex = selected_tex.lower() if selected_tex else ""
+            if "— select —" in raw_tex: derived_tex_id = 0
+            elif "silt loam" in raw_tex or "silt" in raw_tex: derived_tex_id = 3
+            elif "clay" in raw_tex and "loam" not in raw_tex and "sandy" not in raw_tex and "silty" not in raw_tex: derived_tex_id = 5 
+            elif "clay" in raw_tex: derived_tex_id = 4 
+            elif "loam" in raw_tex: derived_tex_id = 2 
+            elif "sand" in raw_tex: derived_tex_id = 1 
+            else: derived_tex_id = 2
+            
+            tex_options = ["— Select —"] + list(SMAF_TEXTURE_MAP.keys())
+            if derived_tex_id != 0: st.session_state[f"{k}_sm_tex"] = tex_options[derived_tex_id]
+            selected_sm_tex = st.selectbox("Texture Profile (Auto-Assigned)", tex_options, key=f"{k}_sm_tex")
             
             texture_id = SMAF_TEXTURE_MAP.get(selected_sm_tex, 0)
             selected_bd_min = None
@@ -1443,10 +1452,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
             selected_method = st.selectbox("P Extraction Method", ["— Select —"] + list(SMAF_METHOD_MAP.keys()), key=f"{k}_sm_method")
             selected_weath = st.selectbox("Soil Weathering Class", ["— Select —"] + list(SMAF_WEATHERING_MAP.keys()), key=f"{k}_sm_weather")
             ec_method_str = st.selectbox("EC Method", ["— Select —", "Saturated Paste (ECsat)", "1:1 Soil:Water (EC1:1)"], key=f"{k}_ec_method")
-            
-            selected_om_class = st.selectbox("Organic Matter Class", ["— Select —"] + list(SMAF_OM_MAP.keys()), key=f"{k}_sm_om_class")
-            selected_fe_class = st.selectbox("Iron-Oxide Class", ["— Select —"] + list(SMAF_FE_MAP.keys()), key=f"{k}_sm_fe_class")
-            selected_climate_class = st.selectbox("Climate Class", ["— Select —"] + list(SMAF_CLIMATE_MAP.keys()), key=f"{k}_sm_climate_class")
             
             use_geo = st.checkbox("Fetch climate from coordinates", key=f"{k}_geo")
             lat_in, lon_in = cfg["default_latlon"]
@@ -1472,6 +1477,20 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 target_precip = st.slider("Mean Annual Precipitation (mm)", cfg["precip_range"][0], cfg["precip_range"][1], value=float(st.session_state.get(f"{k}_precip", cfg["precip_default"])), step=10.0, key=f"{k}_precip")
             else:
                 target_precip = None
+
+            # ✨ SMART UI: Auto-select Iron Oxide ✨
+            derived_fe_id = 1 if "ult" in selected_sub.lower() else 2 if "— select —" not in selected_sub.lower() else 0
+            fe_options = ["— Select —"] + list(SMAF_FE_MAP.keys())
+            if derived_fe_id != 0: st.session_state[f"{k}_sm_fe_class"] = fe_options[derived_fe_id]
+            selected_fe_class = st.selectbox("Iron-Oxide Class (Auto-Assigned)", fe_options, key=f"{k}_sm_fe_class")
+            
+            # ✨ SMART UI: Auto-select Climate Class ✨
+            is_warm = target_temp >= 15.0
+            is_wet = target_precip >= 600.0 if target_precip is not None else True
+            derived_clim_id = 1 if (is_warm and is_wet) else 2 if (is_warm and not is_wet) else 3 if (not is_warm and is_wet) else 4
+            clim_options = ["— Select —"] + list(SMAF_CLIMATE_MAP.keys())
+            st.session_state[f"{k}_sm_climate_class"] = clim_options[derived_clim_id]
+            selected_climate_class = st.selectbox("Climate Class (Auto-Assigned)", clim_options, key=f"{k}_sm_climate_class")
                 
             if cfg["has_histosol"]:
                 hist_toggle = st.checkbox("📌 This is an organic / Histosol soil (Muck, Peat)", key=f"{k}_hist")
@@ -1481,7 +1500,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
     # ── MASTER LAB INPUTS (Always Visible) ──
     with st.expander("🧪 Laboratory Measurements", expanded=True):
         lc1, lc2, lc3 = st.columns(3)
-        
         with lc1:
             oc_val = st.number_input("Measured SOC (%)", 0.01, 80.0, key=f"{k}_oc")
             agg_val = st.number_input("Agg. Stability (%)", min_value=0.0, max_value=100.0, value=40.0, step=1.0, key=f"{k}_agg_val")
@@ -1497,9 +1515,16 @@ def render_single_sample(region_name, cfg, df, df_hist):
             ph_val = st.number_input("Measured Soil pH", 0.0, 14.0, value=6.0, key=f"{k}_ph_measured_input")
             target_pct = st.slider("Benchmark Percentile (SOC)", 50, 99, 90, key=f"{k}_pct")
 
+    # ✨ SILENT DERIVATION ENGINE FOR ORGANIC MATTER CLASS (Hidden) ✨
+    if oc_val >= 2.9: derived_om_id = 1
+    elif oc_val >= 1.45: derived_om_id = 2
+    elif oc_val >= 0.6: derived_om_id = 3
+    else: derived_om_id = 4
+    rev_om = {1: "Class 1 (Highest OM)", 2: "Class 2 (Med-High OM)", 3: "Class 3 (Med-Low OM)", 4: "Class 4 (Lowest OM)"}
+    st.session_state[f"{k}_sm_om_class"] = rev_om[derived_om_id]
+
     # ✨ THE MASTER SITE INPUTS GATEKEEPER ✨
-    required_inputs = [selected_sub, selected_tex, selected_sm_tex, selected_sm_slope, selected_method, selected_weath, ec_method_str, selected_om_class, selected_fe_class, selected_climate_class]
-    
+    required_inputs = [selected_sub, selected_tex, selected_sm_tex, selected_sm_slope, selected_method, selected_weath, ec_method_str, selected_fe_class, selected_climate_class]
     if selected_bd_min is not None:
         required_inputs.append(selected_bd_min)
         

@@ -1479,11 +1479,16 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 target_precip = None
 
             # ✨ SMART UI: Auto-select Iron Oxide ✨
-            derived_fe_id = 1 if "ult" in selected_sub.lower() else 2 if "— select —" not in selected_sub.lower() else 0
+            sub_lower = selected_sub.lower()
+            # Florida = ult(isol) | WRB = acrisol, alisol | SiBC = argissolo, alissolo
+            high_fe_keywords = ["ult", "acrisol", "alisol", "argissolo", "alissolo"]
+            is_high_fe = any(keyword in sub_lower for keyword in high_fe_keywords)
+            
+            derived_fe_id = 1 if is_high_fe else 2 if "— select —" not in sub_lower else 0
+            
             fe_options = ["— Select —"] + list(SMAF_FE_MAP.keys())
             if derived_fe_id != 0: st.session_state[f"{k}_sm_fe_class"] = fe_options[derived_fe_id]
             selected_fe_class = st.selectbox("Iron-Oxide Class (Auto-Assigned)", fe_options, key=f"{k}_sm_fe_class")
-            
             # ✨ SMART UI: Auto-select Climate Class ✨
             is_warm = target_temp >= 15.0
             is_wet = target_precip >= 600.0 if target_precip is not None else True

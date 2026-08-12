@@ -794,6 +794,13 @@ SMAF_FE_MAP = {
     "Ultisols (High Iron-Oxide)": 1,
     "All Other Soil Orders": 2
 }
+# ✨ NEW: PMN Climate Map
+SMAF_CLIMATE_MAP = {
+    "Class 1 (Warm/Wet)": 1,
+    "Class 2 (Warm/Dry)": 2,
+    "Class 3 (Cool/Wet)": 3,
+    "Class 4 (Cool/Dry)": 4
+}
 # ════════════════════════════════════════════════════════════════════
 # 5. HELPER FUNCTIONS
 # ════════════════════════════════════════════════════════════════════
@@ -1140,6 +1147,76 @@ def run_smaf_sar_score(sar_val, ec_val, method_id, texture_id, smaf_data, clamp=
         
     return y * 100.0
 
+# ----------------------------------------------------------------------
+# SMAF POTENTIALLY MINERALIZABLE NITROGEN (PMN) BACKEND ENGINE
+# ----------------------------------------------------------------------
+def load_pmn_data(smaf_data, path="SMAF_lookup.xlsx"):
+    """Injects the 4 new PMN sheets into the global SMAF_DATA dictionary safely."""
+    if "pmn_K" in smaf_data: return 
+    
+    import math, pandas as pd
+    sh = pd.read_excel(path, sheet_name=None, dtype=str)
+    
+    def num(x):
+        try: return float(x) if not pd.isna(x) else None
+        except: return None
+        
+    pmn_K, pmn_om, pmn_texture, pmn_climate = {}, {}, {}, {}
+    
+    if "pmn_constants" in sh:
+        for _, r in sh["pmn_constants"].iterrows():
+            v = num(r.get("value"))
+            p = str(r.get("param_name")).strip()
+            if p != "nan" and v is not None: pmn_K[p] = v
+            
+    if "pmn_om_factors" in sh:
+        for _, r in sh["pmn_om_factors"].iterrows():
+            oc = num(r.get("om_class"))
+            if oc is not None: pmn_om[int(oc)] = num(r.get("max_range"))
+            
+    if "pmn_texture_factors" in sh:
+        for _, r in sh["pmn_texture_factors"].iterrows():
+            tc = num(r.get("texture_code"))
+            if tc is not None: pmn_texture[int(tc)] = num(r.get("c2"))
+            
+    if "pmn_climate_factors" in sh:
+        for _, r in sh["pmn_climate_factors"].iterrows():
+            cc = num(r.get("climate_class"))
+            if cc is not None: pmn_climate[int(cc)] = num(r.get("c3"))
+            
+    smaf_data["pmn_K"] = pmn_K
+    smaf_data["pmn_om"] = pmn_om
+    smaf_data["pmn_texture"] = pmn_texture
+    smaf_data["pmn_climate"] = pmn_climate
+
+def om_c1(om_class, L):
+    K, R = L.get("pmn_K", {}), L.get("pmn_om", {}).get(om_class, 1.0)
+    return K.get("c1_coef_a", 0.0) + K.get("c1_coef_b", 0.0) * R + K.get("c1_coef_c", 0.0) * (R ** 2)
+
+def rate_c(om_class, texture, climate, L):
+    c1 = om_c1(om_class, L)
+    c2 = L.get("pmn_texture", {}).get(texture, 1.0)
+    c3 = L.get("pmn_climate", {}).get(climate, 1.0)
+    return (c1 * c2) + (c1 * c2 * c3)
+
+def run_smaf_pmn_score(pmn_val, om_class, texture, climate, smaf_data, clamp=True):
+    load_pmn_data(smaf_data)
+    K = smaf_data.get("pmn_K", {})
+    if not K: return 0.0
+    
+    import math
+    c = rate_c(om_class, texture, climate, smaf_data)
+    
+    try:
+        y = K.get("a", 1.0) / (1.0 + K.get("b", 1.0) * math.exp(-c * pmn_val))
+    except OverflowError:
+        y = 0.0  # Failsafe if math.exp overflows on an extreme input
+        
+    if clamp:
+        y = max(K.get("score_min", 0.0), min(K.get("score_max", 1.0), y))
+        
+    return y * 100.0
+
 def fetch_climate(lat, lon, need_precip=False):
     """Fetch MAT (and optionally MAP) from NASA POWER climatology."""
     try:
@@ -1328,6 +1405,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
     if f"{k}_ec_method" not in st.session_state: st.session_state[f"{k}_ec_method"] = "— Select —"
     if f"{k}_sm_om_class" not in st.session_state: st.session_state[f"{k}_sm_om_class"] = "— Select —"
     if f"{k}_sm_fe_class" not in st.session_state: st.session_state[f"{k}_sm_fe_class"] = "— Select —"
+    if f"{k}_sm_climate_class" not in st.session_state: st.session_state[f"{k}_sm_climate_class"] = "— Select —"
 
    # ── MASTER SITE INPUTS (Always Visible) ──
     with st.expander("⚙️ Site & Management Inputs", expanded=True):
@@ -1351,7 +1429,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
             selected_sub = st.selectbox(taxon_label, ["— Select —"] + active_taxon_display, format_func=lambda x: strip_code(x) if x != "— Select —" else x, key=f"{k}_sub")
             selected_tex = st.selectbox("Texture", ["— Select —"] + list(cfg["texture_map"].keys()), format_func=lambda x: strip_code(x) if x != "— Select —" else x, key=f"{k}_tex")
-            
             selected_sm_tex = st.selectbox("Texture Profile", ["— Select —"] + list(SMAF_TEXTURE_MAP.keys()), key=f"{k}_sm_tex")
             
             texture_id = SMAF_TEXTURE_MAP.get(selected_sm_tex, 0)
@@ -1369,6 +1446,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             
             selected_om_class = st.selectbox("Organic Matter Class", ["— Select —"] + list(SMAF_OM_MAP.keys()), key=f"{k}_sm_om_class")
             selected_fe_class = st.selectbox("Iron-Oxide Class", ["— Select —"] + list(SMAF_FE_MAP.keys()), key=f"{k}_sm_fe_class")
+            selected_climate_class = st.selectbox("Climate Class", ["— Select —"] + list(SMAF_CLIMATE_MAP.keys()), key=f"{k}_sm_climate_class")
             
             use_geo = st.checkbox("Fetch climate from coordinates", key=f"{k}_geo")
             lat_in, lon_in = cfg["default_latlon"]
@@ -1377,7 +1455,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 lon_in = st.number_input("Longitude", value=cfg["default_latlon"][1], format="%.4f", key=f"{k}_lon")
                 if st.button("🌐 Fetch Climate Data", key=f"{k}_fetch"):
                     if not in_bounds(lat_in, lon_in, cfg):
-                        st.error(f"📍 Outside area of interest for {region_name}. Valid range: lat {cfg['lat_bounds'][0]}–{cfg['lat_bounds'][1]}, lon {cfg['lon_bounds'][0]}–{cfg['lon_bounds'][1]}.")
+                        st.error(f"📍 Outside area of interest for {region_name}.")
                     else:
                         res = fetch_climate(lat_in, lon_in, need_precip=has_precip)
                         if res:
@@ -1385,7 +1463,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
                                 st.session_state[f"{k}_temp"] = float(np.clip(res["temp"], *cfg["temp_range"]))
                             if has_precip and "precip" in res:
                                 st.session_state[f"{k}_precip"] = float(np.clip(res["precip"], *cfg["precip_range"]))
-                            st.success(f"Climate fetched: {res.get('temp', '—'):.1f}°C" + (f", {res.get('precip', 0):.0f}mm/yr" if has_precip and "precip" in res else ""))
+                            st.success(f"Climate fetched: {res.get('temp', '—'):.1f}°C")
                         else:
                             st.warning("Could not fetch climate data. Enter manually below.")
             
@@ -1400,26 +1478,27 @@ def render_single_sample(region_name, cfg, df, df_hist):
             else:
                 hist_toggle = False
 
+    # ── MASTER LAB INPUTS (Always Visible) ──
     with st.expander("🧪 Laboratory Measurements", expanded=True):
         lc1, lc2, lc3 = st.columns(3)
         
         with lc1:
             oc_val = st.number_input("Measured SOC (%)", 0.01, 80.0, key=f"{k}_oc")
-            ph_val = st.number_input("Measured Soil pH", 0.0, 14.0, key=f"{k}_ph_measured_input")
             agg_val = st.number_input("Agg. Stability (%)", min_value=0.0, max_value=100.0, value=40.0, step=1.0, key=f"{k}_agg_val")
+            pmn_val = st.number_input("Measured PMN (mg/kg)", min_value=0.0, max_value=200.0, value=10.0, step=1.0, key=f"{k}_pmn_val")
             
         with lc2:
             p_val = st.number_input("Measured Extractable P (mg/kg)", 0.0, 500.0, key=f"{k}_sm_p_input")
             ec_val = st.number_input("Measured EC (dS/m)", min_value=0.0, max_value=20.0, value=1.5, step=0.1, key=f"{k}_ec_val")
-            # ✨ NEW: SAR Input Box added to center column
             sar_val = st.number_input("Measured SAR", min_value=0.0, max_value=50.0, value=2.0, step=0.5, key=f"{k}_sar_val")
             
         with lc3:
             bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.5, max_value=2.0, value=1.45, step=0.05, key=f"{k}_bd_input")
+            ph_val = st.number_input("Measured Soil pH", 0.0, 14.0, value=6.0, key=f"{k}_ph_measured_input")
             target_pct = st.slider("Benchmark Percentile (SOC)", 50, 99, 90, key=f"{k}_pct")
-            
+
     # ✨ THE MASTER SITE INPUTS GATEKEEPER ✨
-    required_inputs = [selected_sub, selected_tex, selected_sm_tex, selected_sm_slope, selected_method, selected_weath, ec_method_str, selected_om_class, selected_fe_class]
+    required_inputs = [selected_sub, selected_tex, selected_sm_tex, selected_sm_slope, selected_method, selected_weath, ec_method_str, selected_om_class, selected_fe_class, selected_climate_class]
     
     if selected_bd_min is not None:
         required_inputs.append(selected_bd_min)
@@ -1482,7 +1561,10 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
     # Sodium Adsorption Ratio (SAR) Score (Silent Calculation)
     raw_score_sar_sum = run_smaf_sar_score(sar_val, ec_val, ec_method_id_sum, texture_id_sum, SMAF_DATA)
-    
+
+    # Potentially Mineralizable Nitrogen (PMN) Score (Silent Calculation)
+    climate_id_sum = SMAF_CLIMATE_MAP.get(selected_climate_class, 3) if selected_climate_class != "— Select —" else 3
+    raw_score_pmn_sum = run_smaf_pmn_score(pmn_val, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)
     # pH Score
     crop_selected_name_sum = st.session_state[f"{k}_sm_crop"]
     ph_benchmarks_sum = SMAF_DATA.get("ph_benchmarks", {}) if SMAF_DATA else {}
@@ -1501,7 +1583,8 @@ def render_single_sample(region_name, cfg, df, df_hist):
         except (ValueError, TypeError):
             return 0.0
 
-    score_bio = safe_float(score_soc)
+    # ✨ Biological = Average of SOC and PMN
+    score_bio = (safe_float(score_soc) + safe_float(raw_score_pmn_sum)) / 2.0
     
     # Physical = Average of BD and AGG
     score_phys = (safe_float(raw_score_bd_sum) + safe_float(raw_score_agg_sum)) / 2.0
@@ -1605,8 +1688,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
     # =========================================================================
     
     # ── INDICATOR SELECTION ──
-    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density", "Electrical Conductivity", "Macroaggregate Stability", "Sodium Adsorption Ratio"]   
-    chosen_indicator = st.selectbox(
+    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density", "Electrical Conductivity", "Macroaggregate Stability", "Sodium Adsorption Ratio", "Potentially Mineralizable Nitrogen"]    chosen_indicator = st.selectbox(
         "Soil Health Indicators:",
         indicator_options,
         key=f"{cfg['key']}_indicator_shared"
@@ -2081,6 +2163,101 @@ def render_single_sample(region_name, cfg, df, df_hist):
             sar_rec = "Critical sodicity limitation. High sodium levels are causing severe structural collapse, rendering the soil highly impermeable and toxic to most crops. Immediate and aggressive remediation with calcium amendments and intensive leaching is required."
 
         st.info(f"**Score Tier: {sar_level}**\n\n{sar_rec}")
+
+    elif chosen_indicator == "Potentially Mineralizable Nitrogen":
+        # 1. Grab Global Variables
+        texture_id = SMAF_TEXTURE_MAP[st.session_state[f"{k}_sm_tex"]]
+        om_id = SMAF_OM_MAP.get(st.session_state[f"{k}_sm_om_class"], 2)
+        climate_id = SMAF_CLIMATE_MAP.get(st.session_state[f"{k}_sm_climate_class"], 3)
+        
+        # 2. Calculate Score securely
+        raw_score_pmn = run_smaf_pmn_score(pmn_val, om_id, texture_id, climate_id, SMAF_DATA)
+        try:
+            score_pmn = float(raw_score_pmn) if raw_score_pmn is not None else 0.0
+        except (ValueError, TypeError):
+            score_pmn = 0.0
+            
+        pmn_color = score_color(score_pmn)
+        pmn_label = score_label(score_pmn)
+        
+        # 3. Create the 1:2 Column Layout
+        col_l, col_r = st.columns([1, 2])
+        
+        with col_l:
+            gauge_title = f"<b style='font-size:17px'>{pmn_label}</b><br><span style='font-size:11px;color:gray'>Measured PMN {pmn_val} mg/kg</span>"
+            fig_pmn_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_pmn)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": pmn_color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": pmn_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
+                    ],
+                    "threshold": {"line": {"color": pmn_color, "width": 5}, "thickness": 0.8, "value": score_pmn}
+                }
+            ))
+            fig_pmn_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
+            st.plotly_chart(fig_pmn_gauge, use_container_width=True, key=f"{k}_pmn_gauge_plot")
+            
+        with col_r:
+            st.markdown("#### Scoring Curve")
+            
+            # Use linspace directly; logistic curves are inherently smooth
+            chart_max = max(30.0, pmn_val + 5.0)
+            xs = np.linspace(0, chart_max, 300)
+            ys = [run_smaf_pmn_score(x, om_id, texture_id, climate_id, SMAF_DATA) for x in xs]
+            
+            fig_pmn = go.Figure()
+            fig_pmn.add_trace(go.Scatter(
+                x=xs, y=np.array(ys) / 100.0, mode="lines", 
+                line=dict(color="#2F6E6B", width=3), 
+                name="Score Curve", hovertemplate="PMN: %{x:.1f} mg/kg<br>Score: %{y:.0%}<extra></extra>"
+            ))
+            
+            fig_pmn.add_trace(go.Scatter(
+                x=[pmn_val], y=[score_pmn / 100.0], mode="markers", 
+                marker=dict(color=pmn_color, size=14, line=dict(color="white", width=2)), 
+                name="Your Soil"
+            ))
+            
+            fig_pmn.update_layout(
+                xaxis_title="Potentially Mineralizable Nitrogen (mg/kg)", 
+                yaxis_title="SHAPE Score",
+                yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0, chart_max]),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
+                height=400, margin=dict(l=10, r=10, t=40, b=10)
+            )
+            st.plotly_chart(fig_pmn, width='stretch', key=f"{k}_pmn_curve_plot")
+
+        # ── 5-TIER PMN RECOMMENDATION ENGINE ──
+        st.markdown("### 📋 Agronomic Recommendations")
+
+        if score_pmn >= 80:
+            pmn_level = "Very High"
+            pmn_rec = "Your soil exhibits excellent biological activity and robust organic nitrogen reserves. A highly active microbial community is efficiently mineralizing nitrogen to meet peak crop demands. Continue your current organic matter inputs and diverse crop rotations."
+        elif score_pmn >= 60:
+            pmn_level = "High"
+            pmn_rec = "Your PMN levels indicate good biological function and active nitrogen cycling. The soil microbiome is healthy and supportive of organic matter breakdown. Maintain current residue management practices."
+        elif score_pmn >= 40:
+            pmn_level = "Medium"
+            pmn_rec = "Your soil's biological activity is moderate. Nitrogen mineralization may not fully keep up with rapid crop growth stages. Consider incorporating higher-nitrogen cover crops (like legumes) or applying compost to stimulate the microbial pool."
+        elif score_pmn >= 20:
+            pmn_level = "Low"
+            pmn_rec = "Your PMN levels are low, indicating weak biological activity and sluggish organic nitrogen cycling. Yields may be heavily dependent on synthetic fertilizer inputs. Integrating manure, compost, or continuous living roots into the system is recommended to feed the soil biology."
+        else:
+            pmn_level = "Very Low"
+            pmn_rec = "Critical biological limitation. Your soil has severely degraded biological function with minimal nitrogen mineralization capacity. Immediate intervention is required to rebuild the microbial community through aggressive organic amendments, reduced tillage, and diverse cover cropping."
+
+        st.info(f"**Score Tier: {pmn_level}**\n\n{pmn_rec}")
+        
     elif chosen_indicator == "pH":
         # Global definition prevents NameError
         crop_selected_name = st.session_state[f"{k}_sm_crop"]

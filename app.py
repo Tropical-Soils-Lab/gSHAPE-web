@@ -2940,28 +2940,40 @@ def render_single_sample(region_name, cfg, df, df_hist):
         col_l, col_r = st.columns([1, 2])
         
         with col_l:
-            gauge_title = f"<b style='font-size:17px; color:#333;'>{smaf_soc_label}</b><br><span style='font-size:11px; color:#555;'>Measured SOC: {oc_val}%</span>"
+            climate_str = f"{target_temp:.1f}°C"
+            if has_precip and target_precip is not None:
+                climate_str += f" · {target_precip:.0f}mm"
+                
+            gauge_title = (f"<b style='font-size:17px'>{smaf_soc_label}</b><br>"
+                           f"<span style='font-size:11px;color:gray'>{strip_code(selected_sub)} · {strip_code(selected_tex)} · {climate_str} · SOC {oc_val}%</span>")
+            
             fig_smaf_soc_gauge = go.Figure(go.Indicator(
-                mode="gauge+number", value=int(round(score_smaf_soc)),
+                mode="gauge+number",
+                value=int(round(score_smaf_soc)),
+                domain={"x": [0, 1], "y": [0, 1]},
                 title={"text": gauge_title, "font": {"size": 13}},
                 number={"suffix": "/100", "font": {"size": 38, "color": smaf_soc_color}},
                 gauge={
-                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#555", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray", "tickvals": [0, 20, 40, 60, 80, 100]},
                     "bar": {"color": smaf_soc_color, "thickness": 0.28},
                     "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
                     "steps": [
-                        {"range": [0, 20], "color": "rgba(215,48,39,0.85)"},
-                        {"range": [20, 40], "color": "rgba(244,109,67,0.85)"},
-                        {"range": [40, 60], "color": "rgba(255,193,7,0.85)"},
-                        {"range": [60, 80], "color": "rgba(119,195,92,0.85)"},
-                        {"range": [80, 100], "color": "rgba(26,150,65,0.85)"}
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
                     ],
                     "threshold": {"line": {"color": smaf_soc_color, "width": 5}, "thickness": 0.8, "value": score_smaf_soc}
                 }
             ))
-            fig_smaf_soc_gauge.update_layout(font=dict(color="#333"), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
+            fig_smaf_soc_gauge.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)", 
+                plot_bgcolor="rgba(0,0,0,0)",
+                height=260, 
+                margin=dict(l=40, r=40, t=80, b=10)
+            )
             st.plotly_chart(fig_smaf_soc_gauge, use_container_width=True, key=f"{k}_smaf_soc_gauge_plot")
-            
             # ── SHAPE Peer Group & Target Tracking (Mirroring SHAPE Tab) ──
             st.divider()
             gap = tgt_oc - oc_val

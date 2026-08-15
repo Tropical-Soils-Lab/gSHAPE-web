@@ -2067,18 +2067,36 @@ def render_single_sample(region_name, cfg, df, df_hist):
         season_climate_code = 1.0 if season_num == 1 else float(f"{season_num}.{climate_id_sum}")
         bio_scores.append(safe_float(run_smaf_mbc_score(mbc_val_sum, om_id_sum, texture_id_sum, season_climate_code, SMAF_DATA)))
 
-    # ── DYNAMIC CATEGORY AVERAGING ──
-    score_phys = sum(phys_scores) / len(phys_scores) if phys_scores else 0.0
-    score_chem = sum(chem_scores) / len(chem_scores) if chem_scores else 0.0
-    score_bio = sum(bio_scores) / len(bio_scores) if bio_scores else 0.0
+   # ── DYNAMIC CATEGORY AVERAGING (Only includes categories with selected indicators) ──
+    score_phys = sum(phys_scores) / len(phys_scores) if phys_scores else None
+    score_chem = sum(chem_scores) / len(chem_scores) if chem_scores else None
+    score_bio = sum(bio_scores) / len(bio_scores) if bio_scores else None
     
-    active_pillars = [p for p in [score_phys, score_chem, score_bio] if p > 0.0 or len(phys_scores) > 0 or len(chem_scores) > 0 or len(bio_scores) > 0]
-    score_overall = sum(active_pillars) / len(active_pillars) if active_pillars else 0.0
+    # Collect only categories that have at least one selected indicator
+    active_pillar_scores = [s for s in [score_phys, score_chem, score_bio] if s is not None]
+    score_overall = sum(active_pillar_scores) / len(active_pillar_scores) if active_pillar_scores else 0.0
 
-    # 2. Build the Summary Bar Chart
-    summary_scores = [int(round(score_phys)), int(round(score_chem)), int(round(score_bio)), int(round(score_overall))]
-    summary_labels = ["Physical", "Chemical", "Biological", "<b>OVERALL</b>"]
-    summary_colors = [score_color(s) for s in summary_scores]
+    # Build chart data dynamically so unselected categories are hidden entirely
+    summary_scores, summary_labels, summary_colors = [], [], []
+    
+    if score_phys is not None:
+        summary_scores.append(int(round(score_phys)))
+        summary_labels.append("Physical")
+        summary_colors.append(score_color(score_phys))
+    if score_chem is not None:
+        summary_scores.append(int(round(score_chem)))
+        summary_labels.append("Chemical")
+        summary_colors.append(score_color(score_chem))
+    if score_bio is not None:
+        summary_scores.append(int(round(score_bio)))
+        summary_labels.append("Biological")
+        summary_colors.append(score_color(score_bio))
+        
+    # Always append Overall at the bottom
+    summary_scores.append(int(round(score_overall)))
+    summary_labels.append("<b>OVERALL</b>")
+    summary_colors.append(score_color(score_overall))
+
     summary_text = [f"{s}/100  |  {score_label(s)}" for s in summary_scores]
     text_positions = ["inside" if s >= 25 else "outside" for s in summary_scores]
 
@@ -2098,7 +2116,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
         yaxis=dict(autorange="reversed", fixedrange=True),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        height=320,
+        height=max(220, len(summary_labels) * 70),
         margin=dict(l=10, r=20, t=10, b=10)
     )
     

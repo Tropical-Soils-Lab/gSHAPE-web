@@ -1913,10 +1913,9 @@ def render_single_sample(region_name, cfg, df, df_hist):
             if "Available Water Capacity" in target_indicators:
                 awc_val = st.number_input("Measured AWC (g/g)", min_value=0.0, max_value=0.5, value=0.15, step=0.01, key=f"{k}_awc_val")
                 
-           target_pct = 90
+            target_pct = 90
             if "Soil Organic Carbon" in target_indicators:
                 target_pct = st.slider("Benchmark Percentile (SOC)", 50, 99, 90, key=f"{k}_pct")
-                
     # ✨ SILENT DERIVATION ENGINE FOR OM CLASS & AWC REGION ✨
     if oc_val >= 2.9: derived_om_id = 1
     elif oc_val >= 1.45: derived_om_id = 2

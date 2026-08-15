@@ -2186,11 +2186,11 @@ def render_single_sample(region_name, cfg, df, df_hist):
         
         def color_table_rows(row):
             s = row.get("_raw_score", 0)
-            if s >= 80: bg = "background-color: rgba(26,150,65,0.20); color: inherit;"
-            elif s >= 60: bg = "background-color: rgba(119,195,92,0.20); color: inherit;"
-            elif s >= 40: bg = "background-color: rgba(255,193,7,0.20); color: inherit;"
-            elif s >= 20: bg = "background-color: rgba(244,109,67,0.20); color: inherit;"
-            else: bg = "background-color: rgba(215,48,39,0.20); color: inherit;"
+            if s >= 80: bg = "background-color: rgba(26,150,65,0.35); color: #ffffff;"
+            elif s >= 60: bg = "background-color: rgba(119,195,92,0.35); color: #ffffff;"
+            elif s >= 40: bg = "background-color: rgba(255,193,7,0.35); color: #ffffff;"
+            elif s >= 20: bg = "background-color: rgba(244,109,67,0.35); color: #ffffff;"
+            else: bg = "background-color: rgba(215,48,39,0.35); color: #ffffff;"
             return [bg] * len(row)
             
         display_table_df = df_summary_table.drop(columns=["_raw_score"])

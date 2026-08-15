@@ -1292,6 +1292,88 @@ def run_smaf_awc_score(awc_val, region, texture, om_class, smaf_data, clamp=True
         
     return y * 100.0
 
+# ----------------------------------------------------------------------
+# SMAF WATER-FILLED PORE SPACE (WFPS) BACKEND ENGINE
+# ----------------------------------------------------------------------
+def load_wfps_data(smaf_data, path="SMAF_lookup.xlsx"):
+    """Injects the 4 new WFPS sheets into the global SMAF_DATA dictionary safely."""
+    if "wfps_K" in smaf_data and len(smaf_data.get("wfps_K", {})) > 0: return 
+    
+    import math, pandas as pd
+    sh = pd.read_excel(path, sheet_name=None, dtype=str)
+    
+    def clean_df(name):
+        if name not in sh: return pd.DataFrame()
+        df = sh[name].copy()
+        df.columns = [str(c).strip() for c in df.columns]
+        return df
+        
+    def num(x):
+        try: return float(x) if not pd.isna(x) else None
+        except: return None
+        
+    wfps_K, wfps_env, wfps_texture = {}, {}, {}
+    
+    df_K = clean_df("wfps_constants")
+    if not df_K.empty:
+        for _, r in df_K.iterrows():
+            v = num(r.get("value"))
+            p = str(r.get("param_name")).strip()
+            if p != "nan" and v is not None: wfps_K[p] = v
+            
+    df_env = clean_df("wfps_env_constants")
+    if not df_env.empty:
+        for _, r in df_env.iterrows():
+            v = num(r.get("value"))
+            p = str(r.get("param_name")).strip()
+            if p != "nan" and v is not None: wfps_env[p] = v
+            
+    df_tex = clean_df("wfps_texture_params")
+    if not df_tex.empty:
+        for _, r in df_tex.iterrows():
+            tc = num(r.get("texture_code"))
+            if tc is not None:
+                wfps_texture[int(tc)] = {"a": num(r.get("a")), "b": num(r.get("b")), "c": num(r.get("c"))}
+                
+    smaf_data["wfps_K"] = wfps_K
+    smaf_data["wfps_env"] = wfps_env
+    smaf_data["wfps_texture"] = wfps_texture
+
+def get_wfps_frac(w_val, bd_val, smaf_data):
+    """Calculates the WFPS fraction from lab water content and bulk density."""
+    load_wfps_data(smaf_data)
+    K = smaf_data.get("wfps_K", {})
+    pdens = K.get("particle_density", 2.65)
+    if not pdens or pdens == 0: return 0.0
+    return (w_val * bd_val) / (1.0 - (bd_val / pdens))
+
+def run_smaf_wfps_score(wfps_frac, texture, smaf_data, clamp=True):
+    """Calculates both Bio and Env curves and returns a balanced 50/50 average."""
+    load_wfps_data(smaf_data)
+    K = smaf_data.get("wfps_K", {})
+    E = smaf_data.get("wfps_env", {})
+    T = smaf_data.get("wfps_texture", {}).get(texture, {})
+    
+    if not K or not E or not T: return {"bio": 0.0, "env": 0.0, "combined": 0.0}
+    
+    # Biological Curve
+    bio_y = T.get("a", 0.0) + T.get("b", 0.0) * wfps_frac + T.get("c", 0.0) * (wfps_frac ** 2)
+    if clamp: bio_y = max(K.get("score_min", 0.0), min(K.get("score_max", 1.0), bio_y))
+        
+    # Environmental Curve
+    denom = E.get("a", 1.0) + E.get("b", 0.0) * (wfps_frac ** E.get("c", 1.0))
+    env_y = 1.0 / denom if denom != 0 else 0.0
+    if clamp: env_y = max(K.get("score_min", 0.0), min(K.get("score_max", 1.0), env_y))
+        
+    # 50/50 Balanced Management Goal
+    combined_y = (0.5 * bio_y) + (0.5 * env_y)
+    
+    return {
+        "bio": bio_y * 100.0,
+        "env": env_y * 100.0,
+        "combined": combined_y * 100.0
+    }
+
 def fetch_climate(lat, lon, need_precip=False):
     """Fetch MAT (and optionally MAP) from NASA POWER climatology."""
     try:
@@ -1584,7 +1666,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             oc_val = st.number_input("Measured SOC (%)", 0.01, 80.0, key=f"{k}_oc")
             agg_val = st.number_input("Agg. Stability (%)", min_value=0.0, max_value=100.0, value=40.0, step=1.0, key=f"{k}_agg_val")
             pmn_val = st.number_input("Measured PMN (mg/kg)", min_value=0.0, max_value=200.0, value=10.0, step=1.0, key=f"{k}_pmn_val")
-            
+            w_val = st.number_input("Gravimetric Water (g/g)", min_value=0.0, max_value=1.0, value=0.25, step=0.01, key=f"{k}_w_val")
         with lc2:
             p_val = st.number_input("Measured Extractable P (mg/kg)", 0.0, 500.0, key=f"{k}_sm_p_input")
             ec_val = st.number_input("Measured EC (dS/m)", min_value=0.0, max_value=20.0, value=1.5, step=0.1, key=f"{k}_ec_val")
@@ -1680,6 +1762,12 @@ def render_single_sample(region_name, cfg, df, df_hist):
     # Available Water Capacity (AWC) Score (Silent Calculation)
     awc_region_sum = st.session_state.get(f"{k}_awc_region", 2)
     raw_score_awc_sum = run_smaf_awc_score(awc_val, awc_region_sum, texture_id_sum, om_id_sum, SMAF_DATA)
+
+    # Water-Filled Pore Space (WFPS) Score (Silent Calculation)
+    wfps_frac_sum = get_wfps_frac(w_val, bd_val, SMAF_DATA)
+    wfps_scores_sum = run_smaf_wfps_score(wfps_frac_sum, texture_id_sum, SMAF_DATA)
+    raw_score_wfps_sum = wfps_scores_sum["combined"]
+    
     # pH Score
     crop_selected_name_sum = st.session_state[f"{k}_sm_crop"]
     ph_benchmarks_sum = SMAF_DATA.get("ph_benchmarks", {}) if SMAF_DATA else {}
@@ -1691,20 +1779,20 @@ def render_single_sample(region_name, cfg, df, df_hist):
         raw_score_ph_sum = 0.0
         
     # =========================================================================
-    # ✨ Calculate the Category Averages and the Overall Score
+    # Calculate the Category Averages and the Overall Score
     def safe_float(val):
         try:
             return float(val) if val is not None else 0.0
         except (ValueError, TypeError):
             return 0.0
 
-    # ✨ Biological = Average of SOC and PMN
+    # Biological = Average of SOC and PMN
     score_bio = (safe_float(score_soc) + safe_float(raw_score_pmn_sum)) / 2.0
     
-    # ✨ Physical = Average of BD, AGG, and AWC (Divide by 3.0!)
-    score_phys = (safe_float(raw_score_bd_sum) + safe_float(raw_score_agg_sum) + safe_float(raw_score_awc_sum)) / 3.0
+    # Physical = Average of BD, AGG, AWC, and WFPS (Divide by 4.0!)
+    score_phys = (safe_float(raw_score_bd_sum) + safe_float(raw_score_agg_sum) + safe_float(raw_score_awc_sum) + safe_float(raw_score_wfps_sum)) / 4.0
     
-    # ✨ Chemical = Average of pH, P, EC, and SAR (Divide by 4.0!)
+    # Chemical = Average of pH, P, EC, and SAR (Divide by 4.0!)
     score_chem = (safe_float(raw_score_ph_sum) + safe_float(score_p_sum) + safe_float(raw_score_ec_sum) + safe_float(raw_score_sar_sum)) / 4.0
     
     score_overall = (score_phys + score_chem + score_bio) / 3.0
@@ -1803,7 +1891,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
     # =========================================================================
     
    # ── INDICATOR SELECTION ──
-    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density", "Electrical Conductivity", "Macroaggregate Stability", "Sodium Adsorption Ratio", "Potentially Mineralizable Nitrogen", "Available Water Capacity"]
+    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density", "Electrical Conductivity", "Macroaggregate Stability", "Sodium Adsorption Ratio", "Potentially Mineralizable Nitrogen", "Available Water Capacity", "Water-Filled Pore Space"]
     chosen_indicator = st.selectbox(
         "Soil Health Indicators:",
         indicator_options,
@@ -2467,6 +2555,116 @@ def render_single_sample(region_name, cfg, df, df_hist):
             awc_rec = "Critical physical limitation. Your soil cannot effectively retain water for plant use, heavily restricting yield potential in rainfed systems. A long-term strategy to rebuild soil structure and heavily incorporate organic amendments is essential."
 
         st.info(f"**Score Tier: {awc_level}**\n\n{awc_rec}")
+
+    elif chosen_indicator == "Water-Filled Pore Space":
+        # 1. Grab Global Variables
+        texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
+        
+        # 2. Calculate WFPS Fraction & Scores
+        wfps_frac = get_wfps_frac(w_val, bd_val, SMAF_DATA)
+        wfps_scores = run_smaf_wfps_score(wfps_frac, texture_id, SMAF_DATA)
+        
+        try:
+            score_wfps = float(wfps_scores["combined"]) if wfps_scores["combined"] is not None else 0.0
+        except (ValueError, TypeError):
+            score_wfps = 0.0
+            
+        wfps_color = score_color(score_wfps)
+        wfps_label = score_label(score_wfps)
+        
+        # 3. Create the 1:2 Column Layout
+        col_l, col_r = st.columns([1, 2])
+        
+        with col_l:
+            gauge_title = f"<b style='font-size:17px'>{wfps_label}</b><br><span style='font-size:11px;color:gray'>Calculated WFPS: {wfps_frac:.1%}</span>"
+            fig_wfps_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_wfps)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": wfps_color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": wfps_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
+                    ],
+                    "threshold": {"line": {"color": wfps_color, "width": 5}, "thickness": 0.8, "value": score_wfps}
+                }
+            ))
+            fig_wfps_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
+            st.plotly_chart(fig_wfps_gauge, use_container_width=True, key=f"{k}_wfps_gauge_plot")
+            
+        with col_r:
+            st.markdown("#### Scoring Curve")
+            
+            # Plot both Biological and Environmental curves smoothly
+            xs = np.linspace(0, 1.0, 300)
+            ys_bio = []
+            ys_env = []
+            for x in xs:
+                res = run_smaf_wfps_score(x, texture_id, SMAF_DATA)
+                ys_bio.append(res["bio"] / 100.0)
+                ys_env.append(res["env"] / 100.0)
+            
+            fig_wfps = go.Figure()
+            
+            # Biological Curve (Solid Green)
+            fig_wfps.add_trace(go.Scatter(
+                x=xs, y=ys_bio, mode="lines", 
+                line=dict(color="#3F7A4C", width=3), 
+                name="Biological Activity", hovertemplate="WFPS: %{x:.0%}<br>Bio Score: %{y:.0%}<extra></extra>"
+            ))
+            
+            # Environmental Curve (Dashed Blue)
+            fig_wfps.add_trace(go.Scatter(
+                x=xs, y=ys_env, mode="lines", 
+                line=dict(color="#2E5E8C", width=3, dash="dash"), 
+                name="Env. Protection", hovertemplate="WFPS: %{x:.0%}<br>Env Score: %{y:.0%}<extra></extra>"
+            ))
+            
+            # Your Soil Data Points (Plotting on both lines)
+            fig_wfps.add_trace(go.Scatter(
+                x=[wfps_frac, wfps_frac], 
+                y=[wfps_scores["bio"]/100.0, wfps_scores["env"]/100.0], 
+                mode="markers", 
+                marker=dict(color=wfps_color, size=14, line=dict(color="white", width=2)), 
+                name="Your Soil"
+            ))
+            
+            fig_wfps.update_layout(
+                xaxis_title="Water-Filled Pore Space (%)", 
+                yaxis_title="SHAPE Score",
+                yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0, 1.0], tickformat=".0%"),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
+                height=400, margin=dict(l=10, r=10, t=40, b=10)
+            )
+            st.plotly_chart(fig_wfps, width='stretch', key=f"{k}_wfps_curve_plot")
+
+        # ── 5-TIER WFPS RECOMMENDATION ENGINE ──
+        st.markdown("### 📋 Agronomic Recommendations")
+
+        if score_wfps >= 80:
+            wfps_level = "Very High"
+            wfps_rec = "Your soil porosity and moisture balance is perfectly optimized. The current water level provides excellent conditions for aerobic biological activity (nutrient cycling) while minimizing environmental risks like denitrification and nitrate leaching."
+        elif score_wfps >= 60:
+            wfps_level = "High"
+            wfps_rec = "Your WFPS is in a healthy range. It balances microbial water needs against the risk of anoxia. Continue practices that maintain good soil structure and drainage."
+        elif score_wfps >= 40:
+            wfps_level = "Medium"
+            wfps_rec = "Your WFPS indicates a moderate imbalance. The soil may be either slightly too dry (suppressing microbial mineralization) or slightly too wet (increasing the risk of greenhouse gas emissions). Review your irrigation and drainage strategies."
+        elif score_wfps >= 20:
+            wfps_level = "Low"
+            wfps_rec = "Your soil has poor pore space management. If heavily saturated, you are likely losing significant nitrogen to the atmosphere and experiencing restricted root respiration. If too dry, biological activity has stalled."
+        else:
+            wfps_level = "Very Low"
+            wfps_rec = "Critical physical limitation. Extreme WFPS values mean the soil is either totally waterlogged (causing severe anaerobic conditions and nutrient leaching) or completely desiccated. Immediate adjustments to irrigation, drainage, or compaction management are required."
+
+        st.info(f"**Score Tier: {wfps_level}**\n\n{wfps_rec}")
         
     elif chosen_indicator == "pH":
         # Global definition prevents NameError

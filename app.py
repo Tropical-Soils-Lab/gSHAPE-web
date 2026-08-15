@@ -1374,6 +1374,88 @@ def run_smaf_wfps_score(wfps_frac, texture, smaf_data, clamp=True):
         "combined": combined_y * 100.0
     }
 
+# ----------------------------------------------------------------------
+# SMAF MICROBIAL BIOMASS CARBON (MBC) BACKEND ENGINE
+# ----------------------------------------------------------------------
+def load_mbc_data(smaf_data, path="SMAF_lookup.xlsx"):
+    """Injects the 4 new MBC sheets into the global SMAF_DATA dictionary safely."""
+    if "mbc_K" in smaf_data and len(smaf_data.get("mbc_K", {})) > 0: return 
+    
+    import math, pandas as pd
+    sh = pd.read_excel(path, sheet_name=None, dtype=str)
+    
+    def clean_df(name):
+        if name not in sh: return pd.DataFrame()
+        df = sh[name].copy()
+        df.columns = [str(c).strip() for c in df.columns]
+        return df
+        
+    def num(x):
+        try: return float(x) if not pd.isna(x) else None
+        except: return None
+        
+    mbc_K, mbc_om, mbc_texture, mbc_sc = {}, {}, {}, {}
+    
+    df_K = clean_df("mbc_constants")
+    if not df_K.empty:
+        for _, r in df_K.iterrows():
+            v = num(r.get("value"))
+            p = str(r.get("param_name")).strip()
+            if p != "nan" and v is not None: mbc_K[p] = v
+            
+    df_om = clean_df("mbc_om_factors")
+    if not df_om.empty:
+        for _, r in df_om.iterrows():
+            oc = num(r.get("om_class"))
+            if oc is not None:
+                mbc_om[int(oc)] = {
+                    "max_range": num(r.get("max_range")),
+                    "c1_override": num(r.get("c1_override"))
+                }
+                
+    df_tex = clean_df("mbc_texture_factors")
+    if not df_tex.empty:
+        for _, r in df_tex.iterrows():
+            tc = num(r.get("texture_code"))
+            if tc is not None: mbc_texture[int(tc)] = num(r.get("c2"))
+            
+    df_sc = clean_df("mbc_season_climate_factors")
+    if not df_sc.empty:
+        for _, r in df_sc.iterrows():
+            sc = num(r.get("season_climate_code"))
+            if sc is not None: mbc_sc[round(sc, 1)] = num(r.get("c3"))
+            
+    smaf_data["mbc_K"] = mbc_K
+    smaf_data["mbc_om"] = mbc_om
+    smaf_data["mbc_texture"] = mbc_texture
+    smaf_data["mbc_sc"] = mbc_sc
+
+def run_smaf_mbc_score(mbc_val, om_class, texture, season_climate, smaf_data, clamp=True):
+    load_mbc_data(smaf_data)
+    K = smaf_data.get("mbc_K", {})
+    if not K: return 0.0
+    
+    import math
+    o = smaf_data.get("mbc_om", {}).get(om_class, {})
+    c1 = o.get("c1_override")
+    if c1 is None:
+        R = o.get("max_range", 1.0)
+        c1 = K.get("c1_coef_a", 0.0) + K.get("c1_coef_b", 0.0) * R + K.get("c1_coef_c", 0.0) * (R ** 2)
+        
+    c2 = smaf_data.get("mbc_texture", {}).get(texture, 1.0)
+    c3 = smaf_data.get("mbc_sc", {}).get(round(float(season_climate), 1), 1.0)
+    c = c1 * c2 * c3
+    
+    try:
+        y = K.get("a", 1.0) / (1.0 + K.get("b", 1.0) * math.exp(-c * mbc_val))
+    except OverflowError:
+        y = 0.0
+        
+    if clamp:
+        y = max(K.get("score_min", 0.0), min(K.get("score_max", 1.0), y))
+        
+    return y * 100.0
+
 def fetch_climate(lat, lon, need_precip=False):
     """Fetch MAT (and optionally MAP) from NASA POWER climatology."""
     try:
@@ -1604,7 +1686,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
             selected_sm_slope = st.selectbox("Landscape Slope Profile", ["— Select —"] + list(SMAF_SLOPE_MAP.keys()), key=f"{k}_sm_slope")
             chosen_crop = st.selectbox("Target Field Crop", MASTER_CROP_OPTIONS, key=f"{k}_sm_crop")
-            
+            selected_season = st.selectbox("Sampling Season", ["Spring", "Summer", "Fall", "Winter"], key=f"{k}_sm_season")
         with c2:
             selected_method = st.selectbox("P Extraction Method", ["— Select —"] + list(SMAF_METHOD_MAP.keys()), key=f"{k}_sm_method")
             selected_weath = st.selectbox("Soil Weathering Class", ["— Select —"] + list(SMAF_WEATHERING_MAP.keys()), key=f"{k}_sm_weather")
@@ -1671,7 +1753,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             p_val = st.number_input("Measured Extractable P (mg/kg)", 0.0, 500.0, key=f"{k}_sm_p_input")
             ec_val = st.number_input("Measured EC (dS/m)", min_value=0.0, max_value=20.0, value=1.5, step=0.1, key=f"{k}_ec_val")
             sar_val = st.number_input("Measured SAR", min_value=0.0, max_value=50.0, value=2.0, step=0.5, key=f"{k}_sar_val")
-            
+            mbc_val = st.number_input("Measured MBC (mg/kg)", min_value=0.0, max_value=2000.0, value=200.0, step=10.0, key=f"{k}_mbc_val")
         with lc3:
             bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.5, max_value=2.0, value=1.45, step=0.05, key=f"{k}_bd_input")
             ph_val = st.number_input("Measured Soil pH", 0.0, 14.0, value=6.0, key=f"{k}_ph_measured_input")
@@ -1767,6 +1849,16 @@ def render_single_sample(region_name, cfg, df, df_hist):
     wfps_frac_sum = get_wfps_frac(w_val, bd_val, SMAF_DATA)
     wfps_scores_sum = run_smaf_wfps_score(wfps_frac_sum, texture_id_sum, SMAF_DATA)
     raw_score_wfps_sum = wfps_scores_sum["combined"]
+
+    # Microbial Biomass Carbon (MBC) Score (Silent Calculation)
+    season_name = st.session_state.get(f"{k}_sm_season", "Spring")
+    season_num = {"Spring": 1, "Summer": 2, "Fall": 3, "Winter": 4}.get(season_name, 1)
+    
+    climate_id_sum = SMAF_CLIMATE_MAP.get(selected_climate_class, 3) if selected_climate_class != "— Select —" else 3
+    # SMAF logic: Spring is always 1.0. Other seasons combine with climate (e.g., Summer + Climate 4 = 2.4)
+    season_climate_code = 1.0 if season_num == 1 else float(f"{season_num}.{climate_id_sum}")
+    
+    raw_score_mbc_sum = run_smaf_mbc_score(mbc_val, om_id_sum, texture_id_sum, season_climate_code, SMAF_DATA)
     
     # pH Score
     crop_selected_name_sum = st.session_state[f"{k}_sm_crop"]
@@ -1787,8 +1879,8 @@ def render_single_sample(region_name, cfg, df, df_hist):
             return 0.0
 
     # Biological = Average of SOC and PMN
-    score_bio = (safe_float(score_soc) + safe_float(raw_score_pmn_sum)) / 2.0
-    
+# ✨ Biological = Average of SOC, PMN, and MBC (Divide by 3.0!)
+    score_bio = (safe_float(score_soc) + safe_float(raw_score_pmn_sum) + safe_float(raw_score_mbc_sum)) / 3.0    
     # Physical = Average of BD, AGG, AWC, and WFPS (Divide by 4.0!)
     score_phys = (safe_float(raw_score_bd_sum) + safe_float(raw_score_agg_sum) + safe_float(raw_score_awc_sum) + safe_float(raw_score_wfps_sum)) / 4.0
     
@@ -1891,7 +1983,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
     # =========================================================================
     
    # ── INDICATOR SELECTION ──
-    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density", "Electrical Conductivity", "Macroaggregate Stability", "Sodium Adsorption Ratio", "Potentially Mineralizable Nitrogen", "Available Water Capacity", "Water-Filled Pore Space"]
+    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density", "Electrical Conductivity", "Macroaggregate Stability", "Sodium Adsorption Ratio", "Potentially Mineralizable Nitrogen", "Available Water Capacity", "Water-Filled Pore Space", "Microbial Biomass Carbon"]
     chosen_indicator = st.selectbox(
         "Soil Health Indicators:",
         indicator_options,
@@ -2655,6 +2747,105 @@ def render_single_sample(region_name, cfg, df, df_hist):
             wfps_rec = "Critical physical limitation. Extreme WFPS values mean the soil is either totally waterlogged (causing severe anaerobic conditions and nutrient leaching) or completely desiccated. Immediate adjustments to irrigation, drainage, or compaction management are required."
 
         st.info(f"**Score Tier: {wfps_level}**\n\n{wfps_rec}")
+
+    elif chosen_indicator == "Microbial Biomass Carbon":
+        # 1. Grab Global Variables
+        texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
+        om_string = st.session_state.get(f"{k}_sm_om_class", "Class 2 (Med-High OM)")
+        om_id = SMAF_OM_MAP.get(om_string, 2)
+        
+        season_name = st.session_state.get(f"{k}_sm_season", "Spring")
+        season_num = {"Spring": 1, "Summer": 2, "Fall": 3, "Winter": 4}.get(season_name, 1)
+        climate_id = SMAF_CLIMATE_MAP.get(st.session_state.get(f"{k}_sm_climate_class", ""), 3)
+        season_climate_code = 1.0 if season_num == 1 else float(f"{season_num}.{climate_id}")
+        
+        # 2. Calculate Score securely
+        raw_score_mbc = run_smaf_mbc_score(mbc_val, om_id, texture_id, season_climate_code, SMAF_DATA)
+        try:
+            score_mbc = float(raw_score_mbc) if raw_score_mbc is not None else 0.0
+        except (ValueError, TypeError):
+            score_mbc = 0.0
+            
+        mbc_color = score_color(score_mbc)
+        mbc_label = score_label(score_mbc)
+        
+        # 3. Create the 1:2 Column Layout
+        col_l, col_r = st.columns([1, 2])
+        
+        with col_l:
+            gauge_title = f"<b style='font-size:17px; color:#333;'>{mbc_label}</b><br><span style='font-size:11px; color:#555;'>Measured MBC: {mbc_val} mg/kg</span>"
+            fig_mbc_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_mbc)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": mbc_color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#555", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": mbc_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.85)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.85)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.85)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.85)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.85)"}
+                    ],
+                    "threshold": {"line": {"color": mbc_color, "width": 5}, "thickness": 0.8, "value": score_mbc}
+                }
+            ))
+            fig_mbc_gauge.update_layout(font=dict(color="#333"), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
+            st.plotly_chart(fig_mbc_gauge, use_container_width=True, key=f"{k}_mbc_gauge_plot")
+            
+        with col_r:
+            st.markdown("#### Scoring Curve")
+            
+            # Smooth plotting using linspace
+            xs = np.linspace(0, 1000, 300)
+            ys = [run_smaf_mbc_score(x, om_id, texture_id, season_climate_code, SMAF_DATA) for x in xs]
+            
+            fig_mbc = go.Figure()
+            fig_mbc.add_trace(go.Scatter(
+                x=xs, y=np.array(ys) / 100.0, mode="lines", 
+                line=dict(color="#8C5A9E", width=3), 
+                name="Score Curve", hovertemplate="MBC: %{x:.0f} mg/kg<br>Score: %{y:.0%}<extra></extra>"
+            ))
+            
+            fig_mbc.add_trace(go.Scatter(
+                x=[mbc_val], y=[score_mbc / 100.0], mode="markers", 
+                marker=dict(color=mbc_color, size=14, line=dict(color="white", width=2)), 
+                name="Your Soil"
+            ))
+            
+            fig_mbc.update_layout(
+                xaxis_title="Microbial Biomass Carbon (mg/kg)", 
+                yaxis_title="SHAPE Score",
+                yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0, 1000]),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
+                height=400, margin=dict(l=10, r=10, t=40, b=10)
+            )
+            st.plotly_chart(fig_mbc, width='stretch', key=f"{k}_mbc_curve_plot")
+
+        # ── 5-TIER MBC RECOMMENDATION ENGINE ──
+        st.markdown("### 📋 Agronomic Recommendations")
+
+        if score_mbc >= 80:
+            mbc_level = "Very High"
+            mbc_rec = "Your soil supports an incredibly active and thriving microbial population. This robust living biomass acts as a massive 'bank' for nutrients, rapidly turning over organic matter and preventing nutrient loss to leaching."
+        elif score_mbc >= 60:
+            mbc_level = "High"
+            mbc_rec = "Your microbial biomass levels indicate healthy biological functioning. The soil microbes are actively mediating nutrient availability and contributing to soil structure. Keep minimizing soil disturbance to protect them."
+        elif score_mbc >= 40:
+            mbc_level = "Medium"
+            mbc_rec = "Your microbial biomass is moderate. The biological engine of your soil is functioning but isn't operating at full capacity. Consider diversifying your crop rotations or adding high-quality compost to stimulate microbial growth."
+        elif score_mbc >= 20:
+            mbc_level = "Low"
+            mbc_rec = "Your soil biology is sluggish. Low microbial biomass means fewer nutrients are being actively cycled, likely forcing a higher dependence on synthetic fertilizers. Adopt practices that 'feed the soil' with continuous living roots."
+        else:
+            mbc_level = "Very Low"
+            mbc_rec = "Critical biological limitation. Your soil is biologically depleted, likely due to heavy tillage, lack of organic inputs, or extended fallow periods. Immediate incorporation of organic amendments and cover cropping is needed to revive the soil food web."
+
+        st.info(f"**Score Tier: {mbc_level}**\n\n{mbc_rec}")
+
         
     elif chosen_indicator == "pH":
         # Global definition prevents NameError

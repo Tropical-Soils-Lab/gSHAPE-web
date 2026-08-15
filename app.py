@@ -1217,6 +1217,70 @@ def run_smaf_pmn_score(pmn_val, om_class, texture, climate, smaf_data, clamp=Tru
         
     return y * 100.0
 
+# ----------------------------------------------------------------------
+# SMAF AVAILABLE WATER CAPACITY (AWC) BACKEND ENGINE
+# ----------------------------------------------------------------------
+def load_awc_data(smaf_data, path="SMAF_lookup.xlsx"):
+    """Injects the 4 new AWC sheets into the global SMAF_DATA dictionary safely."""
+    if "awc_K" in smaf_data: return 
+    
+    import math, pandas as pd
+    sh = pd.read_excel(path, sheet_name=None, dtype=str)
+    
+    def num(x):
+        try: return float(x) if not pd.isna(x) else None
+        except: return None
+        
+    awc_K, awc_texture, awc_om = {}, {}, {}
+    
+    if "awc_constants" in sh:
+        for _, r in sh["awc_constants"].iterrows():
+            v = num(r.get("value"))
+            p = str(r.get("param_name")).strip()
+            if p != "nan" and v is not None: awc_K[p] = v
+            
+    if "awc_texture_params" in sh:
+        for _, r in sh["awc_texture_params"].iterrows():
+            tc = num(r.get("texture_code"))
+            if tc is not None:
+                awc_texture[int(tc)] = {
+                    "b1_arid": num(r.get("b1_arid")),
+                    "d_humid": num(r.get("d_humid"))
+                }
+                
+    if "awc_om_factors" in sh:
+        for _, r in sh["awc_om_factors"].iterrows():
+            oc = num(r.get("om_class"))
+            if oc is not None: awc_om[int(oc)] = num(r.get("b2_arid"))
+            
+    smaf_data["awc_K"] = awc_K
+    smaf_data["awc_texture"] = awc_texture
+    smaf_data["awc_om"] = awc_om
+
+def run_smaf_awc_score(awc_val, region, texture, om_class, smaf_data, clamp=True):
+    load_awc_data(smaf_data)
+    K = smaf_data.get("awc_K", {})
+    if not K: return 0.0
+    
+    import math
+    if region == 1:  # Arid
+        b1 = smaf_data.get("awc_texture", {}).get(texture, {}).get("b1_arid", 1.0)
+        b2 = smaf_data.get("awc_om", {}).get(om_class, 1.0)
+        b = b1 * b2
+        try:
+            xd = awc_val ** K.get("mmf_d", 1.0)
+            y = (K.get("mmf_a", 1.0) * b + K.get("mmf_c", 1.0) * xd) / (b + xd)
+        except ZeroDivisionError:
+            y = 0.0
+    else:  # Humid
+        d = smaf_data.get("awc_texture", {}).get(texture, {}).get("d_humid", 0.0)
+        y = K.get("sin_a", 0.0) + K.get("sin_b", 1.0) * math.cos(K.get("sin_c", 1.0) * awc_val + d)
+        
+    if clamp:
+        y = max(K.get("score_min", 0.0), min(K.get("score_max", 1.0), y))
+        
+    return y * 100.0
+
 def fetch_climate(lat, lon, need_precip=False):
     """Fetch MAT (and optionally MAP) from NASA POWER climatology."""
     try:
@@ -1518,16 +1582,21 @@ def render_single_sample(region_name, cfg, df, df_hist):
         with lc3:
             bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.5, max_value=2.0, value=1.45, step=0.05, key=f"{k}_bd_input")
             ph_val = st.number_input("Measured Soil pH", 0.0, 14.0, value=6.0, key=f"{k}_ph_measured_input")
+            # ✨ NEW: AWC Input Box added
+            awc_val = st.number_input("Measured AWC (g/g)", min_value=0.0, max_value=0.5, value=0.15, step=0.01, key=f"{k}_awc_val")
             target_pct = st.slider("Benchmark Percentile (SOC)", 50, 99, 90, key=f"{k}_pct")
 
-    # ✨ SILENT DERIVATION ENGINE FOR ORGANIC MATTER CLASS (Hidden) ✨
+    # ✨ SILENT DERIVATION ENGINE FOR OM CLASS & AWC REGION ✨
     if oc_val >= 2.9: derived_om_id = 1
     elif oc_val >= 1.45: derived_om_id = 2
     elif oc_val >= 0.6: derived_om_id = 3
     else: derived_om_id = 4
     rev_om = {1: "Class 1 (Highest OM)", 2: "Class 2 (Med-High OM)", 3: "Class 3 (Med-Low OM)", 4: "Class 4 (Lowest OM)"}
     st.session_state[f"{k}_sm_om_class"] = rev_om[derived_om_id]
-
+    
+    # Auto-assign AWC Region: Humid (2) if MAP >= 600mm, Arid (1) if MAP < 600mm
+    is_wet_for_awc = target_precip >= 600.0 if target_precip is not None else True
+    st.session_state[f"{k}_awc_region"] = 2 if is_wet_for_awc else 1
     # ✨ THE MASTER SITE INPUTS GATEKEEPER ✨
     required_inputs = [selected_sub, selected_tex, selected_sm_tex, selected_sm_slope, selected_method, selected_weath, ec_method_str, selected_fe_class, selected_climate_class]
     if selected_bd_min is not None:
@@ -1596,6 +1665,10 @@ def render_single_sample(region_name, cfg, df, df_hist):
     # Potentially Mineralizable Nitrogen (PMN) Score (Silent Calculation)
     climate_id_sum = SMAF_CLIMATE_MAP.get(selected_climate_class, 3) if selected_climate_class != "— Select —" else 3
     raw_score_pmn_sum = run_smaf_pmn_score(pmn_val, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)
+
+    # Available Water Capacity (AWC) Score (Silent Calculation)
+    awc_region_sum = st.session_state.get(f"{k}_awc_region", 2)
+    raw_score_awc_sum = run_smaf_awc_score(awc_val, awc_region_sum, texture_id_sum, om_id_sum, SMAF_DATA)
     # pH Score
     crop_selected_name_sum = st.session_state[f"{k}_sm_crop"]
     ph_benchmarks_sum = SMAF_DATA.get("ph_benchmarks", {}) if SMAF_DATA else {}
@@ -1617,8 +1690,8 @@ def render_single_sample(region_name, cfg, df, df_hist):
     # ✨ Biological = Average of SOC and PMN
     score_bio = (safe_float(score_soc) + safe_float(raw_score_pmn_sum)) / 2.0
     
-    # Physical = Average of BD and AGG
-    score_phys = (safe_float(raw_score_bd_sum) + safe_float(raw_score_agg_sum)) / 2.0
+    # ✨ Physical = Average of BD, AGG, and AWC (Divide by 3.0!)
+    score_phys = (safe_float(raw_score_bd_sum) + safe_float(raw_score_agg_sum) + safe_float(raw_score_awc_sum)) / 3.0
     
     # ✨ Chemical = Average of pH, P, EC, and SAR (Divide by 4.0!)
     score_chem = (safe_float(raw_score_ph_sum) + safe_float(score_p_sum) + safe_float(raw_score_ec_sum) + safe_float(raw_score_sar_sum)) / 4.0
@@ -1719,8 +1792,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
     # =========================================================================
     
    # ── INDICATOR SELECTION ──
-    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density", "Electrical Conductivity", "Macroaggregate Stability", "Sodium Adsorption Ratio", "Potentially Mineralizable Nitrogen"]
-    
+    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density", "Electrical Conductivity", "Macroaggregate Stability", "Sodium Adsorption Ratio", "Potentially Mineralizable Nitrogen", "Available Water Capacity"]
     chosen_indicator = st.selectbox(
         "Soil Health Indicators:",
         indicator_options,
@@ -2290,6 +2362,100 @@ def render_single_sample(region_name, cfg, df, df_hist):
             pmn_rec = "Critical biological limitation. Your soil has severely degraded biological function with minimal nitrogen mineralization capacity. Immediate intervention is required to rebuild the microbial community through aggressive organic amendments, reduced tillage, and diverse cover cropping."
 
         st.info(f"**Score Tier: {pmn_level}**\n\n{pmn_rec}")
+
+    elif chosen_indicator == "Available Water Capacity":
+        # 1. Grab Global Variables
+        texture_id = SMAF_TEXTURE_MAP[st.session_state[f"{k}_sm_tex"]]
+        om_string = st.session_state.get(f"{k}_sm_om_class", "Class 2 (Med-High OM)")
+        om_id = SMAF_OM_MAP.get(om_string, 2)
+        awc_region = st.session_state.get(f"{k}_awc_region", 2)
+        
+        # 2. Calculate Score securely
+        raw_score_awc = run_smaf_awc_score(awc_val, awc_region, texture_id, om_id, SMAF_DATA)
+        try:
+            score_awc = float(raw_score_awc) if raw_score_awc is not None else 0.0
+        except (ValueError, TypeError):
+            score_awc = 0.0
+            
+        awc_color = score_color(score_awc)
+        awc_label = score_label(score_awc)
+        
+        # 3. Create the 1:2 Column Layout
+        col_l, col_r = st.columns([1, 2])
+        
+        with col_l:
+            gauge_title = f"<b style='font-size:17px'>{awc_label}</b><br><span style='font-size:11px;color:gray'>Measured AWC {awc_val:.2f} g/g</span>"
+            fig_awc_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_awc)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": awc_color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": awc_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
+                    ],
+                    "threshold": {"line": {"color": awc_color, "width": 5}, "thickness": 0.8, "value": score_awc}
+                }
+            ))
+            fig_awc_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
+            st.plotly_chart(fig_awc_gauge, use_container_width=True, key=f"{k}_awc_gauge_plot")
+            
+        with col_r:
+            st.markdown(f"#### Scoring Curve ({'Humid' if awc_region == 2 else 'Arid'} Region)")
+            
+            # Smooth plotting using linspace
+            xs = np.linspace(0, 0.30, 300)
+            ys = [run_smaf_awc_score(x, awc_region, texture_id, om_id, SMAF_DATA) for x in xs]
+            
+            fig_awc = go.Figure()
+            fig_awc.add_trace(go.Scatter(
+                x=xs, y=np.array(ys) / 100.0, mode="lines", 
+                line=dict(color="#356B8C", width=3), 
+                name="Score Curve", hovertemplate="AWC: %{x:.3f} g/g<br>Score: %{y:.0%}<extra></extra>"
+            ))
+            
+            fig_awc.add_trace(go.Scatter(
+                x=[awc_val], y=[score_awc / 100.0], mode="markers", 
+                marker=dict(color=awc_color, size=14, line=dict(color="white", width=2)), 
+                name="Your Soil"
+            ))
+            
+            fig_awc.update_layout(
+                xaxis_title="Available Water Capacity (g H₂O / g soil)", 
+                yaxis_title="SHAPE Score",
+                yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0, 0.30]),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
+                height=400, margin=dict(l=10, r=10, t=40, b=10)
+            )
+            st.plotly_chart(fig_awc, width='stretch', key=f"{k}_awc_curve_plot")
+
+        # ── 5-TIER AWC RECOMMENDATION ENGINE ──
+        st.markdown("### 📋 Agronomic Recommendations")
+
+        if score_awc >= 80:
+            awc_level = "Very High"
+            awc_rec = "Your soil’s capacity to store and supply plant-available water is excellent. This provides a strong buffer against short-term drought stress, ensuring continuous nutrient uptake and robust growth."
+        elif score_awc >= 60:
+            awc_level = "High"
+            awc_rec = "Your soil has a good available water capacity. It adequately sustains crops between rain events or irrigation cycles. Maintain current practices that protect soil organic matter and aggregate structure."
+        elif score_awc >= 40:
+            awc_level = "Medium"
+            awc_rec = "Your soil's water-holding capacity is moderate, making crops somewhat vulnerable during dry spells. Consider increasing organic matter inputs or adjusting irrigation frequency to compensate for limited storage."
+        elif score_awc >= 20:
+            awc_level = "Low"
+            awc_rec = "Your soil holds minimal plant-available water, leading to rapid onset of drought stress. Roots likely struggle to access sufficient moisture. Implement practices to build organic matter (like cover crops or compost) to improve sponge-like retention."
+        else:
+            awc_level = "Very Low"
+            awc_rec = "Critical physical limitation. Your soil cannot effectively retain water for plant use, heavily restricting yield potential in rainfed systems. A long-term strategy to rebuild soil structure and heavily incorporate organic amendments is essential."
+
+        st.info(f"**Score Tier: {awc_level}**\n\n{awc_rec}")
         
     elif chosen_indicator == "pH":
         # Global definition prevents NameError

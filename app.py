@@ -2601,35 +2601,26 @@ def render_single_sample(region_name, cfg, df, df_hist):
         with col_r:
             st.markdown("#### Scoring Curve")
             
-            # Plot both Biological and Environmental curves smoothly
+            # Plot the Combined (50/50) curve smoothly to match the gauge
             xs = np.linspace(0, 1.0, 300)
-            ys_bio = []
-            ys_env = []
+            ys_combined = []
             for x in xs:
                 res = run_smaf_wfps_score(x, texture_id, SMAF_DATA)
-                ys_bio.append(res["bio"] / 100.0)
-                ys_env.append(res["env"] / 100.0)
+                ys_combined.append(res["combined"] / 100.0)
             
             fig_wfps = go.Figure()
             
-            # Biological Curve (Solid Green)
+            # Combined Curve (Solid Line)
             fig_wfps.add_trace(go.Scatter(
-                x=xs, y=ys_bio, mode="lines", 
-                line=dict(color="#3F7A4C", width=3), 
-                name="Biological Activity", hovertemplate="WFPS: %{x:.0%}<br>Bio Score: %{y:.0%}<extra></extra>"
+                x=xs, y=ys_combined, mode="lines", 
+                line=dict(color="#356B8C", width=3), 
+                name="Score Curve", hovertemplate="WFPS: %{x:.0%}<br>Score: %{y:.0%}<extra></extra>"
             ))
             
-            # Environmental Curve (Dashed Blue)
+            # Your Soil Data Point (Single point)
             fig_wfps.add_trace(go.Scatter(
-                x=xs, y=ys_env, mode="lines", 
-                line=dict(color="#2E5E8C", width=3, dash="dash"), 
-                name="Env. Protection", hovertemplate="WFPS: %{x:.0%}<br>Env Score: %{y:.0%}<extra></extra>"
-            ))
-            
-            # Your Soil Data Points (Plotting on both lines)
-            fig_wfps.add_trace(go.Scatter(
-                x=[wfps_frac, wfps_frac], 
-                y=[wfps_scores["bio"]/100.0, wfps_scores["env"]/100.0], 
+                x=[wfps_frac], 
+                y=[score_wfps / 100.0], 
                 mode="markers", 
                 marker=dict(color=wfps_color, size=14, line=dict(color="white", width=2)), 
                 name="Your Soil"
@@ -2644,7 +2635,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 height=400, margin=dict(l=10, r=10, t=40, b=10)
             )
             st.plotly_chart(fig_wfps, width='stretch', key=f"{k}_wfps_curve_plot")
-
         # ── 5-TIER WFPS RECOMMENDATION ENGINE ──
         st.markdown("### 📋 Agronomic Recommendations")
 

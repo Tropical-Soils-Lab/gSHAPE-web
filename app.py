@@ -1959,133 +1959,194 @@ def render_single_sample(region_name, cfg, df, df_hist):
             plot_max  = max(15.0, oc_val + 5)
         else:
             lp_mean, lp_lcl, lp_ucl, sigma_val, plot_max = 0.0, 0.0, 0.0, 1.0, 15.0
-
-    # ── COMPREHENSIVE SOIL HEALTH SUMMARY ──
+    # ── COMPREHENSIVE SOIL HEALTH SUMMARY (DYNAMICALLY FILTERED) ──
     st.markdown("### 📊 Comprehensive Soil Health Overview")
     
-    # 1. Silently calculate all indicator scores for the summary chart
-    # SOC Score (Already calculated globally)
-    score_soc = compute_score(oc_val, lp_mean, sigma_val)
+    target_indicators = st.session_state.get("target_indicators", [])
     
-    # Phosphorus Score
-    crop_id_sum = SMAF_DATA["crop_ui_map"].get(st.session_state[f"{k}_sm_crop"].lower(), 0)
-    method_id_sum = SMAF_METHOD_MAP[st.session_state[f"{k}_sm_method"]]
-    weather_id_sum = SMAF_WEATHERING_MAP[st.session_state[f"{k}_sm_weather"]]
-    texture_id_sum = SMAF_TEXTURE_MAP[st.session_state[f"{k}_sm_tex"]]
-    slope_id_sum = SMAF_SLOPE_MAP[st.session_state[f"{k}_sm_slope"]]
-    score_p_sum = run_smaf_p_score(p_val, crop_id_sum, method_id_sum, weather_id_sum, texture_id_sum, slope_id_sum, oc_val)
+    # Initialize category scores and counts
+    phys_scores, chem_scores, bio_scores = [], [], []
     
-    # Bulk Density Score
-    mineral_str = st.session_state.get(f"{k}_bd_min", "— Select —")
-    mineralogy_id_sum = SMAF_MINERALOGY_MAP.get(mineral_str, 0) if mineral_str != "— Select —" else 0
-    raw_score_bd_sum = run_smaf_bd_score(bd_val, texture_id_sum, mineralogy_id_sum)
-
-    # Electrical Conductivity Score 
-    ec_method_id_sum = 1 if "Saturated Paste" in ec_method_str else 2
-    raw_score_ec_sum = run_smaf_ec_score(ec_val, crop_id_sum, ec_method_id_sum, texture_id_sum, SMAF_DATA)
-
-    # Macroaggregate Stability Score (Silent Calculation)
-    om_string_sum = st.session_state.get(f"{k}_sm_om_class", "Class 2 (Med-High OM)")
-    om_id_sum = SMAF_OM_MAP.get(om_string_sum, 2)
-    
-    fe_id_sum = SMAF_FE_MAP.get(selected_fe_class, 2)
-    raw_score_agg_sum = run_smaf_agg_score(agg_val, om_id_sum, texture_id_sum, fe_id_sum, SMAF_DATA)
-    # Sodium Adsorption Ratio (SAR) Score (Silent Calculation)
-    raw_score_sar_sum = run_smaf_sar_score(sar_val, ec_val, ec_method_id_sum, texture_id_sum, SMAF_DATA)
-
-    # Potentially Mineralizable Nitrogen (PMN) Score (Silent Calculation)
-    climate_id_sum = SMAF_CLIMATE_MAP.get(selected_climate_class, 3) if selected_climate_class != "— Select —" else 3
-    raw_score_pmn_sum = run_smaf_pmn_score(pmn_val, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)
-
-    # Available Water Capacity (AWC) Score (Silent Calculation)
-    awc_region_sum = st.session_state.get(f"{k}_awc_region", 2)
-    raw_score_awc_sum = run_smaf_awc_score(awc_val, awc_region_sum, texture_id_sum, om_id_sum, SMAF_DATA)
-
-    # Water-Filled Pore Space (WFPS) Score (Silent Calculation)
-    wfps_frac_sum = get_wfps_frac(w_val, bd_val, SMAF_DATA)
-    wfps_scores_sum = run_smaf_wfps_score(wfps_frac_sum, texture_id_sum, SMAF_DATA)
-    raw_score_wfps_sum = wfps_scores_sum["combined"]
-
-    # Microbial Biomass Carbon (MBC) Score (Silent Calculation)
-    season_name = st.session_state.get(f"{k}_sm_season", "Spring")
-    season_num = {"Spring": 1, "Summer": 2, "Fall": 3, "Winter": 4}.get(season_name, 1)
-    
-    climate_id_sum = SMAF_CLIMATE_MAP.get(selected_climate_class, 3) if selected_climate_class != "— Select —" else 3
-    # SMAF logic: Spring is always 1.0. Other seasons combine with climate (e.g., Summer + Climate 4 = 2.4)
-    season_climate_code = 1.0 if season_num == 1 else float(f"{season_num}.{climate_id_sum}")
-    
-    raw_score_mbc_sum = run_smaf_mbc_score(mbc_val, om_id_sum, texture_id_sum, season_climate_code, SMAF_DATA)
-    
-    # pH Score
-    crop_selected_name_sum = st.session_state[f"{k}_sm_crop"]
-    ph_benchmarks_sum = SMAF_DATA.get("ph_benchmarks", {}) if SMAF_DATA else {}
-    ph_benchmarks_lower_sum = {key.lower(): val for key, val in ph_benchmarks_sum.items()}
-    benchmarks_sum = ph_benchmarks_lower_sum.get(crop_selected_name_sum.lower())
-    if benchmarks_sum:
-        raw_score_ph_sum = float(100.0 * np.exp(-((ph_val - benchmarks_sum["opt"]) / (2.0 * benchmarks_sum["sigma"])) ** 2))
-    else:
-        raw_score_ph_sum = 0.0
+    # ── PHYSICAL INDICATORS ──
+    if "Bulk Density" in target_indicators:
+        mineral_str = st.session_state.get(f"{k}_bd_min", "— Select —")
+        mineralogy_id_sum = SMAF_MINERALOGY_MAP.get(mineral_str, 0) if mineral_str != "— Select —" else 0
+        texture_id_sum = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
+        bd_val_sum = st.session_state.get(f"{k}_bd_input", 1.45)
+        phys_scores.append(safe_float(run_smaf_bd_score(bd_val_sum, texture_id_sum, mineralogy_id_sum)))
         
-    # =========================================================================
-    # Calculate the Category Averages and the Overall Score
-    def safe_float(val):
-        try:
-            return float(val) if val is not None else 0.0
-        except (ValueError, TypeError):
-            return 0.0
+    if "Macroaggregate Stability" in target_indicators:
+        om_string_sum = st.session_state.get(f"{k}_sm_om_class", "Class 2 (Med-High OM)")
+        om_id_sum = SMAF_OM_MAP.get(om_string_sum, 2)
+        fe_id_sum = SMAF_FE_MAP.get(selected_fe_class, 2)
+        agg_val_sum = st.session_state.get(f"{k}_agg_val", 40.0)
+        phys_scores.append(safe_float(run_smaf_agg_score(agg_val_sum, om_id_sum, texture_id_sum, fe_id_sum, SMAF_DATA)))
+        
+    if "Available Water Capacity" in target_indicators:
+        awc_region_sum = st.session_state.get(f"{k}_awc_region", 2)
+        awc_val_sum = st.session_state.get(f"{k}_awc_val", 0.15)
+        phys_scores.append(safe_float(run_smaf_awc_score(awc_val_sum, awc_region_sum, texture_id_sum, om_id_sum, SMAF_DATA)))
+        
+    if "Water-Filled Pore Space" in target_indicators:
+        w_val_sum = st.session_state.get(f"{k}_w_val", 0.25)
+        bd_val_sum = st.session_state.get(f"{k}_bd_input", 1.45)
+        wfps_frac_sum = get_wfps_frac(w_val_sum, bd_val_sum, SMAF_DATA)
+        wfps_scores_sum = run_smaf_wfps_score(wfps_frac_sum, texture_id_sum, SMAF_DATA)
+        phys_scores.append(safe_float(wfps_scores_sum["combined"]))
 
-    # Biological = Average of SOC and PMN
-# ✨ Biological = Average of SOC, PMN, and MBC (Divide by 3.0!)
-    score_bio = (safe_float(score_soc) + safe_float(raw_score_pmn_sum) + safe_float(raw_score_mbc_sum)) / 3.0    
-    # Physical = Average of BD, AGG, AWC, and WFPS (Divide by 4.0!)
-    score_phys = (safe_float(raw_score_bd_sum) + safe_float(raw_score_agg_sum) + safe_float(raw_score_awc_sum) + safe_float(raw_score_wfps_sum)) / 4.0
-    
-    # Chemical = Average of pH, P, EC, and SAR (Divide by 4.0!)
-    score_chem = (safe_float(raw_score_ph_sum) + safe_float(score_p_sum) + safe_float(raw_score_ec_sum) + safe_float(raw_score_sar_sum)) / 4.0
-    
-    score_overall = (score_phys + score_chem + score_bio) / 3.0
-    # =========================================================================
-    # =========================================================================
+    # ── CHEMICAL INDICATORS ──
+    if "pH" in target_indicators:
+        crop_selected_name_sum = st.session_state.get(f"{k}_sm_crop", "Corn / maize / sweet corn")
+        ph_benchmarks_sum = SMAF_DATA.get("ph_benchmarks", {}) if SMAF_DATA else {}
+        ph_benchmarks_lower_sum = {key.lower(): val for key, val in ph_benchmarks_sum.items()}
+        benchmarks_sum = ph_benchmarks_lower_sum.get(crop_selected_name_sum.lower())
+        ph_val_sum = st.session_state.get(f"{k}_ph_measured_input", 6.0)
+        if benchmarks_sum:
+            chem_scores.append(float(100.0 * np.exp(-((ph_val_sum - benchmarks_sum["opt"]) / (2.0 * benchmarks_sum["sigma"])) ** 2)))
+        else:
+            chem_scores.append(0.0)
+            
+    if "Soil Phosphorus" in target_indicators:
+        crop_id_sum = SMAF_DATA["crop_ui_map"].get(st.session_state.get(f"{k}_sm_crop", "").lower(), 0)
+        method_str = st.session_state.get(f"{k}_sm_method", "Mehlich-3")
+        weather_str = st.session_state.get(f"{k}_sm_weather", "Slightly Weathered")
+        method_id_sum = SMAF_METHOD_MAP.get(method_str, 2)
+        weather_id_sum = SMAF_WEATHERING_MAP.get(weather_str, 3)
+        slope_str = st.session_state.get(f"{k}_sm_slope", "0–2% Level Slope")
+        slope_id_sum = SMAF_SLOPE_MAP.get(slope_str, 1)
+        p_val_sum = st.session_state.get(f"{k}_sm_p_input", 25.0)
+        oc_val_sum = st.session_state.get(f"{k}_oc", 2.0)
+        chem_scores.append(safe_float(run_smaf_p_score(p_val_sum, crop_id_sum, method_id_sum, weather_id_sum, texture_id_sum, slope_id_sum, oc_val_sum)))
+        
+    if "Electrical Conductivity" in target_indicators:
+        ec_method_str_sum = st.session_state.get(f"{k}_ec_method", "Saturated Paste (ECsat)")
+        ec_method_id_sum = 1 if "Saturated Paste" in ec_method_str_sum else 2
+        ec_val_sum = st.session_state.get(f"{k}_ec_val", 1.5)
+        crop_id_sum = SMAF_DATA["crop_ui_map"].get(st.session_state.get(f"{k}_sm_crop", "").lower(), 0)
+        chem_scores.append(safe_float(run_smaf_ec_score(ec_val_sum, crop_id_sum, ec_method_id_sum, texture_id_sum, SMAF_DATA)))
+        
+    if "Sodium Adsorption Ratio" in target_indicators:
+        ec_method_str_sum = st.session_state.get(f"{k}_ec_method", "Saturated Paste (ECsat)")
+        ec_method_id_sum = 1 if "Saturated Paste" in ec_method_str_sum else 2
+        sar_val_sum = st.session_state.get(f"{k}_sar_val", 2.0)
+        ec_val_sum = st.session_state.get(f"{k}_ec_val", 1.5)
+        chem_scores.append(safe_float(run_smaf_sar_score(sar_val_sum, ec_val_sum, ec_method_id_sum, texture_id_sum, SMAF_DATA)))
 
-    # 2. Build the Summary Bar Chart
-    summary_scores = [int(round(score_phys)), int(round(score_chem)), int(round(score_bio)), int(round(score_overall))]
-    summary_labels = ["Physical", "Chemical", "Biological", "<b>OVERALL</b>"]
-    summary_colors = [score_color(s) for s in summary_scores]
-    
-    # ✨ Swapped back to horizontal text formatting with the pipe symbol
-    summary_text = [f"{s}/100  |  {score_label(s)}" for s in summary_scores]
-    
-    # ✨ Adjusted the text position threshold back to 25 to account for horizontal space
-    text_positions = ["inside" if s >= 25 else "outside" for s in summary_scores]
+    # ── BIOLOGICAL INDICATORS ──
+    if "Soil Organic Carbon" in target_indicators:
+        bio_scores.append(safe_float(compute_score(oc_val, lp_mean, sigma_val)))
+    if "SMAF Soil Organic Carbon" in target_indicators:
+        om_id_sum = SMAF_OM_MAP.get(st.session_state.get(f"{k}_sm_om_class", "Class 2 (Med-High OM)"), 2)
+        climate_id_sum = SMAF_CLIMATE_MAP.get(st.session_state.get(f"{k}_sm_climate_class", ""), 3)
+        bio_scores.append(safe_float(run_smaf_soc_score(oc_val, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)))
+        
+    if "Potentially Mineralizable Nitrogen" in target_indicators:
+        pmn_val_sum = st.session_state.get(f"{k}_pmn_val", 10.0)
+        om_id_sum = SMAF_OM_MAP.get(st.session_state.get(f"{k}_sm_om_class", "Class 2 (Med-High OM)"), 2)
+        climate_id_sum = SMAF_CLIMATE_MAP.get(st.session_state.get(f"{k}_sm_climate_class", ""), 3)
+        bio_scores.append(safe_float(run_smaf_pmn_score(pmn_val_sum, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)))
+        
+    if "Microbial Biomass Carbon" in target_indicators:
+        mbc_val_sum = st.session_state.get(f"{k}_mbc_val", 200.0)
+        om_id_sum = SMAF_OM_MAP.get(st.session_state.get(f"{k}_sm_om_class", "Class 2 (Med-High OM)"), 2)
+        season_name = st.session_state.get(f"{k}_sm_season", "Spring")
+        season_num = {"Spring": 1, "Summer": 2, "Fall": 3, "Winter": 4}.get(season_name, 1)
+        climate_id_sum = SMAF_CLIMATE_MAP.get(st.session_state.get(f"{k}_sm_climate_class", ""), 3)
+        season_climate_code = 1.0 if season_num == 1 else float(f"{season_num}.{climate_id_sum}")
+        bio_scores.append(safe_float(run_smaf_mbc_score(mbc_val_sum, om_id_sum, texture_id_sum, season_climate_code, SMAF_DATA)))
 
-    fig_summary = go.Figure(go.Bar(
-        x=summary_scores, # ✨ Swapped x and y back
-        y=summary_labels,
-        orientation='h',  # ✨ Added horizontal orientation back
-        marker_color=summary_colors,
-        text=summary_text,
-        textposition=text_positions, 
-        insidetextanchor='middle',
-        textfont=dict(color='white', size=15, family="Arial Black")
-    ))
-
-    fig_summary.update_layout(
-        # ✨ NEW: Added fixedrange=True to both axes to disable pinch-to-zoom and panning
-        xaxis=dict(range=[0, 100], fixedrange=True, title="SHAPE Score", gridcolor="rgba(150,150,150,0.1)"), 
-        yaxis=dict(autorange="reversed", fixedrange=True), 
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        height=320, 
-        margin=dict(l=10, r=20, t=10, b=10)
-    )
+    # ── DYNAMIC CATEGORY AVERAGING (Divided by number of selected indicators in each group) ──
+    score_phys = sum(phys_scores) / len(phys_scores) if phys_scores else 0.0
+    score_chem = sum(chem_scores) / len(chem_scores) if chem_scores else 0.0
+    score_bio = sum(bio_scores) / len(bio_scores) if bio_scores else 0.0
     
-    # ✨ NEW: Added config={'displayModeBar': False} to hide the floating Plotly toolbar
-    st.plotly_chart(
-        fig_summary, 
-        use_container_width=True, 
-        key=f"{k}_summary_chart",
-        config={'displayModeBar': False}
-    )
+    active_pillars = [p for p in [score_phys, score_chem, score_bio] if p > 0.0 or len(phys_scores) > 0 or len(chem_scores) > 0 or len(bio_scores) > 0]
+    score_overall = sum(active_pillars) / len(active_pillars) if active_pillars else 0.0
+
+    # ── INDIVIDUAL INDICATOR SUMMARY TABLE ──
+    table_rows = []
+    
+    # Helper mapping for categories
+    cat_map = {
+        "Bulk Density": "Physical", "Macroaggregate Stability": "Physical", 
+        "Available Water Capacity": "Physical", "Water-Filled Pore Space": "Physical",
+        "pH": "Chemical", "Soil Phosphorus": "Chemical", 
+        "Electrical Conductivity": "Chemical", "Sodium Adsorption Ratio": "Chemical",
+        "Soil Organic Carbon": "Biological", "SMAF Soil Organic Carbon": "Biological", 
+        "Potentially Mineralizable Nitrogen": "Biological", "Microbial Biomass Carbon": "Biological"
+    }
+    
+    # Collect data for each checked indicator
+    for ind in target_indicators:
+        cat = cat_map.get(ind, "General")
+        val, scr = "—", 0.0
+        
+        if ind == "Bulk Density":
+            val = f"{bd_val_sum} g/cm³"
+            scr = phys_scores[phys_scores.index(safe_float(run_smaf_bd_score(bd_val_sum, texture_id_sum, mineralogy_id_sum)))] if 'phys_scores' in locals() and phys_scores else 0.0
+        elif ind == "Macroaggregate Stability":
+            val = f"{agg_val_sum}%"
+            scr = raw_score_agg_sum if 'raw_score_agg_sum' in locals() else 0.0
+        elif ind == "Available Water Capacity":
+            val = f"{awc_val_sum} g/g"
+            scr = raw_score_awc_sum if 'raw_score_awc_sum' in locals() else 0.0
+        elif ind == "Water-Filled Pore Space":
+            val = f"{wfps_frac_sum:.1%}"
+            scr = raw_score_wfps_sum if 'raw_score_wfps_sum' in locals() else 0.0
+        elif ind == "pH":
+            val = f"{ph_val_sum}"
+            scr = score_ph if 'score_ph' in locals() else 0.0
+        elif ind == "Soil Phosphorus":
+            val = f"{p_val_sum} mg/kg"
+            scr = score_p if 'score_p' in locals() else 0.0
+        elif ind == "Electrical Conductivity":
+            val = f"{ec_val_sum} dS/m"
+            scr = score_ec if 'score_ec' in locals() else 0.0
+        elif ind == "Sodium Adsorption Ratio":
+            val = f"{sar_val_sum}"
+            scr = score_sar if 'score_sar' in locals() else 0.0
+        elif ind == "Soil Organic Carbon":
+            val = f"{oc_val}%"
+            scr = score if 'score' in locals() else 0.0
+        elif ind == "SMAF Soil Organic Carbon":
+            val = f"{oc_val}%"
+            scr = score_smaf_soc if 'score_smaf_soc' in locals() else 0.0
+        elif ind == "Potentially Mineralizable Nitrogen":
+            val = f"{pmn_val} mg/kg"
+            scr = score_pmn if 'score_pmn' in locals() else 0.0
+        elif ind == "Microbial Biomass Carbon":
+            val = f"{mbc_val} mg/kg"
+            scr = score_mbc if 'score_mbc' in locals() else 0.0
+            
+        zone = score_label(scr)
+        table_rows.append({
+            "Category": cat,
+            "Indicator Name": ind,
+            "Measured Value": val,
+            "Score": f"{int(round(scr))}/100",
+            "Rating": zone,
+            "_raw_score": scr # Used for background styling
+        })
+        
+    if table_rows:
+        df_summary_table = pd.DataFrame(table_rows)
+        
+        def color_table_rows(row):
+            s = row.get("_raw_score", 0)
+            if s >= 80: bg = "background-color: rgba(26,150,65,0.20); color: inherit;"
+            elif s >= 60: bg = "background-color: rgba(119,195,92,0.20); color: inherit;"
+            elif s >= 40: bg = "background-color: rgba(255,193,7,0.20); color: inherit;"
+            elif s >= 20: bg = "background-color: rgba(244,109,67,0.20); color: inherit;"
+            else: bg = "background-color: rgba(215,48,39,0.20); color: inherit;"
+            return [bg] * len(row)
+            
+        display_table_df = df_summary_table.drop(columns=["_raw_score"])
+        st.dataframe(
+            display_table_df.style.apply(color_table_rows, axis=1),
+            width='stretch',
+            hide_index=True
+        )
+    st.divider()
 
     # =========================================================================
     # ✨ ✨ NATIVE STREAMLIT SOIL HEALTH CONSTRAINTS DIAGNOSTIC ✨ ✨

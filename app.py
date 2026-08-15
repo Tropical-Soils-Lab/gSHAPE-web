@@ -1944,6 +1944,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
     # ── GLOBAL SOC PEER GROUP RESOLUTION ──
     tax = parse_code(selected_sub)
     tex = cfg["texture_map"][selected_tex]
+    row = None  # ✨ Initialize row safely here
 
     if hist_toggle and cfg["has_histosol"] and df_hist is not None:
         lp_mean   = float(df_hist["mean_lp"].iloc[0])
@@ -1957,6 +1958,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             lp_mean, lp_lcl, lp_ucl, sigma_val, plot_max = 0.0, 0.0, 0.0, 1.0, 15.0
         else:
             row = get_params_any(cfg, df, tax, tex, target_temp, target_precip)
+            
         if row is not None:
             lp_mean   = float(row["mean_lp"])
             lp_lcl    = float(row["lcl_lp"])

@@ -1973,6 +1973,9 @@ def render_single_sample(region_name, cfg, df, df_hist):
     climate_id_sum = SMAF_CLIMATE_MAP.get(st.session_state.get(f"{k}_sm_climate_class", ""), 3)
     
     bd_val_sum = st.session_state.get(f"{k}_bd_input", 1.45)
+    mineral_str = st.session_state.get(f"{k}_bd_min", "— Select —")
+    mineralogy_id_sum = SMAF_MINERALOGY_MAP.get(mineral_str, 0) if mineral_str != "— Select —" else 0
+    
     agg_val_sum = st.session_state.get(f"{k}_agg_val", 40.0)
     awc_val_sum = st.session_state.get(f"{k}_awc_val", 0.15)
     w_val_sum = st.session_state.get(f"{k}_w_val", 0.25)

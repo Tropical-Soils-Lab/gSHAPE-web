@@ -2418,7 +2418,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             st.plotly_chart(fig_awc_gauge, use_container_width=True, key=f"{k}_awc_gauge_plot")
             
         with col_r:
-            st.markdown(f"#### Scoring Curve ({'Humid' if awc_region == 2 else 'Arid'} Region)")
+            st.markdown("#### Scoring Curve")
             
             # Smooth plotting using linspace
             xs = np.linspace(0, 0.30, 300)

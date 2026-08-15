@@ -3772,7 +3772,8 @@ else:
 if "Global_SMAF" not in REGIONS:
     REGIONS["Global_SMAF"] = dict(REGIONS["Florida"]) # Inherit default UI maps
     REGIONS["Global_SMAF"]["key"] = "GL"
-    REGIONS["Global_SMAF"]["csv"] = None # Disables SHAPE parsing
+    REGIONS["Global_SMAF"]["csv"] = None        # Disables SHAPE parsing
+    REGIONS["Global_SMAF"]["csv_hist"] = None   # Disables Histosol parsing
 
 active_cfg = REGIONS[active_region_name]
 

@@ -2186,11 +2186,11 @@ def render_single_sample(region_name, cfg, df, df_hist):
         
         def color_table_rows(row):
             s = row.get("_raw_score", 0)
-            if s >= 80: bg = "background-color: rgba(26,150,65,0.35); color: #ffffff;"
-            elif s >= 60: bg = "background-color: rgba(119,195,92,0.35); color: #ffffff;"
-            elif s >= 40: bg = "background-color: rgba(255,193,7,0.35); color: #ffffff;"
-            elif s >= 20: bg = "background-color: rgba(244,109,67,0.35); color: #ffffff;"
-            else: bg = "background-color: rgba(215,48,39,0.35); color: #ffffff;"
+            if s >= 80: bg = "background-color: rgba(26, 150, 65, 0.22); color: #1f2937; font-weight: 500;"      # Very High (Green)
+            elif s >= 60: bg = "background-color: rgba(119, 195, 92, 0.22); color: #1f2937; font-weight: 500;"   # High (Light Green)
+            elif s >= 40: bg = "background-color: rgba(255, 193, 7, 0.22); color: #1f2937; font-weight: 500;"    # Medium (Yellow)
+            elif s >= 20: bg = "background-color: rgba(244, 109, 67, 0.22); color: #1f2937; font-weight: 500;"   # Low (Orange)
+            else: bg = "background-color: rgba(215, 48, 39, 0.22); color: #1f2937; font-weight: 500;"          # Very Low (Red)
             return [bg] * len(row)
             
         display_table_df = df_summary_table.drop(columns=["_raw_score"])

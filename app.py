@@ -1992,11 +1992,9 @@ def render_single_sample(region_name, cfg, df, df_hist):
     phys_scores, chem_scores, bio_scores = [], [], []
     
     # ── PHYSICAL INDICATORS ──
+    # ── PHYSICAL INDICATORS ──
     if "Bulk Density" in target_indicators:
-        mineral_str = st.session_state.get(f"{k}_bd_min", "— Select —")
-        mineralogy_id_sum = SMAF_MINERALOGY_MAP.get(mineral_str, 0) if mineral_str != "— Select —" else 0
         phys_scores.append(safe_float(run_smaf_bd_score(bd_val_sum, texture_id_sum, mineralogy_id_sum)))
-        
     if "Macroaggregate Stability" in target_indicators:
         phys_scores.append(safe_float(run_smaf_agg_score(agg_val_sum, om_id_sum, texture_id_sum, fe_id_sum, SMAF_DATA)))
         

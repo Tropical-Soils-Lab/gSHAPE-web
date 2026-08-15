@@ -1480,8 +1480,8 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
             # ✨ SMART UI: Auto-select Iron Oxide ✨
             sub_lower = selected_sub.lower()
-            # Florida = ult(isol) | WRB = acrisol, alisol | SiBC = argissolo, alissolo
-            high_fe_keywords = ["ult", "acrisol", "alisol", "argissolo", "alissolo"]
+            # Florida = ult(isol), ox(isol) | WRB = acrisol, alisol, ferralsol | SiBC = argissolo, alissolo, latossolo
+            high_fe_keywords = ["ult", "oxs", "oxisol", "acrisol", "alisol", "ferralsol", "argissolo", "alissolo", "latossolo"]
             is_high_fe = any(keyword in sub_lower for keyword in high_fe_keywords)
             
             derived_fe_id = 1 if is_high_fe else 2 if "— select —" not in sub_lower else 0

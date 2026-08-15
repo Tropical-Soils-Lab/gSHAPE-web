@@ -2109,7 +2109,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
         config={'displayModeBar': False}
     )
 
-    # ── INDIVIDUAL INDICATOR SUMMARY TABLE ──
+ # ── INDIVIDUAL INDICATOR SUMMARY TABLE ──
     table_rows = []
     cat_map = {
         "Bulk Density": "Physical", "Macroaggregate Stability": "Physical", 
@@ -2126,50 +2126,65 @@ def render_single_sample(region_name, cfg, df, df_hist):
         
         if ind == "Bulk Density":
             val = f"{bd_val_sum} g/cm³"
-            scr = phys_scores[0] if phys_scores else 0.0
+            scr = run_smaf_bd_score(bd_val_sum, texture_id_sum, mineralogy_id_sum)
         elif ind == "Macroaggregate Stability":
             val = f"{agg_val_sum}%"
-            scr = phys_scores[1] if len(phys_scores) > 1 else 0.0
+            scr = run_smaf_agg_score(agg_val_sum, om_id_sum, texture_id_sum, fe_id_sum, SMAF_DATA)
         elif ind == "Available Water Capacity":
             val = f"{awc_val_sum} g/g"
-            scr = phys_scores[2] if len(phys_scores) > 2 else 0.0
+            awc_region_sum = st.session_state.get(f"{k}_awc_region", 2)
+            scr = run_smaf_awc_score(awc_val_sum, awc_region_sum, texture_id_sum, om_id_sum, SMAF_DATA)
         elif ind == "Water-Filled Pore Space":
             val = f"{wfps_frac_sum:.1%}"
-            scr = phys_scores[3] if len(phys_scores) > 3 else 0.0
+            wfps_res = run_smaf_wfps_score(wfps_frac_sum, texture_id_sum, SMAF_DATA)
+            scr = wfps_res["combined"]
         elif ind == "pH":
             val = f"{ph_val_sum}"
-            if 'score_ph' in locals():
-                scr = score_ph
+            crop_selected_name_sum = st.session_state.get(f"{k}_sm_crop", "Corn / maize / sweet corn")
+            ph_benchmarks_sum = SMAF_DATA.get("ph_benchmarks", {}) if SMAF_DATA else {}
+            ph_benchmarks_lower_sum = {key.lower(): val for key, val in ph_benchmarks_sum.items()}
+            benchmarks_sum = ph_benchmarks_lower_sum.get(crop_selected_name_sum.lower())
+            if benchmarks_sum:
+                scr = float(100.0 * np.exp(-((ph_val_sum - benchmarks_sum["opt"]) / (2.0 * benchmarks_sum["sigma"])) ** 2))
             else:
-                crop_selected_name_sum = st.session_state.get(f"{k}_sm_crop", "Corn / maize / sweet corn")
-                ph_benchmarks_sum = SMAF_DATA.get("ph_benchmarks", {}) if SMAF_DATA else {}
-                ph_benchmarks_lower_sum = {key.lower(): val for key, val in ph_benchmarks_sum.items()}
-                benchmarks_sum = ph_benchmarks_lower_sum.get(crop_selected_name_sum.lower())
-                if benchmarks_sum:
-                    scr = float(100.0 * np.exp(-((ph_val_sum - benchmarks_sum["opt"]) / (2.0 * benchmarks_sum["sigma"])) ** 2))
-                else:
-                    scr = 0.0
+                scr = 0.0
         elif ind == "Soil Phosphorus":
             val = f"{p_val_sum} mg/kg"
-            scr = chem_scores[1] if len(chem_scores) > 1 else 0.0
+            crop_id_sum = SMAF_DATA["crop_ui_map"].get(st.session_state.get(f"{k}_sm_crop", "").lower(), 0)
+            method_str = st.session_state.get(f"{k}_sm_method", "Mehlich-3")
+            weather_str = st.session_state.get(f"{k}_sm_weather", "Slightly Weathered")
+            method_id_sum = SMAF_METHOD_MAP.get(method_str, 2)
+            weather_id_sum = SMAF_WEATHERING_MAP.get(weather_str, 3)
+            slope_str = st.session_state.get(f"{k}_sm_slope", "0–2% Level Slope")
+            slope_id_sum = SMAF_SLOPE_MAP.get(slope_str, 1)
+            oc_val_sum = st.session_state.get(f"{k}_oc", 2.0)
+            scr = run_smaf_p_score(p_val_sum, crop_id_sum, method_id_sum, weather_id_sum, texture_id_sum, slope_id_sum, oc_val_sum)
         elif ind == "Electrical Conductivity":
             val = f"{ec_val_sum} dS/m"
-            scr = chem_scores[2] if len(chem_scores) > 2 else 0.0
+            ec_method_str_sum = st.session_state.get(f"{k}_ec_method", "Saturated Paste (ECsat)")
+            ec_method_id_sum = 1 if "Saturated Paste" in ec_method_str_sum else 2
+            crop_id_sum = SMAF_DATA["crop_ui_map"].get(st.session_state.get(f"{k}_sm_crop", "").lower(), 0)
+            scr = run_smaf_ec_score(ec_val_sum, crop_id_sum, ec_method_id_sum, texture_id_sum, SMAF_DATA)
         elif ind == "Sodium Adsorption Ratio":
             val = f"{sar_val_sum}"
-            scr = chem_scores[3] if len(chem_scores) > 3 else 0.0
+            ec_method_str_sum = st.session_state.get(f"{k}_ec_method", "Saturated Paste (ECsat)")
+            ec_method_id_sum = 1 if "Saturated Paste" in ec_method_str_sum else 2
+            scr = run_smaf_sar_score(sar_val_sum, ec_val_sum, ec_method_id_sum, texture_id_sum, SMAF_DATA)
         elif ind == "Soil Organic Carbon":
             val = f"{oc_val}%"
-            scr = bio_scores[0] if bio_scores else 0.0
+            scr = compute_score(oc_val, lp_mean, sigma_val)
         elif ind == "SMAF Soil Organic Carbon":
             val = f"{oc_val}%"
-            scr = bio_scores[0] if bio_scores else 0.0
+            scr = run_smaf_soc_score(oc_val, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)
         elif ind == "Potentially Mineralizable Nitrogen":
             val = f"{pmn_val_sum} mg/kg"
-            scr = bio_scores[1] if len(bio_scores) > 1 else 0.0
+            scr = run_smaf_pmn_score(pmn_val_sum, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)
         elif ind == "Microbial Biomass Carbon":
             val = f"{mbc_val_sum} mg/kg"
-            scr = bio_scores[2] if len(bio_scores) > 2 else 0.0
+            season_name = st.session_state.get(f"{k}_sm_season", "Spring")
+            season_num = {"Spring": 1, "Summer": 2, "Fall": 3, "Winter": 4}.get(season_name, 1)
+            season_climate_code = 1.0 if season_num == 1 else float(f"{season_num}.{climate_id_sum}")
+            scr = run_smaf_mbc_score(mbc_val_sum, om_id_sum, texture_id_sum, season_climate_code, SMAF_DATA)
             
         zone = score_label(scr)
         table_rows.append({

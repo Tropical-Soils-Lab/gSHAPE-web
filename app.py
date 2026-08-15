@@ -8,6 +8,33 @@ import requests
 from pathlib import Path
 
 from soc_recommendations import load_soc_rules, get_management_questions, get_selected_answers, get_soc_recommendation, get_cropping_systems
+
+# ── GLOBAL GEOGRAPHY & ROUTING DATA ──
+SSA_COUNTRIES = [
+    "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cameroon", "Cape Verde", 
+    "Central African Republic", "Chad", "Comoros", "Democratic Republic of the Congo", 
+    "Djibouti", "Equatorial Guinea", "Eritrea", "Eswatini", "Ethiopia", "Gabon", "Gambia", 
+    "Ghana", "Guinea", "Guinea-Bissau", "Ivory Coast", "Kenya", "Lesotho", "Liberia", 
+    "Madagascar", "Malawi", "Mali", "Mauritania", "Mauritius", "Mozambique", "Namibia", 
+    "Niger", "Nigeria", "Rwanda", "Sao Tome and Principe", "Senegal", "Seychelles", 
+    "Sierra Leone", "Somalia", "South Africa", "South Sudan", "Sudan", "Tanzania", 
+    "Togo", "Uganda", "Zambia", "Zimbabwe"
+]
+
+US_STATES = [
+    "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut", 
+    "Delaware", "Florida", "Georgia", "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", 
+    "Kansas", "Kentucky", "Louisiana", "Maine", "Maryland", "Massachusetts", "Michigan", 
+    "Minnesota", "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire", 
+    "New Jersey", "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio", 
+    "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina", "South Dakota", 
+    "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington", "West Virginia", 
+    "Wisconsin", "Wyoming"
+]
+
+ALL_COUNTRIES = ["United States", "Brazil", "Canada", "Mexico", "United Kingdom", "Australia", "India"] + SSA_COUNTRIES
+ALL_COUNTRIES.sort() # Keep it alphabetical
+
 # ── EXCEL RECOMMENDATION DATABASE SETUP ──
 EXCEL_PATH = Path(__file__).parent / "gSHAPE_SOC_Recommendations.xlsx"
 
@@ -1719,7 +1746,9 @@ def render_single_sample(region_name, cfg, df, df_hist):
     if f"{k}_sm_fe_class" not in st.session_state: st.session_state[f"{k}_sm_fe_class"] = "— Select —"
     if f"{k}_sm_climate_class" not in st.session_state: st.session_state[f"{k}_sm_climate_class"] = "— Select —"
 
-   # ── MASTER SITE INPUTS (Always Visible) ──
+  # ── MASTER SITE INPUTS (DYNAMICALLY FILTERED BY CHECKBOXES) ──
+    target_indicators = st.session_state.get("target_indicators", [])
+    
     with st.expander("⚙️ Site & Management Inputs", expanded=True):
         c1, c2 = st.columns(2)
         
@@ -1754,16 +1783,33 @@ def render_single_sample(region_name, cfg, df, df_hist):
             
             texture_id = SMAF_TEXTURE_MAP.get(selected_sm_tex, 0)
             selected_bd_min = None
-            if texture_id >= 4:
+            if texture_id >= 4 and "Bulk Density" in target_indicators:
                 selected_bd_min = st.selectbox("Clay Mineralogy", ["— Select —"] + list(SMAF_MINERALOGY_MAP.keys()), key=f"{k}_bd_min")
 
-            selected_sm_slope = st.selectbox("Landscape Slope Profile", ["— Select —"] + list(SMAF_SLOPE_MAP.keys()), key=f"{k}_sm_slope")
+            # Only show Slope if Macroaggregate Stability is selected
+            selected_sm_slope = "0–2% Level Slope"
+            if "Macroaggregate Stability" in target_indicators or "Soil Phosphorus" in target_indicators:
+                selected_sm_slope = st.selectbox("Landscape Slope Profile", ["— Select —"] + list(SMAF_SLOPE_MAP.keys()), key=f"{k}_sm_slope")
+                
             chosen_crop = st.selectbox("Target Field Crop", MASTER_CROP_OPTIONS, key=f"{k}_sm_crop")
-            selected_season = st.selectbox("Sampling Season", ["Spring", "Summer", "Fall", "Winter"], key=f"{k}_sm_season")
+            
+            # Only show Sampling Season if MBC is selected
+            selected_season = "Spring"
+            if "Microbial Biomass Carbon" in target_indicators:
+                selected_season = st.selectbox("Sampling Season", ["Spring", "Summer", "Fall", "Winter"], key=f"{k}_sm_season")
+                
         with c2:
-            selected_method = st.selectbox("P Extraction Method", ["— Select —"] + list(SMAF_METHOD_MAP.keys()), key=f"{k}_sm_method")
-            selected_weath = st.selectbox("Soil Weathering Class", ["— Select —"] + list(SMAF_WEATHERING_MAP.keys()), key=f"{k}_sm_weather")
-            ec_method_str = st.selectbox("EC Method", ["— Select —", "Saturated Paste (ECsat)", "1:1 Soil:Water (EC1:1)"], key=f"{k}_ec_method")
+            # Only show P Method/Weathering if Soil Phosphorus is selected
+            selected_method = "Mehlich-3"
+            selected_weath = "Slightly Weathered"
+            if "Soil Phosphorus" in target_indicators:
+                selected_method = st.selectbox("P Extraction Method", ["— Select —"] + list(SMAF_METHOD_MAP.keys()), key=f"{k}_sm_method")
+                selected_weath = st.selectbox("Soil Weathering Class", ["— Select —"] + list(SMAF_WEATHERING_MAP.keys()), key=f"{k}_sm_weather")
+                
+            # Only show EC Method if EC or SAR is selected
+            ec_method_str = "Saturated Paste (ECsat)"
+            if "Electrical Conductivity" in target_indicators or "Sodium Adsorption Ratio" in target_indicators:
+                ec_method_str = st.selectbox("EC Method", ["— Select —", "Saturated Paste (ECsat)", "1:1 Soil:Water (EC1:1)"], key=f"{k}_ec_method")
             
             use_geo = st.checkbox("Fetch climate from coordinates", key=f"{k}_geo")
             lat_in, lon_in = cfg["default_latlon"]
@@ -1790,50 +1836,87 @@ def render_single_sample(region_name, cfg, df, df_hist):
             else:
                 target_precip = None
 
-            # ✨ SMART UI: Auto-select Iron Oxide ✨
+            # Iron Oxide Class auto-assignment for Aggregates
             sub_lower = selected_sub.lower()
-            # Florida = ult(isol), ox(isol) | WRB = acrisol, alisol, ferralsol | SiBC = argissolo, alissolo, latossolo
             high_fe_keywords = ["ult", "oxs", "oxisol", "acrisol", "alisol", "ferralsol", "argissolo", "alissolo", "latossolo"]
             is_high_fe = any(keyword in sub_lower for keyword in high_fe_keywords)
-            
             derived_fe_id = 1 if is_high_fe else 2 if "— select —" not in sub_lower else 0
-            
             fe_options = ["— Select —"] + list(SMAF_FE_MAP.keys())
             if derived_fe_id != 0: st.session_state[f"{k}_sm_fe_class"] = fe_options[derived_fe_id]
-            selected_fe_class = st.selectbox("Iron-Oxide Class (Auto-Assigned)", fe_options, key=f"{k}_sm_fe_class")
-            # ✨ SMART UI: Auto-select Climate Class ✨
-            is_warm = target_temp >= 15.0
-            is_wet = target_precip >= 600.0 if target_precip is not None else True
-            derived_clim_id = 1 if (is_warm and is_wet) else 2 if (is_warm and not is_wet) else 3 if (not is_warm and is_wet) else 4
+            
+            selected_fe_class = "All Other Soil Orders"
+            if "Macroaggregate Stability" in target_indicators:
+                selected_fe_class = st.selectbox("Iron-Oxide Class (Auto-Assigned)", fe_options, key=f"{k}_sm_fe_class")
+                
             clim_options = ["— Select —"] + list(SMAF_CLIMATE_MAP.keys())
-            st.session_state[f"{k}_sm_climate_class"] = clim_options[derived_clim_id]
-            selected_climate_class = st.selectbox("Climate Class (Auto-Assigned)", clim_options, key=f"{k}_sm_climate_class")
+            selected_climate_class = clim_options[1]
+            if "Potentially Mineralizable Nitrogen" in target_indicators or "Microbial Biomass Carbon" in target_indicators:
+                is_warm = target_temp >= 15.0
+                is_wet = target_precip >= 600.0 if target_precip is not None else True
+                derived_clim_id = 1 if (is_warm and is_wet) else 2 if (is_warm and not is_wet) else 3 if (not is_warm and is_wet) else 4
+                st.session_state[f"{k}_sm_climate_class"] = clim_options[derived_clim_id]
+                selected_climate_class = st.selectbox("Climate Class (Auto-Assigned)", clim_options, key=f"{k}_sm_climate_class")
                 
             if cfg["has_histosol"]:
                 hist_toggle = st.checkbox("📌 This is an organic / Histosol soil (Muck, Peat)", key=f"{k}_hist")
             else:
                 hist_toggle = False
 
-    # ── MASTER LAB INPUTS (Always Visible) ──
+    # ── MASTER LAB INPUTS (DYNAMICALLY FILTERED BY CHECKBOXES) ──
     with st.expander("🧪 Laboratory Measurements", expanded=True):
         lc1, lc2, lc3 = st.columns(3)
+        
         with lc1:
-            oc_val = st.number_input("Measured SOC (%)", 0.01, 80.0, key=f"{k}_oc")
-            agg_val = st.number_input("Agg. Stability (%)", min_value=0.0, max_value=100.0, value=40.0, step=1.0, key=f"{k}_agg_val")
-            pmn_val = st.number_input("Measured PMN (mg/kg)", min_value=0.0, max_value=200.0, value=10.0, step=1.0, key=f"{k}_pmn_val")
-            w_val = st.number_input("Gravimetric Water (g/g)", min_value=0.0, max_value=1.0, value=0.25, step=0.01, key=f"{k}_w_val")
+            oc_val = 2.0
+            if "Soil Organic Carbon" in target_indicators or "SMAF Soil Organic Carbon" in target_indicators:
+                oc_val = st.number_input("Measured SOC (%)", 0.01, 80.0, key=f"{k}_oc")
+                
+            agg_val = 40.0
+            if "Macroaggregate Stability" in target_indicators:
+                agg_val = st.number_input("Agg. Stability (%)", min_value=0.0, max_value=100.0, value=40.0, step=1.0, key=f"{k}_agg_val")
+                
+            pmn_val = 10.0
+            if "Potentially Mineralizable Nitrogen" in target_indicators:
+                pmn_val = st.number_input("Measured PMN (mg/kg)", min_value=0.0, max_value=200.0, value=10.0, step=1.0, key=f"{k}_pmn_val")
+                
+            w_val = 0.25
+            if "Water-Filled Pore Space" in target_indicators:
+                w_val = st.number_input("Measured Gravimetric Water (g/g)", min_value=0.0, max_value=1.0, value=0.25, step=0.01, key=f"{k}_w_val")
+                
         with lc2:
-            p_val = st.number_input("Measured Extractable P (mg/kg)", 0.0, 500.0, key=f"{k}_sm_p_input")
-            ec_val = st.number_input("Measured EC (dS/m)", min_value=0.0, max_value=20.0, value=1.5, step=0.1, key=f"{k}_ec_val")
-            sar_val = st.number_input("Measured SAR", min_value=0.0, max_value=50.0, value=2.0, step=0.5, key=f"{k}_sar_val")
-            mbc_val = st.number_input("Measured MBC (mg/kg)", min_value=0.0, max_value=2000.0, value=200.0, step=10.0, key=f"{k}_mbc_val")
+            p_val = 25.0
+            if "Soil Phosphorus" in target_indicators:
+                p_val = st.number_input("Measured Extractable P (mg/kg)", 0.0, 500.0, key=f"{k}_sm_p_input")
+                
+            ec_val = 1.5
+            if "Electrical Conductivity" in target_indicators or "Sodium Adsorption Ratio" in target_indicators:
+                ec_val = st.number_input("Measured EC (dS/m)", min_value=0.0, max_value=20.0, value=1.5, step=0.1, key=f"{k}_ec_val")
+                
+            sar_val = 2.0
+            if "Sodium Adsorption Ratio" in target_indicators:
+                sar_val = st.number_input("Measured SAR", min_value=0.0, max_value=50.0, value=2.0, step=0.5, key=f"{k}_sar_val")
+                
+            mbc_val = 200.0
+            if "Microbial Biomass Carbon" in target_indicators:
+                mbc_val = st.number_input("Measured MBC (mg/kg)", min_value=0.0, max_value=2000.0, value=200.0, step=10.0, key=f"{k}_mbc_val")
+                
         with lc3:
-            bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.5, max_value=2.0, value=1.45, step=0.05, key=f"{k}_bd_input")
-            ph_val = st.number_input("Measured Soil pH", 0.0, 14.0, value=6.0, key=f"{k}_ph_measured_input")
-            # ✨ NEW: AWC Input Box added
-            awc_val = st.number_input("Measured AWC (g/g)", min_value=0.0, max_value=0.5, value=0.15, step=0.01, key=f"{k}_awc_val")
-            target_pct = st.slider("Benchmark Percentile (SOC)", 50, 99, 90, key=f"{k}_pct")
-
+            bd_val = 1.45
+            if "Bulk Density" in target_indicators or "Water-Filled Pore Space" in target_indicators:
+                bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.5, max_value=2.0, value=1.45, step=0.05, key=f"{k}_bd_input")
+                
+            ph_val = 6.0
+            if "pH" in target_indicators:
+                ph_val = st.number_input("Measured Soil pH", 0.0, 14.0, value=6.0, key=f"{k}_ph_measured_input")
+                
+            awc_val = 0.15
+            if "Available Water Capacity" in target_indicators:
+                awc_val = st.number_input("Measured AWC (g/g)", min_value=0.0, max_value=0.5, value=0.15, step=0.01, key=f"{k}_awc_val")
+                
+           target_pct = 90
+            if "Soil Organic Carbon" in target_indicators:
+                target_pct = st.slider("Benchmark Percentile (SOC)", 50, 99, 90, key=f"{k}_pct")
+                
     # ✨ SILENT DERIVATION ENGINE FOR OM CLASS & AWC REGION ✨
     if oc_val >= 2.9: derived_om_id = 1
     elif oc_val >= 1.45: derived_om_id = 2
@@ -1865,9 +1948,10 @@ def render_single_sample(region_name, cfg, df, df_hist):
         plot_max  = 80.0
     else:
         if df is None:
-            st.error(f"Parameter file '{cfg['csv']}' not found for {region_name}.")
-            return
-        row = get_params_any(cfg, df, tax, tex, target_temp, target_precip)
+            # Bypass SHAPE SOC math for Global SMAF fallback mode
+            lp_mean, lp_lcl, lp_ucl, sigma_val, plot_max = 0.0, 0.0, 0.0, 1.0, 15.0
+        else:
+            row = get_params_any(cfg, df, tax, tex, target_temp, target_precip)
         if row is not None:
             lp_mean   = float(row["mean_lp"])
             lp_lcl    = float(row["lcl_lp"])
@@ -2055,11 +2139,12 @@ def render_single_sample(region_name, cfg, df, df_hist):
     st.divider()
     # =========================================================================
     
-   # ── INDICATOR SELECTION ──
-    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density", "Electrical Conductivity", "Macroaggregate Stability", "Sodium Adsorption Ratio", "Potentially Mineralizable Nitrogen", "Available Water Capacity", "Water-Filled Pore Space", "Microbial Biomass Carbon", "SMAF Soil Organic Carbon"]
+  # ── INDICATOR SELECTION (FILTERED BY CHECKBOXES) ──
+    target_indicators = st.session_state.get("target_indicators", ["SMAF Soil Organic Carbon"])
+    
     chosen_indicator = st.selectbox(
         "Soil Health Indicators:",
-        indicator_options,
+        target_indicators,
         key=f"{cfg['key']}_indicator_shared"
     )
 # ALWAYS calculate the SOC score in the background so the Recommendation Engine 
@@ -2940,40 +3025,38 @@ def render_single_sample(region_name, cfg, df, df_hist):
         col_l, col_r = st.columns([1, 2])
         
         with col_l:
-            climate_str = f"{target_temp:.1f}°C"
-            if has_precip and target_precip is not None:
-                climate_str += f" · {target_precip:.0f}mm"
-                
-            gauge_title = (f"<b style='font-size:17px'>{smaf_soc_label}</b><br>"
-                           f"<span style='font-size:11px;color:gray'>{strip_code(selected_sub)} · {strip_code(selected_tex)} · {climate_str} · SOC {oc_val}%</span>")
-            
+            gauge_title = f"<b style='font-size:17px; color:#333;'>{smaf_soc_label}</b><br><span style='font-size:11px; color:#555;'>Measured SOC: {oc_val}% (SMAF Logistic)</span>"
             fig_smaf_soc_gauge = go.Figure(go.Indicator(
-                mode="gauge+number",
-                value=int(round(score_smaf_soc)),
-                domain={"x": [0, 1], "y": [0, 1]},
+                mode="gauge+number", value=int(round(score_smaf_soc)),
                 title={"text": gauge_title, "font": {"size": 13}},
                 number={"suffix": "/100", "font": {"size": 38, "color": smaf_soc_color}},
                 gauge={
-                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#555", "tickvals": [0, 20, 40, 60, 80, 100]},
                     "bar": {"color": smaf_soc_color, "thickness": 0.28},
                     "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
                     "steps": [
-                        {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
-                        {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
-                        {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
-                        {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
-                        {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.85)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.85)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.85)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.85)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.85)"}
                     ],
                     "threshold": {"line": {"color": smaf_soc_color, "width": 5}, "thickness": 0.8, "value": score_smaf_soc}
                 }
             ))
-            fig_smaf_soc_gauge.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)", 
-                plot_bgcolor="rgba(0,0,0,0)",
-                height=260, 
-                margin=dict(l=40, r=40, t=80, b=10)
-            )
+            fig_smaf_soc_gauge.update_layout(font=dict(color="#333"), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
             st.plotly_chart(fig_smaf_soc_gauge, use_container_width=True, key=f"{k}_smaf_soc_gauge_plot")
+            
+            st.divider()
+            st.markdown("**📥 Export result**")
+            result_df = pd.DataFrame([{
+                "Indicator": "SMAF Soil Organic Carbon",
+                "SOC_pct": oc_val, "SMAF_Score": round(score_smaf_soc, 2), "Zone": smaf_soc_label
+            }])
+            st.download_button("⬇️ Download as CSV", data=result_df.to_csv(index=False).encode("utf-8"),
+                               file_name=f"SMAF_SOC_{oc_val}pct.csv",
+                               mime="text/csv", width='stretch', key=f"{k}_export_btn_smaf")
+            
             # ── SHAPE Peer Group & Target Tracking (Mirroring SHAPE Tab) ──
             st.divider()
             gap = tgt_oc - oc_val
@@ -3045,117 +3128,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
         st.divider()
         # 🚦 THE TRAFFIC COP: Route SMAF SOC score to the Excel Recommendation Engine
         render_excel_recommendation_engine(region_name, chosen_crop, score_smaf_soc, key_prefix=f"{k}_smaf_soc_tab")
-
-        # ── Carbon Sequestration Calculator ──
-        st.divider()
-        st.markdown("### 🌍 Carbon Sequestration Calculator")
-        st.markdown("Estimate carbon stock, sequestration gap, credit value, and time to target based on the benchmark above.")
-
-        with st.expander("⚙️ Field & Market Parameters", expanded=True):
-            cc1, cc2, cc3, cc4, cc5 = st.columns(5)
-            with cc1:
-                field_area = st.number_input("Field area (acres)", min_value=1.0, max_value=100000.0, value=None, step=10.0, placeholder="—", key=f"{k}_smaf_area")
-            with cc2:
-                bulk_density = st.number_input("Bulk density (g/cm³)", min_value=0.8, max_value=2.0, value=None, step=0.05, placeholder="—", key=f"{k}_smaf_bd")
-            with cc3:
-                depth_cm = st.number_input("Sampling depth (cm)", min_value=5, max_value=100, value=None, step=5, placeholder="—", key=f"{k}_smaf_depth")
-            with cc4:
-                carbon_price = st.number_input("Carbon price ($/t CO₂e)", min_value=1.0, max_value=500.0, value=None, step=5.0, placeholder="—", key=f"{k}_smaf_price")
-            with cc5:
-                annual_rate = st.number_input("Annual SOC gain (%/yr)", min_value=0.01, max_value=2.0, value=None, step=0.05, placeholder="—", key=f"{k}_smaf_rate")
-
-        input_vars = [field_area, bulk_density, depth_cm, carbon_price, annual_rate]
-
-        if None in input_vars:
-            st.info("💡 Please fill in all **Field & Market Parameters** above to unlock your carbon stock and credit estimates.")
-        else:
-            def soc_to_tc_per_acre(soc_pct, bd, depth):
-                return (soc_pct / 100.0) * bd * depth * 10.0 * 0.4047
-
-            C_RATIO = 3.667
-            soc_target_90 = percentile_to_oc(90, lp_mean, sigma_val)
-            curr_tc_acre = soc_to_tc_per_acre(oc_val, bulk_density, depth_cm)
-            tgt_tc_acre  = soc_to_tc_per_acre(soc_target_90, bulk_density, depth_cm)
-            curr_tc_field = curr_tc_acre * field_area
-            tgt_tc_field  = tgt_tc_acre * field_area
-            gap_tc_field  = max(0.0, tgt_tc_field - curr_tc_field)
-            gap_co2_field = gap_tc_field * C_RATIO
-            credit_value  = gap_co2_field * carbon_price
-            years_to_tgt  = (max(0.0, soc_target_90 - oc_val) / annual_rate) if annual_rate > 0 else 0
-
-            sc1, sc2, sc3, sc4, sc5 = st.columns(5)
-            sc1.metric("Current C stock", f"{curr_tc_field:,.1f} t C", f"{curr_tc_acre:.2f} t C/acre")
-            sc2.metric("Target C stock (90th pct)", f"{tgt_tc_field:,.1f} t C", f"{tgt_tc_acre:.2f} t C/acre")
-            sc3.metric("Sequestration gap", f"{gap_tc_field:,.1f} t C", f"{gap_co2_field:,.1f} t CO₂e")
-            sc4.metric("Potential credit value", f"${credit_value:,.0f}", f"@ ${carbon_price}/t CO₂e")
-            sc5.metric("Years to 90th pct", f"{years_to_tgt:.1f} yrs", f"@ {annual_rate}%/yr gain")
-
-            st.divider()
-            chart_col, table_col = st.columns([3, 2])
-            with chart_col:
-                st.markdown("**Projected SOC trajectory to 90th percentile benchmark**")
-                max_yrs = max(int(np.ceil(years_to_tgt)) + 5, 20)
-                yr_axis = np.arange(0, max_yrs + 1, 1.0)
-                soc_traj = np.minimum(oc_val + annual_rate * yr_axis, soc_target_90)
-                tc_traj  = soc_to_tc_per_acre(soc_traj, bulk_density, depth_cm) * field_area
-                val_traj = (tc_traj - curr_tc_field) * C_RATIO * carbon_price
-
-                fig_traj = go.Figure()
-                fig_traj.add_trace(go.Scatter(x=yr_axis, y=soc_traj, mode="lines", name="SOC (%)",
-                                              line=dict(color="#1a9641", width=2.5),
-                                              hovertemplate="Year %{x:.0f}<br>SOC: %{y:.2f}%<extra></extra>"))
-                fig_traj.add_hline(y=soc_target_90, line_dash="dash", line_color="rgba(0,114,178,0.6)",
-                                   annotation_text=f"90th pct target ({soc_target_90:.2f}%)", annotation_position="right")
-                fig_traj.add_hline(y=oc_val, line_dash="dot", line_color="rgba(200,100,0,0.5)",
-                                   annotation_text=f"Current ({oc_val}%)", annotation_position="right")
-                if years_to_tgt > 0:
-                    fig_traj.add_trace(go.Scatter(
-                        x=[years_to_tgt], y=[soc_target_90], mode="markers+text",
-                        marker=dict(color="#0072B2", size=12, line=dict(color="white", width=2)),
-                        text=[f"  Yr {years_to_tgt:.1f}"], textposition="middle right", name="Target reached"
-                    ))
-                fig_traj.add_trace(go.Scatter(x=yr_axis, y=val_traj, mode="lines", name="Cumulative credit value ($)",
-                                              line=dict(color="#E69F00", width=2, dash="dot"), yaxis="y2",
-                                              hovertemplate="Year %{x:.0f}<br>Value: $%{y:,.0f}<extra></extra>"))
-                fig_traj.update_layout(
-                    xaxis_title="Years from now",
-                    yaxis=dict(title="SOC (%)", gridcolor="rgba(150,150,150,0.1)"),
-                    yaxis2=dict(title="Cumulative credit value ($)", overlaying="y", side="right",
-                                showgrid=False, tickformat="$,.0f"),
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02),
-                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                    height=360, margin=dict(l=10, r=60, t=40, b=10)
-                )
-                st.plotly_chart(fig_traj, width='stretch', key=f"{k}_smaf_traj_chart")
-
-            with table_col:
-                st.markdown("**Credit value sensitivity ($/t CO₂e)**")
-                price_scenarios = [10, 25, 50, 100, 200]
-                milestone_years = sorted(set([5, 10, 20, int(np.ceil(years_to_tgt))] if years_to_tgt > 0 else [5, 10, 20]))
-                rows = []
-                for yr in milestone_years:
-                    soc_at_yr = min(oc_val + annual_rate * yr, soc_target_90)
-                    tc_at_yr = soc_to_tc_per_acre(soc_at_yr, bulk_density, depth_cm) * field_area
-                    co2_at_yr = max(0.0, tc_at_yr - curr_tc_field) * C_RATIO
-                    row_vals = {"Year": f"Yr {yr}"}
-                    for p in price_scenarios:
-                        row_vals[f"${p}"] = f"${co2_at_yr * p:,.0f}"
-                    rows.append(row_vals)
-                st.dataframe(pd.DataFrame(rows), hide_index=True, width='stretch')
-
-                ann_tc = soc_to_tc_per_acre(annual_rate, bulk_density, depth_cm) * field_area
-                ann_co2 = ann_tc * C_RATIO
-                ann_value = ann_co2 * carbon_price
-                st.markdown(f"""
-| Metric | Value |
-|---|---|
-| Annual C gain | {ann_tc:.2f} t C/yr |
-| Annual CO₂e | {ann_co2:.2f} t CO₂e/yr |
-| Annual credit value | ${ann_value:,.0f}/yr |
-""")
-                st.caption("⚠️ Estimates assume linear SOC accumulation. Actual sequestration is nonlinear "
-                           "and depends on management, soil type, and climate. Consult a certified carbon "
-                           "project developer before trading.")
         
     elif chosen_indicator == "pH":
         # Global definition prevents NameError
@@ -3377,118 +3349,117 @@ def render_single_sample(region_name, cfg, df, df_hist):
         # 🚦 THE TRAFFIC COP: All regions now dynamically route through Excel!
         render_excel_recommendation_engine(region_name, chosen_crop, score, key_prefix=f"{k}_soc_tab")
 
-        # ── Carbon Sequestration Calculator ──
-        st.divider()
-        st.markdown("### 🌍 Carbon Sequestration Calculator")
-        st.markdown("Estimate carbon stock, sequestration gap, credit value, and time to target based on the benchmark above.")
-
-        with st.expander("⚙️ Field & Market Parameters", expanded=True):
-            cc1, cc2, cc3, cc4, cc5 = st.columns(5)
-            with cc1:
-                field_area = st.number_input("Field area (acres)", min_value=1.0, max_value=100000.0, value=None, step=10.0, placeholder="—", key=f"{k}_area")
-            with cc2:
-                bulk_density = st.number_input("Bulk density (g/cm³)", min_value=0.8, max_value=2.0, value=None, step=0.05, placeholder="—", key=f"{k}_bd")
-            with cc3:
-                depth_cm = st.number_input("Sampling depth (cm)", min_value=5, max_value=100, value=None, step=5, placeholder="—", key=f"{k}_depth")
-            with cc4:
-                carbon_price = st.number_input("Carbon price ($/t CO₂e)", min_value=1.0, max_value=500.0, value=None, step=5.0, placeholder="—", key=f"{k}_price")
-            with cc5:
-                annual_rate = st.number_input("Annual SOC gain (%/yr)", min_value=0.01, max_value=2.0, value=None, step=0.05, placeholder="—", key=f"{k}_rate")
-
-        # ✨ THE NEW CARBON GATEKEEPER ✨
-        input_vars = [field_area, bulk_density, depth_cm, carbon_price, annual_rate]
-
-        if None in input_vars:
-            st.info("💡 Please fill in all **Field & Market Parameters** above to unlock your carbon stock and credit estimates.")
-        else:
-            # ⚠️ All math and charts are now indented below the Gatekeeper!
-            def soc_to_tc_per_acre(soc_pct, bd, depth):
-                return (soc_pct / 100.0) * bd * depth * 10.0 * 0.4047
-
-            C_RATIO = 3.667
-            soc_target_90 = percentile_to_oc(90, lp_mean, sigma_val)
-            curr_tc_acre = soc_to_tc_per_acre(oc_val, bulk_density, depth_cm)
-            tgt_tc_acre  = soc_to_tc_per_acre(soc_target_90, bulk_density, depth_cm)
-            curr_tc_field = curr_tc_acre * field_area
-            tgt_tc_field  = tgt_tc_acre * field_area
-            gap_tc_field  = max(0.0, tgt_tc_field - curr_tc_field)
-            gap_co2_field = gap_tc_field * C_RATIO
-            credit_value  = gap_co2_field * carbon_price
-            years_to_tgt  = (max(0.0, soc_target_90 - oc_val) / annual_rate) if annual_rate > 0 else 0
-
-            sc1, sc2, sc3, sc4, sc5 = st.columns(5)
-            sc1.metric("Current C stock", f"{curr_tc_field:,.1f} t C", f"{curr_tc_acre:.2f} t C/acre")
-            sc2.metric("Target C stock (90th pct)", f"{tgt_tc_field:,.1f} t C", f"{tgt_tc_acre:.2f} t C/acre")
-            sc3.metric("Sequestration gap", f"{gap_tc_field:,.1f} t C", f"{gap_co2_field:,.1f} t CO₂e")
-            sc4.metric("Potential credit value", f"${credit_value:,.0f}", f"@ ${carbon_price}/t CO₂e")
-            sc5.metric("Years to 90th pct", f"{years_to_tgt:.1f} yrs", f"@ {annual_rate}%/yr gain")
-
+       # ── Carbon Sequestration Calculator (SHAPE Model Only) ──
+        if "Soil Organic Carbon" in target_indicators:
             st.divider()
-            chart_col, table_col = st.columns([3, 2])
-            with chart_col:
-                st.markdown("**Projected SOC trajectory to 90th percentile benchmark**")
-                max_yrs = max(int(np.ceil(years_to_tgt)) + 5, 20)
-                yr_axis = np.arange(0, max_yrs + 1, 1.0)
-                soc_traj = np.minimum(oc_val + annual_rate * yr_axis, soc_target_90)
-                tc_traj  = soc_to_tc_per_acre(soc_traj, bulk_density, depth_cm) * field_area
-                val_traj = (tc_traj - curr_tc_field) * C_RATIO * carbon_price
+            st.markdown("### 🌍 Carbon Sequestration Calculator")
+            st.markdown("Estimate carbon stock, sequestration gap, credit value, and time to target based on the benchmark above.")
 
-                fig_traj = go.Figure()
-                fig_traj.add_trace(go.Scatter(x=yr_axis, y=soc_traj, mode="lines", name="SOC (%)",
-                                              line=dict(color="#1a9641", width=2.5),
-                                              hovertemplate="Year %{x:.0f}<br>SOC: %{y:.2f}%<extra></extra>"))
-                fig_traj.add_hline(y=soc_target_90, line_dash="dash", line_color="rgba(0,114,178,0.6)",
-                                   annotation_text=f"90th pct target ({soc_target_90:.2f}%)", annotation_position="right")
-                fig_traj.add_hline(y=oc_val, line_dash="dot", line_color="rgba(200,100,0,0.5)",
-                                   annotation_text=f"Current ({oc_val}%)", annotation_position="right")
-                if years_to_tgt > 0:
-                    fig_traj.add_trace(go.Scatter(
-                        x=[years_to_tgt], y=[soc_target_90], mode="markers+text",
-                        marker=dict(color="#0072B2", size=12, line=dict(color="white", width=2)),
-                        text=[f"  Yr {years_to_tgt:.1f}"], textposition="middle right", name="Target reached"
-                    ))
-                fig_traj.add_trace(go.Scatter(x=yr_axis, y=val_traj, mode="lines", name="Cumulative credit value ($)",
-                                              line=dict(color="#E69F00", width=2, dash="dot"), yaxis="y2",
-                                              hovertemplate="Year %{x:.0f}<br>Value: $%{y:,.0f}<extra></extra>"))
-                fig_traj.update_layout(
-                    xaxis_title="Years from now",
-                    yaxis=dict(title="SOC (%)", gridcolor="rgba(150,150,150,0.1)"),
-                    yaxis2=dict(title="Cumulative credit value ($)", overlaying="y", side="right",
-                                showgrid=False, tickformat="$,.0f"),
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02),
-                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                    height=360, margin=dict(l=10, r=60, t=40, b=10)
-                )
-                st.plotly_chart(fig_traj, width='stretch', key=f"{k}_traj_chart")
+            with st.expander("⚙️ Field & Market Parameters", expanded=True):
+                cc1, cc2, cc3, cc4, cc5 = st.columns(5)
+                with cc1:
+                    field_area = st.number_input("Field area (acres)", min_value=1.0, max_value=100000.0, value=None, step=10.0, placeholder="—", key=f"{k}_area")
+                with cc2:
+                    bulk_density = st.number_input("Bulk density (g/cm³)", min_value=0.8, max_value=2.0, value=None, step=0.05, placeholder="—", key=f"{k}_bd")
+                with cc3:
+                    depth_cm = st.number_input("Sampling depth (cm)", min_value=5, max_value=100, value=None, step=5, placeholder="—", key=f"{k}_depth")
+                with cc4:
+                    carbon_price = st.number_input("Carbon price ($/t CO₂e)", min_value=1.0, max_value=500.0, value=None, step=5.0, placeholder="—", key=f"{k}_price")
+                with cc5:
+                    annual_rate = st.number_input("Annual SOC gain (%/yr)", min_value=0.01, max_value=2.0, value=None, step=0.05, placeholder="—", key=f"{k}_rate")
 
-            with table_col:
-                st.markdown("**Credit value sensitivity ($/t CO₂e)**")
-                price_scenarios = [10, 25, 50, 100, 200]
-                milestone_years = sorted(set([5, 10, 20, int(np.ceil(years_to_tgt))] if years_to_tgt > 0 else [5, 10, 20]))
-                rows = []
-                for yr in milestone_years:
-                    soc_at_yr = min(oc_val + annual_rate * yr, soc_target_90)
-                    tc_at_yr = soc_to_tc_per_acre(soc_at_yr, bulk_density, depth_cm) * field_area
-                    co2_at_yr = max(0.0, tc_at_yr - curr_tc_field) * C_RATIO
-                    row_vals = {"Year": f"Yr {yr}"}
-                    for p in price_scenarios:
-                        row_vals[f"${p}"] = f"${co2_at_yr * p:,.0f}"
-                    rows.append(row_vals)
-                st.dataframe(pd.DataFrame(rows), hide_index=True, width='stretch')
+            input_vars = [field_area, bulk_density, depth_cm, carbon_price, annual_rate]
 
-                ann_tc = soc_to_tc_per_acre(annual_rate, bulk_density, depth_cm) * field_area
-                ann_co2 = ann_tc * C_RATIO
-                ann_value = ann_co2 * carbon_price
-                st.markdown(f"""
+            if None in input_vars:
+                st.info("💡 Please fill in all **Field & Market Parameters** above to unlock your carbon stock and credit estimates.")
+            else:
+                def soc_to_tc_per_acre(soc_pct, bd, depth):
+                    return (soc_pct / 100.0) * bd * depth * 10.0 * 0.4047
+
+                C_RATIO = 3.667
+                soc_target_90 = percentile_to_oc(90, lp_mean, sigma_val)
+                curr_tc_acre = soc_to_tc_per_acre(oc_val, bulk_density, depth_cm)
+                tgt_tc_acre  = soc_to_tc_per_acre(soc_target_90, bulk_density, depth_cm)
+                curr_tc_field = curr_tc_acre * field_area
+                tgt_tc_field  = tgt_tc_acre * field_area
+                gap_tc_field  = max(0.0, tgt_tc_field - curr_tc_field)
+                gap_co2_field = gap_tc_field * C_RATIO
+                credit_value  = gap_co2_field * carbon_price
+                years_to_tgt  = (max(0.0, soc_target_90 - oc_val) / annual_rate) if annual_rate > 0 else 0
+
+                sc1, sc2, sc3, sc4, sc5 = st.columns(5)
+                sc1.metric("Current C stock", f"{curr_tc_field:,.1f} t C", f"{curr_tc_acre:.2f} t C/acre")
+                sc2.metric("Target C stock (90th pct)", f"{tgt_tc_field:,.1f} t C", f"{tgt_tc_acre:.2f} t C/acre")
+                sc3.metric("Sequestration gap", f"{gap_tc_field:,.1f} t C", f"{gap_co2_field:,.1f} t CO₂e")
+                sc4.metric("Potential credit value", f"${credit_value:,.0f}", f"@ ${carbon_price}/t CO₂e")
+                sc5.metric("Years to 90th pct", f"{years_to_tgt:.1f} yrs", f"@ {annual_rate}%/yr gain")
+
+                st.divider()
+                chart_col, table_col = st.columns([3, 2])
+                with chart_col:
+                    st.markdown("**Projected SOC trajectory to 90th percentile benchmark**")
+                    max_yrs = max(int(np.ceil(years_to_tgt)) + 5, 20)
+                    yr_axis = np.arange(0, max_yrs + 1, 1.0)
+                    soc_traj = np.minimum(oc_val + annual_rate * yr_axis, soc_target_90)
+                    tc_traj  = soc_to_tc_per_acre(soc_traj, bulk_density, depth_cm) * field_area
+                    val_traj = (tc_traj - curr_tc_field) * C_RATIO * carbon_price
+
+                    fig_traj = go.Figure()
+                    fig_traj.add_trace(go.Scatter(x=yr_axis, y=soc_traj, mode="lines", name="SOC (%)",
+                                                  line=dict(color="#1a9641", width=2.5),
+                                                  hovertemplate="Year %{x:.0f}<br>SOC: %{y:.2f}%<extra></extra>"))
+                    fig_traj.add_hline(y=soc_target_90, line_dash="dash", line_color="rgba(0,114,178,0.6)",
+                                       annotation_text=f"90th pct target ({soc_target_90:.2f}%)", annotation_position="right")
+                    fig_traj.add_hline(y=oc_val, line_dash="dot", line_color="rgba(200,100,0,0.5)",
+                                       annotation_text=f"Current ({oc_val}%)", annotation_position="right")
+                    if years_to_tgt > 0:
+                        fig_traj.add_trace(go.Scatter(
+                            x=[years_to_tgt], y=[soc_target_90], mode="markers+text",
+                            marker=dict(color="#0072B2", size=12, line=dict(color="white", width=2)),
+                            text=[f"  Yr {years_to_tgt:.1f}"], textposition="middle right", name="Target reached"
+                        ))
+                    fig_traj.add_trace(go.Scatter(x=yr_axis, y=val_traj, mode="lines", name="Cumulative credit value ($)",
+                                                  line=dict(color="#E69F00", width=2, dash="dot"), yaxis="y2",
+                                                  hovertemplate="Year %{x:.0f}<br>Value: $%{y:,.0f}<extra></extra>"))
+                    fig_traj.update_layout(
+                        xaxis_title="Years from now",
+                        yaxis=dict(title="SOC (%)", gridcolor="rgba(150,150,150,0.1)"),
+                        yaxis2=dict(title="Cumulative credit value ($)", overlaying="y", side="right",
+                                    showgrid=False, tickformat="$,.0f"),
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        height=360, margin=dict(l=10, r=60, t=40, b=10)
+                    )
+                    st.plotly_chart(fig_traj, width='stretch', key=f"{k}_traj_chart")
+
+                with table_col:
+                    st.markdown("**Credit value sensitivity ($/t CO₂e)**")
+                    price_scenarios = [10, 25, 50, 100, 200]
+                    milestone_years = sorted(set([5, 10, 20, int(np.ceil(years_to_tgt))] if years_to_tgt > 0 else [5, 10, 20]))
+                    rows = []
+                    for yr in milestone_years:
+                        soc_at_yr = min(oc_val + annual_rate * yr, soc_target_90)
+                        tc_at_yr = soc_to_tc_per_acre(soc_at_yr, bulk_density, depth_cm) * field_area
+                        co2_at_yr = max(0.0, tc_at_yr - curr_tc_field) * C_RATIO
+                        row_vals = {"Year": f"Yr {yr}"}
+                        for p in price_scenarios:
+                            row_vals[f"${p}"] = f"${co2_at_yr * p:,.0f}"
+                        rows.append(row_vals)
+                    st.dataframe(pd.DataFrame(rows), hide_index=True, width='stretch')
+
+                    ann_tc = soc_to_tc_per_acre(annual_rate, bulk_density, depth_cm) * field_area
+                    ann_co2 = ann_tc * C_RATIO
+                    ann_value = ann_co2 * carbon_price
+                    st.markdown(f"""
 | Metric | Value |
 |---|---|
 | Annual C gain | {ann_tc:.2f} t C/yr |
 | Annual CO₂e | {ann_co2:.2f} t CO₂e/yr |
 | Annual credit value | ${ann_value:,.0f}/yr |
 """)
-                st.caption("⚠️ Estimates assume linear SOC accumulation. Actual sequestration is nonlinear "
-                           "and depends on management, soil type, and climate. Consult a certified carbon "
-                           "project developer before trading.")
+                    st.caption("⚠️ Estimates assume linear SOC accumulation. Actual sequestration is nonlinear "
+                               "and depends on management, soil type, and climate. Consult a certified carbon "
+                               "project developer before trading.")
     st.divider()
     st.markdown("#### 📚 Resources")
     rc1, rc2, rc3 = st.columns(3)
@@ -3692,11 +3663,10 @@ def render_how_to_use(region_name, cfg):
 def render_region(region_name, cfg):
     mineral_df, hist_df = load_region_data(cfg)
 
-    if mineral_df is None:
+    if mineral_df is None and region_name != "Global_SMAF":
         st.error(f"⚠️ Parameter file '{cfg['csv']}' not found. Upload it to your deployment "
                  f"to activate scoring for {region_name}.")
         return
-
     # 1. Standard sub-tabs setup
     tab_single, tab_batch, tab_use = st.tabs(["🔬 Single Sample", "📊 Batch Scoring", "📖 How to Use"])
 
@@ -3716,12 +3686,82 @@ def render_region(region_name, cfg):
         render_how_to_use(region_name, cfg)
 
 # ════════════════════════════════════════════════════════════════════
-# 9. REGION TABS (TOP LEVEL)
+# 9. GLOBAL ROUTING ENGINE (Replaces Region Tabs)
 # ════════════════════════════════════════════════════════════════════
-region_tabs = st.tabs([f"{cfg['flag']} {name}" for name, cfg in REGIONS.items()])
-for tab, (name, cfg) in zip(region_tabs, REGIONS.items()):
-    with tab:
-        render_region(name, cfg)
+st.markdown("### 🌍 Global Location Setup")
+
+loc_c1, loc_c2 = st.columns(2)
+with loc_c1:
+    selected_country = st.selectbox("Country", ALL_COUNTRIES)
+    
+with loc_c2:
+    selected_state = None
+    if selected_country == "United States":
+        selected_state = st.selectbox("State", US_STATES)
+        
+# ── FRAMEWORK LOGIC (The SHAPE Gatekeeper) ──
+active_region_name = "Global_SMAF"
+if selected_country == "Brazil": active_region_name = "Brazil"
+elif selected_country in SSA_COUNTRIES: active_region_name = "Sub-Saharan Africa"
+elif selected_country == "United States" and selected_state == "Florida": active_region_name = "Florida"
+    
+st.markdown("### ⚙️ Scoring Framework")
+framework_options = ["SMAF Only"]
+if active_region_name != "Global_SMAF":
+    framework_options.insert(0, "SHAPE + SMAF")
+    
+selected_framework = st.selectbox("Select your preferred evaluation framework:", framework_options)
+st.session_state["selected_framework"] = selected_framework
+
+if selected_framework == "SHAPE + SMAF":
+    st.success(f"✨ SHAPE regional SOC models are unlocked for {selected_state if selected_state else selected_country}!")
+else:
+    st.info("💡 Operating in global SMAF mode. (SHAPE SOC models are currently limited to Florida, Brazil, and Sub-Saharan Africa).")
+    active_region_name = "Global_SMAF" # Force fallback if they manually select SMAF Only
+
+# Create the Global CFG dynamically if it doesn't exist
+if "Global_SMAF" not in REGIONS:
+    REGIONS["Global_SMAF"] = dict(REGIONS["Florida"]) # Inherit default UI maps
+    REGIONS["Global_SMAF"]["key"] = "GL"
+    REGIONS["Global_SMAF"]["csv"] = None # Disables SHAPE parsing
+
+active_cfg = REGIONS[active_region_name]
+
+# ── DYNAMIC INDICATOR FILTER ──
+st.markdown("### 🧪 Target Soil Health Indicators")
+st.markdown("<span style='font-size:13px; color:gray'>Select the indicators you measured in the lab. We will only ask for the site inputs required to calculate these specific scores.</span>", unsafe_allow_html=True)
+
+chk_c1, chk_c2, chk_c3 = st.columns(3)
+target_indicators = []
+
+with chk_c1:
+    if st.checkbox("Soil Organic Carbon", value=True): 
+        if selected_framework == "SHAPE + SMAF": target_indicators.append("Soil Organic Carbon")
+        target_indicators.append("SMAF Soil Organic Carbon")
+    if st.checkbox("Soil Phosphorus", value=True): target_indicators.append("Soil Phosphorus")
+    if st.checkbox("pH", value=True): target_indicators.append("pH")
+    
+with chk_c2:
+    if st.checkbox("Bulk Density", value=True): target_indicators.append("Bulk Density")
+    if st.checkbox("Electrical Conductivity", value=True): target_indicators.append("Electrical Conductivity")
+    if st.checkbox("Macroaggregate Stability", value=True): target_indicators.append("Macroaggregate Stability")
+    
+with chk_c3:
+    if st.checkbox("Sodium Adsorption Ratio", value=False): target_indicators.append("Sodium Adsorption Ratio")
+    if st.checkbox("Potentially Mineralizable Nitrogen", value=False): target_indicators.append("Potentially Mineralizable Nitrogen")
+    if st.checkbox("Available Water Capacity", value=False): target_indicators.append("Available Water Capacity")
+    if st.checkbox("Water-Filled Pore Space", value=False): target_indicators.append("Water-Filled Pore Space")
+    if st.checkbox("Microbial Biomass Carbon", value=False): target_indicators.append("Microbial Biomass Carbon")
+    
+if len(target_indicators) == 0:
+    st.warning("⚠️ Please select at least one indicator to continue.")
+    st.stop()
+    
+st.session_state["target_indicators"] = target_indicators
+st.divider()
+
+# Launch the app engine dynamically based on selections!
+render_region(active_region_name, active_cfg)
 
 # ════════════════════════════════════════════════════════════════════
 # FOOTER

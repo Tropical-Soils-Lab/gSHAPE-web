@@ -1456,6 +1456,79 @@ def run_smaf_mbc_score(mbc_val, om_class, texture, season_climate, smaf_data, cl
         
     return y * 100.0
 
+# ----------------------------------------------------------------------
+# SMAF SOIL ORGANIC CARBON (SOC) BACKEND ENGINE
+# ----------------------------------------------------------------------
+def load_smaf_soc_data(smaf_data, path="SMAF_lookup.xlsx"):
+    """Injects the 4 new SOC sheets into the global SMAF_DATA dictionary safely."""
+    if "soc_K" in smaf_data and len(smaf_data.get("soc_K", {})) > 0: return 
+    
+    import math, pandas as pd
+    sh = pd.read_excel(path, sheet_name=None, dtype=str)
+    
+    def clean_df(name):
+        if name not in sh: return pd.DataFrame()
+        df = sh[name].copy()
+        df.columns = [str(c).strip() for c in df.columns]
+        return df
+        
+    def num(x):
+        try: return float(x) if not pd.isna(x) else None
+        except: return None
+        
+    soc_K, soc_om, soc_texture, soc_climate = {}, {}, {}, {}
+    
+    df_K = clean_df("soc_constants")
+    if not df_K.empty:
+        for _, r in df_K.iterrows():
+            v = num(r.get("value"))
+            p = str(r.get("param_name")).strip()
+            if p != "nan" and v is not None: soc_K[p] = v
+            
+    df_om = clean_df("soc_om_factors")
+    if not df_om.empty:
+        for _, r in df_om.iterrows():
+            oc = num(r.get("om_class"))
+            if oc is not None: soc_om[int(oc)] = num(r.get("c1"))
+            
+    df_tex = clean_df("soc_texture_factors")
+    if not df_tex.empty:
+        for _, r in df_tex.iterrows():
+            tc = num(r.get("texture_code"))
+            if tc is not None: soc_texture[int(tc)] = num(r.get("c2"))
+            
+    df_clim = clean_df("soc_climate_factors")
+    if not df_clim.empty:
+        for _, r in df_clim.iterrows():
+            cc = num(r.get("climate_class"))
+            if cc is not None: soc_climate[int(cc)] = num(r.get("c3"))
+            
+    smaf_data["soc_K"] = soc_K
+    smaf_data["soc_om"] = soc_om
+    smaf_data["soc_texture"] = soc_texture
+    smaf_data["soc_climate"] = soc_climate
+
+def run_smaf_soc_score(toc, om_class, texture, climate, smaf_data, clamp=True):
+    load_smaf_soc_data(smaf_data)
+    K = smaf_data.get("soc_K", {})
+    if not K: return 0.0
+    
+    import math
+    c1 = smaf_data.get("soc_om", {}).get(om_class, 1.0)
+    c2 = smaf_data.get("soc_texture", {}).get(texture, 1.0)
+    c3 = smaf_data.get("soc_climate", {}).get(climate, 1.0)
+    c = (c1 * c2) + (c1 * c2 * c3)
+    
+    try:
+        y = K.get("a", 1.0) / (1.0 + K.get("b", 1.0) * math.exp(-c * toc))
+    except OverflowError:
+        y = 0.0
+        
+    if clamp:
+        y = max(K.get("score_min", 0.0), min(K.get("score_max", 1.0), y))
+        
+    return y * 100.0
+
 def fetch_climate(lat, lon, need_precip=False):
     """Fetch MAT (and optionally MAP) from NASA POWER climatology."""
     try:
@@ -1983,7 +2056,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
     # =========================================================================
     
    # ── INDICATOR SELECTION ──
-    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density", "Electrical Conductivity", "Macroaggregate Stability", "Sodium Adsorption Ratio", "Potentially Mineralizable Nitrogen", "Available Water Capacity", "Water-Filled Pore Space", "Microbial Biomass Carbon"]
+    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density", "Electrical Conductivity", "Macroaggregate Stability", "Sodium Adsorption Ratio", "Potentially Mineralizable Nitrogen", "Available Water Capacity", "Water-Filled Pore Space", "Microbial Biomass Carbon", "SMAF Soil Organic Carbon"]
     chosen_indicator = st.selectbox(
         "Soil Health Indicators:",
         indicator_options,
@@ -2845,6 +2918,229 @@ def render_single_sample(region_name, cfg, df, df_hist):
             mbc_rec = "Critical biological limitation. Your soil is biologically depleted, likely due to heavy tillage, lack of organic inputs, or extended fallow periods. Immediate incorporation of organic amendments and cover cropping is needed to revive the soil food web."
 
         st.info(f"**Score Tier: {mbc_level}**\n\n{mbc_rec}")
+
+    elif chosen_indicator == "SMAF Soil Organic Carbon":
+        # 1. Grab Global Variables (reusing the ones we already automated!)
+        texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
+        om_string = st.session_state.get(f"{k}_sm_om_class", "Class 2 (Med-High OM)")
+        om_id = SMAF_OM_MAP.get(om_string, 2)
+        climate_id = SMAF_CLIMATE_MAP.get(st.session_state.get(f"{k}_sm_climate_class", ""), 3)
+        
+        # 2. Calculate Score securely (using oc_val which is already collected)
+        raw_score_smaf_soc = run_smaf_soc_score(oc_val, om_id, texture_id, climate_id, SMAF_DATA)
+        try:
+            score_smaf_soc = float(raw_score_smaf_soc) if raw_score_smaf_soc is not None else 0.0
+        except (ValueError, TypeError):
+            score_smaf_soc = 0.0
+            
+        smaf_soc_color = score_color(score_smaf_soc)
+        smaf_soc_label = score_label(score_smaf_soc)
+        
+        # 3. Create the 1:2 Column Layout
+        col_l, col_r = st.columns([1, 2])
+        
+        with col_l:
+            gauge_title = f"<b style='font-size:17px; color:#333;'>{smaf_soc_label}</b><br><span style='font-size:11px; color:#555;'>Measured SOC: {oc_val}%</span>"
+            fig_smaf_soc_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_smaf_soc)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": smaf_soc_color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#555", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": smaf_soc_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.85)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.85)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.85)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.85)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.85)"}
+                    ],
+                    "threshold": {"line": {"color": smaf_soc_color, "width": 5}, "thickness": 0.8, "value": score_smaf_soc}
+                }
+            ))
+            fig_smaf_soc_gauge.update_layout(font=dict(color="#333"), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
+            st.plotly_chart(fig_smaf_soc_gauge, use_container_width=True, key=f"{k}_smaf_soc_gauge_plot")
+            
+        with col_r:
+            st.markdown("#### Scoring Curve (SMAF Logistic)")
+            
+            # Smooth plotting using linspace
+            xs = np.linspace(0, 5.0, 300)
+            ys = [run_smaf_soc_score(x, om_id, texture_id, climate_id, SMAF_DATA) for x in xs]
+            
+            fig_smaf_soc = go.Figure()
+            fig_smaf_soc.add_trace(go.Scatter(
+                x=xs, y=np.array(ys) / 100.0, mode="lines", 
+                line=dict(color="#5C4033", width=3), 
+                name="Score Curve", hovertemplate="SOC: %{x:.2f}%<br>Score: %{y:.0%}<extra></extra>"
+            ))
+            
+            fig_smaf_soc.add_trace(go.Scatter(
+                x=[oc_val], y=[score_smaf_soc / 100.0], mode="markers", 
+                marker=dict(color=smaf_soc_color, size=14, line=dict(color="white", width=2)), 
+                name="Your Soil"
+            ))
+            
+            fig_smaf_soc.update_layout(
+                xaxis_title="Total Organic Carbon (%)", 
+                yaxis_title="SHAPE Score",
+                yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0, 5.0]),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
+                height=400, margin=dict(l=10, r=10, t=40, b=10)
+            )
+            st.plotly_chart(fig_smaf_soc, width='stretch', key=f"{k}_smaf_soc_curve_plot")
+
+        # ── Peer Group & Target Tracking (Using background SHAPE targets for parity) ──
+        st.divider()
+        gap = tgt_oc - oc_val
+        median_soc = percentile_to_oc(50, lp_mean, sigma_val)
+        
+        m1, m2 = st.columns(2)
+        with m1:
+            soc_diff = oc_val - median_soc
+            st.metric("Peer Group Median", f"{median_soc:.2f}% SOC", 
+                      f"{soc_diff:+.2f}% difference")
+        with m2:
+            st.metric(f"Target ({target_pct}th pct)", f"{tgt_oc:.2f}% SOC",
+                      "✅ Exceeds target" if gap <= 0 else f"-{gap:.2f}% needed")
+
+        st.divider()
+        st.markdown("**SOC targets by percentile**")
+        bench = pd.DataFrame({
+            "Percentile": ["80th", "90th", "95th", "99th"],
+            "Target SOC (%)": [f"{percentile_to_oc(p, lp_mean, sigma_val):.2f}" for p in [80, 90, 95, 99]]
+        })
+        st.dataframe(bench, hide_index=True, width='stretch')
+
+        st.divider()
+        st.markdown("**📥 Export result**")
+        result_df = pd.DataFrame([{
+            "Region": region_name, "Suborder": strip_code(selected_sub), "Texture": strip_code(selected_tex),
+            "Temperature_C": target_temp,
+            **({"Precipitation_mm": target_precip} if has_precip else {}),
+            "SOC_pct": oc_val, "SHAPE_Score": round(score_smaf_soc, 2), "Zone": smaf_soc_label,
+            "Target_SOC_pct": round(tgt_oc, 3)
+        }])
+        st.download_button("⬇️ Download as CSV", data=result_df.to_csv(index=False).encode("utf-8"),
+                           file_name=f"SMAF_{cfg['key']}_{tax}_{tex}_{oc_val}pct.csv",
+                           mime="text/csv", width='stretch', key=f"{k}_export_btn_smaf")
+
+        st.divider()
+        # 🚦 THE TRAFFIC COP: Route SMAF SOC score to the Excel Recommendation Engine
+        render_excel_recommendation_engine(region_name, chosen_crop, score_smaf_soc, key_prefix=f"{k}_smaf_soc_tab")
+
+        # ── Carbon Sequestration Calculator ──
+        st.divider()
+        st.markdown("### 🌍 Carbon Sequestration Calculator")
+        st.markdown("Estimate carbon stock, sequestration gap, credit value, and time to target based on the benchmark above.")
+
+        with st.expander("⚙️ Field & Market Parameters", expanded=True):
+            cc1, cc2, cc3, cc4, cc5 = st.columns(5)
+            with cc1:
+                field_area = st.number_input("Field area (acres)", min_value=1.0, max_value=100000.0, value=None, step=10.0, placeholder="—", key=f"{k}_smaf_area")
+            with cc2:
+                bulk_density = st.number_input("Bulk density (g/cm³)", min_value=0.8, max_value=2.0, value=None, step=0.05, placeholder="—", key=f"{k}_smaf_bd")
+            with cc3:
+                depth_cm = st.number_input("Sampling depth (cm)", min_value=5, max_value=100, value=None, step=5, placeholder="—", key=f"{k}_smaf_depth")
+            with cc4:
+                carbon_price = st.number_input("Carbon price ($/t CO₂e)", min_value=1.0, max_value=500.0, value=None, step=5.0, placeholder="—", key=f"{k}_smaf_price")
+            with cc5:
+                annual_rate = st.number_input("Annual SOC gain (%/yr)", min_value=0.01, max_value=2.0, value=None, step=0.05, placeholder="—", key=f"{k}_smaf_rate")
+
+        input_vars = [field_area, bulk_density, depth_cm, carbon_price, annual_rate]
+
+        if None in input_vars:
+            st.info("💡 Please fill in all **Field & Market Parameters** above to unlock your carbon stock and credit estimates.")
+        else:
+            def soc_to_tc_per_acre(soc_pct, bd, depth):
+                return (soc_pct / 100.0) * bd * depth * 10.0 * 0.4047
+
+            C_RATIO = 3.667
+            soc_target_90 = percentile_to_oc(90, lp_mean, sigma_val)
+            curr_tc_acre = soc_to_tc_per_acre(oc_val, bulk_density, depth_cm)
+            tgt_tc_acre  = soc_to_tc_per_acre(soc_target_90, bulk_density, depth_cm)
+            curr_tc_field = curr_tc_acre * field_area
+            tgt_tc_field  = tgt_tc_acre * field_area
+            gap_tc_field  = max(0.0, tgt_tc_field - curr_tc_field)
+            gap_co2_field = gap_tc_field * C_RATIO
+            credit_value  = gap_co2_field * carbon_price
+            years_to_tgt  = (max(0.0, soc_target_90 - oc_val) / annual_rate) if annual_rate > 0 else 0
+
+            sc1, sc2, sc3, sc4, sc5 = st.columns(5)
+            sc1.metric("Current C stock", f"{curr_tc_field:,.1f} t C", f"{curr_tc_acre:.2f} t C/acre")
+            sc2.metric("Target C stock (90th pct)", f"{tgt_tc_field:,.1f} t C", f"{tgt_tc_acre:.2f} t C/acre")
+            sc3.metric("Sequestration gap", f"{gap_tc_field:,.1f} t C", f"{gap_co2_field:,.1f} t CO₂e")
+            sc4.metric("Potential credit value", f"${credit_value:,.0f}", f"@ ${carbon_price}/t CO₂e")
+            sc5.metric("Years to 90th pct", f"{years_to_tgt:.1f} yrs", f"@ {annual_rate}%/yr gain")
+
+            st.divider()
+            chart_col, table_col = st.columns([3, 2])
+            with chart_col:
+                st.markdown("**Projected SOC trajectory to 90th percentile benchmark**")
+                max_yrs = max(int(np.ceil(years_to_tgt)) + 5, 20)
+                yr_axis = np.arange(0, max_yrs + 1, 1.0)
+                soc_traj = np.minimum(oc_val + annual_rate * yr_axis, soc_target_90)
+                tc_traj  = soc_to_tc_per_acre(soc_traj, bulk_density, depth_cm) * field_area
+                val_traj = (tc_traj - curr_tc_field) * C_RATIO * carbon_price
+
+                fig_traj = go.Figure()
+                fig_traj.add_trace(go.Scatter(x=yr_axis, y=soc_traj, mode="lines", name="SOC (%)",
+                                              line=dict(color="#1a9641", width=2.5),
+                                              hovertemplate="Year %{x:.0f}<br>SOC: %{y:.2f}%<extra></extra>"))
+                fig_traj.add_hline(y=soc_target_90, line_dash="dash", line_color="rgba(0,114,178,0.6)",
+                                   annotation_text=f"90th pct target ({soc_target_90:.2f}%)", annotation_position="right")
+                fig_traj.add_hline(y=oc_val, line_dash="dot", line_color="rgba(200,100,0,0.5)",
+                                   annotation_text=f"Current ({oc_val}%)", annotation_position="right")
+                if years_to_tgt > 0:
+                    fig_traj.add_trace(go.Scatter(
+                        x=[years_to_tgt], y=[soc_target_90], mode="markers+text",
+                        marker=dict(color="#0072B2", size=12, line=dict(color="white", width=2)),
+                        text=[f"  Yr {years_to_tgt:.1f}"], textposition="middle right", name="Target reached"
+                    ))
+                fig_traj.add_trace(go.Scatter(x=yr_axis, y=val_traj, mode="lines", name="Cumulative credit value ($)",
+                                              line=dict(color="#E69F00", width=2, dash="dot"), yaxis="y2",
+                                              hovertemplate="Year %{x:.0f}<br>Value: $%{y:,.0f}<extra></extra>"))
+                fig_traj.update_layout(
+                    xaxis_title="Years from now",
+                    yaxis=dict(title="SOC (%)", gridcolor="rgba(150,150,150,0.1)"),
+                    yaxis2=dict(title="Cumulative credit value ($)", overlaying="y", side="right",
+                                showgrid=False, tickformat="$,.0f"),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                    height=360, margin=dict(l=10, r=60, t=40, b=10)
+                )
+                st.plotly_chart(fig_traj, width='stretch', key=f"{k}_smaf_traj_chart")
+
+            with table_col:
+                st.markdown("**Credit value sensitivity ($/t CO₂e)**")
+                price_scenarios = [10, 25, 50, 100, 200]
+                milestone_years = sorted(set([5, 10, 20, int(np.ceil(years_to_tgt))] if years_to_tgt > 0 else [5, 10, 20]))
+                rows = []
+                for yr in milestone_years:
+                    soc_at_yr = min(oc_val + annual_rate * yr, soc_target_90)
+                    tc_at_yr = soc_to_tc_per_acre(soc_at_yr, bulk_density, depth_cm) * field_area
+                    co2_at_yr = max(0.0, tc_at_yr - curr_tc_field) * C_RATIO
+                    row_vals = {"Year": f"Yr {yr}"}
+                    for p in price_scenarios:
+                        row_vals[f"${p}"] = f"${co2_at_yr * p:,.0f}"
+                    rows.append(row_vals)
+                st.dataframe(pd.DataFrame(rows), hide_index=True, width='stretch')
+
+                ann_tc = soc_to_tc_per_acre(annual_rate, bulk_density, depth_cm) * field_area
+                ann_co2 = ann_tc * C_RATIO
+                ann_value = ann_co2 * carbon_price
+                st.markdown(f"""
+| Metric | Value |
+|---|---|
+| Annual C gain | {ann_tc:.2f} t C/yr |
+| Annual CO₂e | {ann_co2:.2f} t CO₂e/yr |
+| Annual credit value | ${ann_value:,.0f}/yr |
+""")
+                st.caption("⚠️ Estimates assume linear SOC accumulation. Actual sequestration is nonlinear "
+                           "and depends on management, soil type, and climate. Consult a certified carbon "
+                           "project developer before trading.")
 
         
     elif chosen_indicator == "pH":

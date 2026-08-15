@@ -2200,12 +2200,15 @@ def render_single_sample(region_name, cfg, df, df_hist):
         df_summary_table = pd.DataFrame(table_rows)
         
         def color_table_rows(row):
-            s = row.get("_raw_score", 0)
-            if s >= 80: bg = "background-color: rgba(26, 150, 65, 0.22); color: #1f2937; font-weight: 500;"      # Very High (Green)
-            elif s >= 60: bg = "background-color: rgba(119, 195, 92, 0.22); color: #1f2937; font-weight: 500;"   # High (Light Green)
-            elif s >= 40: bg = "background-color: rgba(255, 193, 7, 0.22); color: #1f2937; font-weight: 500;"    # Medium (Yellow)
-            elif s >= 20: bg = "background-color: rgba(244, 109, 67, 0.22); color: #1f2937; font-weight: 500;"   # Low (Orange)
-            else: bg = "background-color: rgba(215, 48, 39, 0.22); color: #1f2937; font-weight: 500;"          # Very Low (Red)
+            # Pull the score safely using the row's index position in the dataframe
+            idx = row.name
+            s = df_summary_table.loc[idx, "_raw_score"]
+            
+            if s >= 80: bg = "background-color: rgba(26, 150, 65, 0.25); font-weight: 500;"
+            elif s >= 60: bg = "background-color: rgba(119, 195, 92, 0.25); font-weight: 500;"
+            elif s >= 40: bg = "background-color: rgba(255, 193, 7, 0.25); font-weight: 500;"
+            elif s >= 20: bg = "background-color: rgba(244, 109, 67, 0.25); font-weight: 500;"
+            else: bg = "background-color: rgba(215, 48, 39, 0.25); font-weight: 500;"
             return [bg] * len(row)
             
         display_table_df = df_summary_table.drop(columns=["_raw_score"])

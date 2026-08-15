@@ -3811,7 +3811,14 @@ st.session_state["selected_framework"] = selected_framework
 if selected_framework == "SHAPE + SMAF":
     st.success(f"✨ SHAPE regional SOC models are unlocked for {selected_state if selected_state else selected_country}!")
 else:
-    st.info("💡 Operating in global SMAF mode. (SHAPE SOC models are currently limited to Florida, Brazil, and Sub-Saharan Africa).")
+    # Check if the country actually supports SHAPE natively before showing the limited warning
+    is_supported_region = (selected_country == "Brazil") or (selected_country in SSA_COUNTRIES) or (selected_country == "United States" and selected_state == "Florida")
+    
+    if is_supported_region:
+        st.info(f"💡 Operating in SMAF-only mode for {selected_state if selected_state else selected_country}. SHAPE regional SOC modeling has been bypassed.")
+    else:
+        st.info("💡 Operating in global SMAF mode. (SHAPE SOC models are currently limited to Florida, Brazil, and Sub-Saharan Africa).")
+        
     active_region_name = "Global_SMAF" # Force fallback if they manually select SMAF Only
 
 # Create the Global CFG dynamically if it doesn't exist

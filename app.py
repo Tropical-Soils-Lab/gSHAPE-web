@@ -2920,13 +2920,13 @@ def render_single_sample(region_name, cfg, df, df_hist):
         st.info(f"**Score Tier: {mbc_level}**\n\n{mbc_rec}")
 
     elif chosen_indicator == "SMAF Soil Organic Carbon":
-        # 1. Grab Global Variables (reusing the ones we already automated!)
+        # 1. Grab Global Variables
         texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
         om_string = st.session_state.get(f"{k}_sm_om_class", "Class 2 (Med-High OM)")
         om_id = SMAF_OM_MAP.get(om_string, 2)
         climate_id = SMAF_CLIMATE_MAP.get(st.session_state.get(f"{k}_sm_climate_class", ""), 3)
         
-        # 2. Calculate Score securely (using oc_val which is already collected)
+        # 2. Calculate Score securely
         raw_score_smaf_soc = run_smaf_soc_score(oc_val, om_id, texture_id, climate_id, SMAF_DATA)
         try:
             score_smaf_soc = float(raw_score_smaf_soc) if raw_score_smaf_soc is not None else 0.0
@@ -2962,6 +2962,39 @@ def render_single_sample(region_name, cfg, df, df_hist):
             fig_smaf_soc_gauge.update_layout(font=dict(color="#333"), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
             st.plotly_chart(fig_smaf_soc_gauge, use_container_width=True, key=f"{k}_smaf_soc_gauge_plot")
             
+            # ── SHAPE Peer Group & Target Tracking (Mirroring SHAPE Tab) ──
+            st.divider()
+            gap = tgt_oc - oc_val
+            median_soc = percentile_to_oc(50, lp_mean, sigma_val)
+            
+            m1, m2 = st.columns(2)
+            with m1:
+                soc_diff = oc_val - median_soc
+                st.metric("Peer Group Median", f"{median_soc:.2f}% SOC", f"{soc_diff:+.2f}% difference")
+            with m2:
+                st.metric(f"Target ({target_pct}th pct)", f"{tgt_oc:.2f}% SOC", "✅ Exceeds target" if gap <= 0 else f"-{gap:.2f}% needed")
+
+            st.divider()
+            st.markdown("**SOC targets by percentile**")
+            bench = pd.DataFrame({
+                "Percentile": ["80th", "90th", "95th", "99th"],
+                "Target SOC (%)": [f"{percentile_to_oc(p, lp_mean, sigma_val):.2f}" for p in [80, 90, 95, 99]]
+            })
+            st.dataframe(bench, hide_index=True, width='stretch')
+
+            st.divider()
+            st.markdown("**📥 Export result**")
+            result_df = pd.DataFrame([{
+                "Region": region_name, "Suborder": strip_code(selected_sub), "Texture": strip_code(selected_tex),
+                "Temperature_C": target_temp,
+                **({"Precipitation_mm": target_precip} if has_precip else {}),
+                "SOC_pct": oc_val, "SHAPE_Score": round(score_smaf_soc, 2), "Zone": smaf_soc_label,
+                "Target_SOC_pct": round(tgt_oc, 3)
+            }])
+            st.download_button("⬇️ Download as CSV", data=result_df.to_csv(index=False).encode("utf-8"),
+                               file_name=f"SMAF_{cfg['key']}_{tax}_{tex}_{oc_val}pct.csv",
+                               mime="text/csv", width='stretch', key=f"{k}_export_btn_smaf")
+
         with col_r:
             st.markdown("#### Scoring Curve (SMAF Logistic)")
             
@@ -2992,40 +3025,10 @@ def render_single_sample(region_name, cfg, df, df_hist):
             )
             st.plotly_chart(fig_smaf_soc, width='stretch', key=f"{k}_smaf_soc_curve_plot")
 
-        # ── Peer Group & Target Tracking (Using background SHAPE targets for parity) ──
-        st.divider()
-        gap = tgt_oc - oc_val
-        median_soc = percentile_to_oc(50, lp_mean, sigma_val)
-        
-        m1, m2 = st.columns(2)
-        with m1:
-            soc_diff = oc_val - median_soc
-            st.metric("Peer Group Median", f"{median_soc:.2f}% SOC", 
-                      f"{soc_diff:+.2f}% difference")
-        with m2:
-            st.metric(f"Target ({target_pct}th pct)", f"{tgt_oc:.2f}% SOC",
-                      "✅ Exceeds target" if gap <= 0 else f"-{gap:.2f}% needed")
-
-        st.divider()
-        st.markdown("**SOC targets by percentile**")
-        bench = pd.DataFrame({
-            "Percentile": ["80th", "90th", "95th", "99th"],
-            "Target SOC (%)": [f"{percentile_to_oc(p, lp_mean, sigma_val):.2f}" for p in [80, 90, 95, 99]]
-        })
-        st.dataframe(bench, hide_index=True, width='stretch')
-
-        st.divider()
-        st.markdown("**📥 Export result**")
-        result_df = pd.DataFrame([{
-            "Region": region_name, "Suborder": strip_code(selected_sub), "Texture": strip_code(selected_tex),
-            "Temperature_C": target_temp,
-            **({"Precipitation_mm": target_precip} if has_precip else {}),
-            "SOC_pct": oc_val, "SHAPE_Score": round(score_smaf_soc, 2), "Zone": smaf_soc_label,
-            "Target_SOC_pct": round(tgt_oc, 3)
-        }])
-        st.download_button("⬇️ Download as CSV", data=result_df.to_csv(index=False).encode("utf-8"),
-                           file_name=f"SMAF_{cfg['key']}_{tax}_{tex}_{oc_val}pct.csv",
-                           mime="text/csv", width='stretch', key=f"{k}_export_btn_smaf")
+            # ── MAP RENDERER ──
+            if use_geo and f"{k}_lat" in st.session_state and in_bounds(lat_in, lon_in, cfg):
+                st.markdown("#### Site Location")
+                st.map(pd.DataFrame({"lat": [lat_in], "lon": [lon_in]}), zoom=6)
 
         st.divider()
         # 🚦 THE TRAFFIC COP: Route SMAF SOC score to the Excel Recommendation Engine
@@ -3141,7 +3144,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 st.caption("⚠️ Estimates assume linear SOC accumulation. Actual sequestration is nonlinear "
                            "and depends on management, soil type, and climate. Consult a certified carbon "
                            "project developer before trading.")
-
         
     elif chosen_indicator == "pH":
         # Global definition prevents NameError

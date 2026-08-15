@@ -654,13 +654,15 @@ TAXON_LABEL = {"Florida": "Soil Taxonomy Suborder", "Brazil": "Reference Soil Gr
 # ════════════════════════════════════════════════════════════════════
 @st.cache_data
 def load_csv_safe(path, col_map=None):
+    if not path:  # ✨ NEW: Skip loading entirely if path is None or empty
+        return None
     try:
         d = pd.read_csv(path)
         d.columns = d.columns.str.strip()
         if col_map:
             d = d.rename(columns=col_map)
         return d
-    except FileNotFoundError:
+    except (FileNotFoundError, ValueError):
         return None
 
 def load_region_data(cfg):

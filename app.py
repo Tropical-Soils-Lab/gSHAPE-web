@@ -647,8 +647,12 @@ REGIONS = {
         }
     },
 }
-TAXON_LABEL = {"Florida": "Soil Taxonomy Suborder", "Brazil": "Reference Soil Group (WRB)", "Sub-Saharan Africa": "Reference Soil Group (WRB)"}
-
+TAXON_LABEL = {
+    "Florida": "Soil Taxonomy Suborder", 
+    "Brazil": "Reference Soil Group (WRB)", 
+    "Sub-Saharan Africa": "Reference Soil Group (WRB)",
+    "Global_SMAF": "Reference Soil Group / Taxonomy"
+}
 # ════════════════════════════════════════════════════════════════════
 # 4. DATA LOADING & DYNAMIC MASTER LOOKUP
 # ════════════════════════════════════════════════════════════════════

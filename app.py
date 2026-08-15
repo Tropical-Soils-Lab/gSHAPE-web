@@ -3114,9 +3114,8 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 "SOC_pct": oc_val, "SMAF_Score": round(score_smaf_soc, 2), "Zone": smaf_soc_label
             }])
             st.download_button("⬇️ Download as CSV", data=result_df.to_csv(index=False).encode("utf-8"),
-                               file_name=f"SMAF_SOC_{oc_val}pct.csv",
-                               mime="text/csv", width='stretch', key=f"{k}_export_btn_smaf")
-            
+                               file_name=f"SMAF_{cfg['key']}_{tax}_{tex}_{oc_val}pct.csv",
+                               mime="text/csv", width='stretch', key=f"{k}_export_btn_smaf_unique")
             # ── SHAPE Peer Group & Target Tracking (Mirroring SHAPE Tab) ──
             st.divider()
             gap = tgt_oc - oc_val

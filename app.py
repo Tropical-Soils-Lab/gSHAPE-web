@@ -1221,26 +1221,35 @@ def run_smaf_pmn_score(pmn_val, om_class, texture, climate, smaf_data, clamp=Tru
 # SMAF AVAILABLE WATER CAPACITY (AWC) BACKEND ENGINE
 # ----------------------------------------------------------------------
 def load_awc_data(smaf_data, path="SMAF_lookup.xlsx"):
-    """Injects the 4 new AWC sheets into the global SMAF_DATA dictionary safely."""
-    if "awc_K" in smaf_data: return 
+    # ✨ FIX: Added length check to force a reload if it previously saved an empty dictionary!
+    if "awc_K" in smaf_data and len(smaf_data.get("awc_K", {})) > 0: return 
     
     import math, pandas as pd
     sh = pd.read_excel(path, sheet_name=None, dtype=str)
     
+    # ✨ FIX: Added back your original helper function to strip invisible spaces from Excel columns
+    def clean_df(name):
+        if name not in sh: return pd.DataFrame()
+        df = sh[name].copy()
+        df.columns = [str(c).strip() for c in df.columns]
+        return df
+        
     def num(x):
         try: return float(x) if not pd.isna(x) else None
         except: return None
         
     awc_K, awc_texture, awc_om = {}, {}, {}
     
-    if "awc_constants" in sh:
-        for _, r in sh["awc_constants"].iterrows():
+    df_K = clean_df("awc_constants")
+    if not df_K.empty:
+        for _, r in df_K.iterrows():
             v = num(r.get("value"))
             p = str(r.get("param_name")).strip()
             if p != "nan" and v is not None: awc_K[p] = v
             
-    if "awc_texture_params" in sh:
-        for _, r in sh["awc_texture_params"].iterrows():
+    df_tex = clean_df("awc_texture_params")
+    if not df_tex.empty:
+        for _, r in df_tex.iterrows():
             tc = num(r.get("texture_code"))
             if tc is not None:
                 awc_texture[int(tc)] = {
@@ -1248,8 +1257,9 @@ def load_awc_data(smaf_data, path="SMAF_lookup.xlsx"):
                     "d_humid": num(r.get("d_humid"))
                 }
                 
-    if "awc_om_factors" in sh:
-        for _, r in sh["awc_om_factors"].iterrows():
+    df_om = clean_df("awc_om_factors")
+    if not df_om.empty:
+        for _, r in df_om.iterrows():
             oc = num(r.get("om_class"))
             if oc is not None: awc_om[int(oc)] = num(r.get("b2_arid"))
             
@@ -1260,7 +1270,8 @@ def load_awc_data(smaf_data, path="SMAF_lookup.xlsx"):
 def run_smaf_awc_score(awc_val, region, texture, om_class, smaf_data, clamp=True):
     load_awc_data(smaf_data)
     K = smaf_data.get("awc_K", {})
-    if not K: return 0.0
+    
+    if not K: return 0.0  
     
     import math
     if region == 1:  # Arid

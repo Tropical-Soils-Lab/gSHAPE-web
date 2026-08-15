@@ -837,9 +837,12 @@ SMAF_CLIMATE_MAP = {
 # ════════════════════════════════════════════════════════════════════
 # 5. HELPER FUNCTIONS
 # ════════════════════════════════════════════════════════════════════
-# ════════════════════════════════════════════════════════════════════
-# 5. HELPER FUNCTIONS
-# ════════════════════════════════════════════════════════════════════
+def safe_float(val):
+    try:
+        return float(val) if val is not None else 0.0
+    except (ValueError, TypeError):
+        return 0.0
+
 def run_smaf_p_score(soil_p, crop, method, weathering, texture, slope, toc):
     if not SMAF_DATA: return 0.0
     K = SMAF_DATA["K"]

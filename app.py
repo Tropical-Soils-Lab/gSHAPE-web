@@ -1565,6 +1565,80 @@ def run_smaf_soc_score(toc, om_class, texture, climate, smaf_data, clamp=True):
         
     return y * 100.0
 
+# ----------------------------------------------------------------------
+# SMAF BETA-GLUCOSIDASE (BG) BACKEND ENGINE
+# ----------------------------------------------------------------------
+def load_bg_data(smaf_data, path="SMAF_lookup.xlsx"):
+    """Injects the 4 new BG sheets into the global SMAF_DATA dictionary safely."""
+    if "bg_K" in smaf_data and len(smaf_data.get("bg_K", {})) > 0: return 
+    
+    import math, pandas as pd
+    sh = pd.read_excel(path, sheet_name=None, dtype=str)
+    
+    def clean_df(name):
+        if name not in sh: return pd.DataFrame()
+        df = sh[name].copy()
+        df.columns = [str(c).strip() for c in df.columns]
+        return df
+        
+    def num(x):
+        try: return float(x) if not pd.isna(x) else None
+        except: return None
+        
+    bg_K, bg_om, bg_texture, bg_climate = {}, {}, {}, {}
+    
+    df_K = clean_df("bg_constants")
+    if not df_K.empty:
+        for _, r in df_K.iterrows():
+            v = num(r.get("value"))
+            p = str(r.get("param_name")).strip()
+            if p != "nan" and v is not None: bg_K[p] = v
+            
+    df_om = clean_df("bg_om_factors")
+    if not df_om.empty:
+        for _, r in df_om.iterrows():
+            oc = num(r.get("om_class"))
+            if oc is not None: bg_om[int(oc)] = num(r.get("c1"))
+            
+    df_tex = clean_df("bg_texture_factors")
+    if not df_tex.empty:
+        for _, r in df_tex.iterrows():
+            tc = num(r.get("texture_code"))
+            if tc is not None: bg_texture[int(tc)] = num(r.get("c2"))
+            
+    df_clim = clean_df("bg_climate_factors")
+    if not df_clim.empty:
+        for _, r in df_clim.iterrows():
+            cc = num(r.get("climate_class"))
+            if cc is not None: bg_climate[int(cc)] = num(r.get("c3"))
+            
+    smaf_data["bg_K"] = bg_K
+    smaf_data["bg_om"] = bg_om
+    smaf_data["bg_texture"] = bg_texture
+    smaf_data["bg_climate"] = bg_climate
+
+def run_smaf_bg_score(bg_val, om_class, texture, climate, smaf_data, clamp=True):
+    load_bg_data(smaf_data)
+    K = smaf_data.get("bg_K", {})
+    if not K: return 0.0
+    
+    import math
+    c1 = smaf_data.get("bg_om", {}).get(om_class, 1.0)
+    c2 = smaf_data.get("bg_texture", {}).get(texture, 1.0)
+    c3 = smaf_data.get("bg_climate", {}).get(climate, 1.0)
+    c = (c1 * c2) + (c1 * c2 * c3)
+    
+    try:
+        x_scale = K.get("x_scale", 1000.0)
+        y = K.get("a", 1.0) / (1.0 + K.get("b", 1.0) * math.exp(-c * bg_val / x_scale))
+    except OverflowError:
+        y = 0.0
+        
+    if clamp:
+        y = max(K.get("score_min", 0.0), min(K.get("score_max", 1.0), y))
+        
+    return y * 100.0
+
 def fetch_climate(lat, lon, need_precip=False):
     """Fetch MAT (and optionally MAP) from NASA POWER climatology."""
     try:
@@ -1909,6 +1983,11 @@ def render_single_sample(region_name, cfg, df, df_hist):
             if "Microbial Biomass Carbon" in target_indicators:
                 mbc_val = st.number_input("Measured MBC (mg/kg)", min_value=0.0, max_value=2000.0, value=200.0, step=10.0, key=f"{k}_mbc_val")
                 
+            bg_val = 300.0
+            if "Beta-glucosidase" in target_indicators:
+                bg_val = st.number_input("Measured Beta-glucosidase (mg/kg/hr)", min_value=0.0, max_value=2000.0, value=300.0, step=10.0, key=f"{k}_bg_val")
+        
+                
         with lc3:
             bd_val = 1.45
             if "Bulk Density" in target_indicators or "Water-Filled Pore Space" in target_indicators:
@@ -1996,6 +2075,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
     sar_val_sum = st.session_state.get(f"{k}_sar_val", 2.0)
     pmn_val_sum = st.session_state.get(f"{k}_pmn_val", 10.0)
     mbc_val_sum = st.session_state.get(f"{k}_mbc_val", 200.0)
+    bg_val_sum = st.session_state.get(f"{k}_bg_val", 300.0)
     
     wfps_frac_sum = get_wfps_frac(w_val_sum, bd_val_sum, SMAF_DATA)
 
@@ -2067,6 +2147,9 @@ def render_single_sample(region_name, cfg, df, df_hist):
         season_climate_code = 1.0 if season_num == 1 else float(f"{season_num}.{climate_id_sum}")
         bio_scores.append(safe_float(run_smaf_mbc_score(mbc_val_sum, om_id_sum, texture_id_sum, season_climate_code, SMAF_DATA)))
 
+    if "Beta-glucosidase" in target_indicators:
+        bio_scores.append(safe_float(run_smaf_bg_score(bg_val_sum, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)))
+
    # ── DYNAMIC CATEGORY AVERAGING (Only includes categories with selected indicators) ──
     score_phys = sum(phys_scores) / len(phys_scores) if phys_scores else None
     score_chem = sum(chem_scores) / len(chem_scores) if chem_scores else None
@@ -2135,7 +2218,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
         "pH": "Chemical", "Soil Phosphorus": "Chemical", 
         "Electrical Conductivity": "Chemical", "Sodium Adsorption Ratio": "Chemical",
         "Soil Organic Carbon": "Biological", "SMAF Soil Organic Carbon": "Biological", 
-        "Potentially Mineralizable Nitrogen": "Biological", "Microbial Biomass Carbon": "Biological"
+        "Potentially Mineralizable Nitrogen": "Biological", "Microbial Biomass Carbon": "Biological","Beta-glucosidase": "Biological"
     }
     
     for ind in target_indicators:
@@ -2197,6 +2280,11 @@ def render_single_sample(region_name, cfg, df, df_hist):
         elif ind == "Potentially Mineralizable Nitrogen":
             val = f"{pmn_val_sum} mg/kg"
             scr = run_smaf_pmn_score(pmn_val_sum, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)
+
+        elif ind == "Beta-glucosidase":
+            val = f"{bg_val_sum} mg/kg/hr"
+            scr = run_smaf_bg_score(bg_val_sum, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)
+            
         elif ind == "Microbial Biomass Carbon":
             val = f"{mbc_val_sum} mg/kg"
             season_name = st.session_state.get(f"{k}_sm_season", "Spring")
@@ -3100,6 +3188,95 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
         st.info(f"**Score Tier: {mbc_level}**\n\n{mbc_rec}")
 
+    elif chosen_indicator == "Beta-glucosidase":
+        # 1. Grab Global Variables
+        texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
+        om_string = st.session_state.get(f"{k}_sm_om_class", "Class 2 (Med-High OM)")
+        om_id = SMAF_OM_MAP.get(om_string, 2)
+        climate_id = SMAF_CLIMATE_MAP.get(st.session_state.get(f"{k}_sm_climate_class", ""), 3)
+        
+        # 2. Calculate Score
+        raw_score_bg = run_smaf_bg_score(bg_val, om_id, texture_id, climate_id, SMAF_DATA)
+        try:
+            score_bg = float(raw_score_bg) if raw_score_bg is not None else 0.0
+        except (ValueError, TypeError):
+            score_bg = 0.0
+            
+        bg_color = score_color(score_bg)
+        bg_label = score_label(score_bg)
+        
+        # 3. Layout
+        col_l, col_r = st.columns([1, 2])
+        
+        with col_l:
+            gauge_title = f"<b style='font-size:17px; color:#333;'>{bg_label}</b><br><span style='font-size:11px; color:#555;'>Measured BG: {bg_val} mg/kg/hr</span>"
+            fig_bg_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_bg)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": bg_color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#555", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": bg_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.85)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.85)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.85)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.85)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.85)"}
+                    ],
+                    "threshold": {"line": {"color": bg_color, "width": 5}, "thickness": 0.8, "value": score_bg}
+                }
+            ))
+            fig_bg_gauge.update_layout(font=dict(color="#333"), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
+            st.plotly_chart(fig_bg_gauge, use_container_width=True, key=f"{k}_bg_gauge_plot")
+            
+        with col_r:
+            st.markdown("#### Scoring Curve")
+            xs = np.linspace(0, 1250, 300)
+            ys = [run_smaf_bg_score(x, om_id, texture_id, climate_id, SMAF_DATA) for x in xs]
+            
+            fig_bg = go.Figure()
+            fig_bg.add_trace(go.Scatter(
+                x=xs, y=np.array(ys) / 100.0, mode="lines", 
+                line=dict(color="#4C7A3F", width=3), 
+                name="Score Curve", hovertemplate="BG: %{x:.0f} mg/kg/hr<br>Score: %{y:.0%}<extra></extra>"
+            ))
+            fig_bg.add_trace(go.Scatter(
+                x=[bg_val], y=[score_bg / 100.0], mode="markers", 
+                marker=dict(color=bg_color, size=14, line=dict(color="white", width=2)), 
+                name="Your Soil"
+            ))
+            fig_bg.update_layout(
+                xaxis_title="Beta-glucosidase activity (mg PNP / kg / hr)", 
+                yaxis_title="SHAPE Score",
+                yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0, 1250]),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
+                height=400, margin=dict(l=10, r=10, t=40, b=10)
+            )
+            st.plotly_chart(fig_bg, width='stretch', key=f"{k}_bg_curve_plot")
+
+        # ── 5-TIER BG RECOMMENDATION ENGINE ──
+        st.markdown("### 📋 Agronomic Recommendations")
+        if score_bg >= 80:
+            bg_level = "Very High"
+            bg_rec = "Your soil demonstrates optimal carbon cycling and robust enzyme activity. The microbial community is highly efficient at breaking down crop residues and organic matter, rapidly releasing energy to the soil food web. Continue minimal disturbance and high-residue practices."
+        elif score_bg >= 60:
+            bg_level = "High"
+            bg_rec = "Your Beta-glucosidase levels indicate healthy, active carbon turnover. Soil microbes are successfully processing organic inputs. Maintain continuous living roots and varied crop rotations to feed the microbiome."
+        elif score_bg >= 40:
+            bg_level = "Medium"
+            bg_rec = "Your soil's enzyme activity is moderate, suggesting that the breakdown of organic matter is somewhat constrained. Consider incorporating high-biomass cover crops or organic amendments (like manure or compost) to stimulate the biological engine."
+        elif score_bg >= 20:
+            bg_level = "Low"
+            bg_rec = "Your Beta-glucosidase levels are low, indicating sluggish carbon cycling. Crop residues are likely breaking down very slowly. Adopt practices that increase organic carbon inputs and reduce tillage to rebuild the microbial population."
+        else:
+            bg_level = "Very Low"
+            bg_rec = "Critical biological limitation. Your soil exhibits severely degraded enzyme activity, meaning carbon cycling has nearly stalled. This is typically caused by extreme physical compaction, chemical toxicity, or prolonged fallow periods. Immediate incorporation of diverse living roots and organic inputs is required."
+
+        st.info(f"**Score Tier: {bg_level}**\n\n{bg_rec}")
+
     elif chosen_indicator == "SMAF Soil Organic Carbon":
         # 1. Grab Global Variables
         texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
@@ -3855,6 +4032,7 @@ with chk_c3:
     if st.checkbox("Available Water Capacity", value=False): target_indicators.append("Available Water Capacity")
     if st.checkbox("Water-Filled Pore Space", value=False): target_indicators.append("Water-Filled Pore Space")
     if st.checkbox("Microbial Biomass Carbon", value=False): target_indicators.append("Microbial Biomass Carbon")
+    if st.checkbox("Beta-glucosidase", value=False): target_indicators.append("Beta-glucosidase")
     
 if len(target_indicators) == 0:
     st.warning("⚠️ Please select at least one indicator to continue.")

@@ -8,6 +8,33 @@ import requests
 from pathlib import Path
 
 from soc_recommendations import load_soc_rules, get_management_questions, get_selected_answers, get_soc_recommendation, get_cropping_systems
+
+# ── GLOBAL GEOGRAPHY & ROUTING DATA ──
+SSA_COUNTRIES = [
+    "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cameroon", "Cape Verde", 
+    "Central African Republic", "Chad", "Comoros", "Democratic Republic of the Congo", 
+    "Djibouti", "Equatorial Guinea", "Eritrea", "Eswatini", "Ethiopia", "Gabon", "Gambia", 
+    "Ghana", "Guinea", "Guinea-Bissau", "Ivory Coast", "Kenya", "Lesotho", "Liberia", 
+    "Madagascar", "Malawi", "Mali", "Mauritania", "Mauritius", "Mozambique", "Namibia", 
+    "Niger", "Nigeria", "Rwanda", "Sao Tome and Principe", "Senegal", "Seychelles", 
+    "Sierra Leone", "Somalia", "South Africa", "South Sudan", "Sudan", "Tanzania", 
+    "Togo", "Uganda", "Zambia", "Zimbabwe"
+]
+
+US_STATES = [
+    "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut", 
+    "Delaware", "Florida", "Georgia", "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", 
+    "Kansas", "Kentucky", "Louisiana", "Maine", "Maryland", "Massachusetts", "Michigan", 
+    "Minnesota", "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire", 
+    "New Jersey", "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio", 
+    "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina", "South Dakota", 
+    "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington", "West Virginia", 
+    "Wisconsin", "Wyoming"
+]
+
+ALL_COUNTRIES = ["United States", "Brazil", "Canada", "Mexico", "United Kingdom", "Australia", "India"] + SSA_COUNTRIES
+ALL_COUNTRIES.sort() # Keep it alphabetical
+
 # ── EXCEL RECOMMENDATION DATABASE SETUP ──
 EXCEL_PATH = Path(__file__).parent / "gSHAPE_SOC_Recommendations.xlsx"
 
@@ -620,20 +647,26 @@ REGIONS = {
         }
     },
 }
-TAXON_LABEL = {"Florida": "Soil Taxonomy Suborder", "Brazil": "Reference Soil Group (WRB)", "Sub-Saharan Africa": "Reference Soil Group (WRB)"}
-
+TAXON_LABEL = {
+    "Florida": "Soil Taxonomy Suborder", 
+    "Brazil": "Reference Soil Group (WRB)", 
+    "Sub-Saharan Africa": "Reference Soil Group (WRB)",
+    "Global_SMAF": "Reference Soil Group / Taxonomy"
+}
 # ════════════════════════════════════════════════════════════════════
 # 4. DATA LOADING & DYNAMIC MASTER LOOKUP
 # ════════════════════════════════════════════════════════════════════
 @st.cache_data
 def load_csv_safe(path, col_map=None):
+    if not path:  # ✨ NEW: Skip loading entirely if path is None or empty
+        return None
     try:
         d = pd.read_csv(path)
         d.columns = d.columns.str.strip()
         if col_map:
             d = d.rename(columns=col_map)
         return d
-    except FileNotFoundError:
+    except (FileNotFoundError, ValueError):
         return None
 
 def load_region_data(cfg):
@@ -804,9 +837,12 @@ SMAF_CLIMATE_MAP = {
 # ════════════════════════════════════════════════════════════════════
 # 5. HELPER FUNCTIONS
 # ════════════════════════════════════════════════════════════════════
-# ════════════════════════════════════════════════════════════════════
-# 5. HELPER FUNCTIONS
-# ════════════════════════════════════════════════════════════════════
+def safe_float(val):
+    try:
+        return float(val) if val is not None else 0.0
+    except (ValueError, TypeError):
+        return 0.0
+
 def run_smaf_p_score(soil_p, crop, method, weathering, texture, slope, toc):
     if not SMAF_DATA: return 0.0
     K = SMAF_DATA["K"]
@@ -1292,6 +1328,243 @@ def run_smaf_awc_score(awc_val, region, texture, om_class, smaf_data, clamp=True
         
     return y * 100.0
 
+# ----------------------------------------------------------------------
+# SMAF WATER-FILLED PORE SPACE (WFPS) BACKEND ENGINE
+# ----------------------------------------------------------------------
+def load_wfps_data(smaf_data, path="SMAF_lookup.xlsx"):
+    """Injects the 4 new WFPS sheets into the global SMAF_DATA dictionary safely."""
+    if "wfps_K" in smaf_data and len(smaf_data.get("wfps_K", {})) > 0: return 
+    
+    import math, pandas as pd
+    sh = pd.read_excel(path, sheet_name=None, dtype=str)
+    
+    def clean_df(name):
+        if name not in sh: return pd.DataFrame()
+        df = sh[name].copy()
+        df.columns = [str(c).strip() for c in df.columns]
+        return df
+        
+    def num(x):
+        try: return float(x) if not pd.isna(x) else None
+        except: return None
+        
+    wfps_K, wfps_env, wfps_texture = {}, {}, {}
+    
+    df_K = clean_df("wfps_constants")
+    if not df_K.empty:
+        for _, r in df_K.iterrows():
+            v = num(r.get("value"))
+            p = str(r.get("param_name")).strip()
+            if p != "nan" and v is not None: wfps_K[p] = v
+            
+    df_env = clean_df("wfps_env_constants")
+    if not df_env.empty:
+        for _, r in df_env.iterrows():
+            v = num(r.get("value"))
+            p = str(r.get("param_name")).strip()
+            if p != "nan" and v is not None: wfps_env[p] = v
+            
+    df_tex = clean_df("wfps_texture_params")
+    if not df_tex.empty:
+        for _, r in df_tex.iterrows():
+            tc = num(r.get("texture_code"))
+            if tc is not None:
+                wfps_texture[int(tc)] = {"a": num(r.get("a")), "b": num(r.get("b")), "c": num(r.get("c"))}
+                
+    smaf_data["wfps_K"] = wfps_K
+    smaf_data["wfps_env"] = wfps_env
+    smaf_data["wfps_texture"] = wfps_texture
+
+def get_wfps_frac(w_val, bd_val, smaf_data):
+    """Calculates the WFPS fraction from lab water content and bulk density."""
+    load_wfps_data(smaf_data)
+    K = smaf_data.get("wfps_K", {})
+    pdens = K.get("particle_density", 2.65)
+    if not pdens or pdens == 0: return 0.0
+    return (w_val * bd_val) / (1.0 - (bd_val / pdens))
+
+def run_smaf_wfps_score(wfps_frac, texture, smaf_data, clamp=True):
+    """Calculates both Bio and Env curves and returns a balanced 50/50 average."""
+    load_wfps_data(smaf_data)
+    K = smaf_data.get("wfps_K", {})
+    E = smaf_data.get("wfps_env", {})
+    T = smaf_data.get("wfps_texture", {}).get(texture, {})
+    
+    if not K or not E or not T: return {"bio": 0.0, "env": 0.0, "combined": 0.0}
+    
+    # Biological Curve
+    bio_y = T.get("a", 0.0) + T.get("b", 0.0) * wfps_frac + T.get("c", 0.0) * (wfps_frac ** 2)
+    if clamp: bio_y = max(K.get("score_min", 0.0), min(K.get("score_max", 1.0), bio_y))
+        
+    # Environmental Curve
+    denom = E.get("a", 1.0) + E.get("b", 0.0) * (wfps_frac ** E.get("c", 1.0))
+    env_y = 1.0 / denom if denom != 0 else 0.0
+    if clamp: env_y = max(K.get("score_min", 0.0), min(K.get("score_max", 1.0), env_y))
+        
+    # 50/50 Balanced Management Goal
+    combined_y = (0.5 * bio_y) + (0.5 * env_y)
+    
+    return {
+        "bio": bio_y * 100.0,
+        "env": env_y * 100.0,
+        "combined": combined_y * 100.0
+    }
+
+# ----------------------------------------------------------------------
+# SMAF MICROBIAL BIOMASS CARBON (MBC) BACKEND ENGINE
+# ----------------------------------------------------------------------
+def load_mbc_data(smaf_data, path="SMAF_lookup.xlsx"):
+    """Injects the 4 new MBC sheets into the global SMAF_DATA dictionary safely."""
+    if "mbc_K" in smaf_data and len(smaf_data.get("mbc_K", {})) > 0: return 
+    
+    import math, pandas as pd
+    sh = pd.read_excel(path, sheet_name=None, dtype=str)
+    
+    def clean_df(name):
+        if name not in sh: return pd.DataFrame()
+        df = sh[name].copy()
+        df.columns = [str(c).strip() for c in df.columns]
+        return df
+        
+    def num(x):
+        try: return float(x) if not pd.isna(x) else None
+        except: return None
+        
+    mbc_K, mbc_om, mbc_texture, mbc_sc = {}, {}, {}, {}
+    
+    df_K = clean_df("mbc_constants")
+    if not df_K.empty:
+        for _, r in df_K.iterrows():
+            v = num(r.get("value"))
+            p = str(r.get("param_name")).strip()
+            if p != "nan" and v is not None: mbc_K[p] = v
+            
+    df_om = clean_df("mbc_om_factors")
+    if not df_om.empty:
+        for _, r in df_om.iterrows():
+            oc = num(r.get("om_class"))
+            if oc is not None:
+                mbc_om[int(oc)] = {
+                    "max_range": num(r.get("max_range")),
+                    "c1_override": num(r.get("c1_override"))
+                }
+                
+    df_tex = clean_df("mbc_texture_factors")
+    if not df_tex.empty:
+        for _, r in df_tex.iterrows():
+            tc = num(r.get("texture_code"))
+            if tc is not None: mbc_texture[int(tc)] = num(r.get("c2"))
+            
+    df_sc = clean_df("mbc_season_climate_factors")
+    if not df_sc.empty:
+        for _, r in df_sc.iterrows():
+            sc = num(r.get("season_climate_code"))
+            if sc is not None: mbc_sc[round(sc, 1)] = num(r.get("c3"))
+            
+    smaf_data["mbc_K"] = mbc_K
+    smaf_data["mbc_om"] = mbc_om
+    smaf_data["mbc_texture"] = mbc_texture
+    smaf_data["mbc_sc"] = mbc_sc
+
+def run_smaf_mbc_score(mbc_val, om_class, texture, season_climate, smaf_data, clamp=True):
+    load_mbc_data(smaf_data)
+    K = smaf_data.get("mbc_K", {})
+    if not K: return 0.0
+    
+    import math
+    o = smaf_data.get("mbc_om", {}).get(om_class, {})
+    c1 = o.get("c1_override")
+    if c1 is None:
+        R = o.get("max_range", 1.0)
+        c1 = K.get("c1_coef_a", 0.0) + K.get("c1_coef_b", 0.0) * R + K.get("c1_coef_c", 0.0) * (R ** 2)
+        
+    c2 = smaf_data.get("mbc_texture", {}).get(texture, 1.0)
+    c3 = smaf_data.get("mbc_sc", {}).get(round(float(season_climate), 1), 1.0)
+    c = c1 * c2 * c3
+    
+    try:
+        y = K.get("a", 1.0) / (1.0 + K.get("b", 1.0) * math.exp(-c * mbc_val))
+    except OverflowError:
+        y = 0.0
+        
+    if clamp:
+        y = max(K.get("score_min", 0.0), min(K.get("score_max", 1.0), y))
+        
+    return y * 100.0
+
+# ----------------------------------------------------------------------
+# SMAF SOIL ORGANIC CARBON (SOC) BACKEND ENGINE
+# ----------------------------------------------------------------------
+def load_smaf_soc_data(smaf_data, path="SMAF_lookup.xlsx"):
+    """Injects the 4 new SOC sheets into the global SMAF_DATA dictionary safely."""
+    if "soc_K" in smaf_data and len(smaf_data.get("soc_K", {})) > 0: return 
+    
+    import math, pandas as pd
+    sh = pd.read_excel(path, sheet_name=None, dtype=str)
+    
+    def clean_df(name):
+        if name not in sh: return pd.DataFrame()
+        df = sh[name].copy()
+        df.columns = [str(c).strip() for c in df.columns]
+        return df
+        
+    def num(x):
+        try: return float(x) if not pd.isna(x) else None
+        except: return None
+        
+    soc_K, soc_om, soc_texture, soc_climate = {}, {}, {}, {}
+    
+    df_K = clean_df("soc_constants")
+    if not df_K.empty:
+        for _, r in df_K.iterrows():
+            v = num(r.get("value"))
+            p = str(r.get("param_name")).strip()
+            if p != "nan" and v is not None: soc_K[p] = v
+            
+    df_om = clean_df("soc_om_factors")
+    if not df_om.empty:
+        for _, r in df_om.iterrows():
+            oc = num(r.get("om_class"))
+            if oc is not None: soc_om[int(oc)] = num(r.get("c1"))
+            
+    df_tex = clean_df("soc_texture_factors")
+    if not df_tex.empty:
+        for _, r in df_tex.iterrows():
+            tc = num(r.get("texture_code"))
+            if tc is not None: soc_texture[int(tc)] = num(r.get("c2"))
+            
+    df_clim = clean_df("soc_climate_factors")
+    if not df_clim.empty:
+        for _, r in df_clim.iterrows():
+            cc = num(r.get("climate_class"))
+            if cc is not None: soc_climate[int(cc)] = num(r.get("c3"))
+            
+    smaf_data["soc_K"] = soc_K
+    smaf_data["soc_om"] = soc_om
+    smaf_data["soc_texture"] = soc_texture
+    smaf_data["soc_climate"] = soc_climate
+
+def run_smaf_soc_score(toc, om_class, texture, climate, smaf_data, clamp=True):
+    load_smaf_soc_data(smaf_data)
+    K = smaf_data.get("soc_K", {})
+    if not K: return 0.0
+    
+    import math
+    c1 = smaf_data.get("soc_om", {}).get(om_class, 1.0)
+    c2 = smaf_data.get("soc_texture", {}).get(texture, 1.0)
+    c3 = smaf_data.get("soc_climate", {}).get(climate, 1.0)
+    c = (c1 * c2) + (c1 * c2 * c3)
+    
+    try:
+        y = K.get("a", 1.0) / (1.0 + K.get("b", 1.0) * math.exp(-c * toc))
+    except OverflowError:
+        y = 0.0
+        
+    if clamp:
+        y = max(K.get("score_min", 0.0), min(K.get("score_max", 1.0), y))
+        
+    return y * 100.0
+
 def fetch_climate(lat, lon, need_precip=False):
     """Fetch MAT (and optionally MAP) from NASA POWER climatology."""
     try:
@@ -1482,7 +1755,9 @@ def render_single_sample(region_name, cfg, df, df_hist):
     if f"{k}_sm_fe_class" not in st.session_state: st.session_state[f"{k}_sm_fe_class"] = "— Select —"
     if f"{k}_sm_climate_class" not in st.session_state: st.session_state[f"{k}_sm_climate_class"] = "— Select —"
 
-   # ── MASTER SITE INPUTS (Always Visible) ──
+  # ── MASTER SITE INPUTS (DYNAMICALLY FILTERED BY CHECKBOXES) ──
+    target_indicators = st.session_state.get("target_indicators", [])
+    
     with st.expander("⚙️ Site & Management Inputs", expanded=True):
         c1, c2 = st.columns(2)
         
@@ -1517,16 +1792,33 @@ def render_single_sample(region_name, cfg, df, df_hist):
             
             texture_id = SMAF_TEXTURE_MAP.get(selected_sm_tex, 0)
             selected_bd_min = None
-            if texture_id >= 4:
+            if texture_id >= 4 and "Bulk Density" in target_indicators:
                 selected_bd_min = st.selectbox("Clay Mineralogy", ["— Select —"] + list(SMAF_MINERALOGY_MAP.keys()), key=f"{k}_bd_min")
 
-            selected_sm_slope = st.selectbox("Landscape Slope Profile", ["— Select —"] + list(SMAF_SLOPE_MAP.keys()), key=f"{k}_sm_slope")
+            # Only show Slope if Macroaggregate Stability is selected
+            selected_sm_slope = "0–2% Level Slope"
+            if "Macroaggregate Stability" in target_indicators or "Soil Phosphorus" in target_indicators:
+                selected_sm_slope = st.selectbox("Landscape Slope Profile", ["— Select —"] + list(SMAF_SLOPE_MAP.keys()), key=f"{k}_sm_slope")
+                
             chosen_crop = st.selectbox("Target Field Crop", MASTER_CROP_OPTIONS, key=f"{k}_sm_crop")
             
+            # Only show Sampling Season if MBC is selected
+            selected_season = "Spring"
+            if "Microbial Biomass Carbon" in target_indicators:
+                selected_season = st.selectbox("Sampling Season", ["Spring", "Summer", "Fall", "Winter"], key=f"{k}_sm_season")
+                
         with c2:
-            selected_method = st.selectbox("P Extraction Method", ["— Select —"] + list(SMAF_METHOD_MAP.keys()), key=f"{k}_sm_method")
-            selected_weath = st.selectbox("Soil Weathering Class", ["— Select —"] + list(SMAF_WEATHERING_MAP.keys()), key=f"{k}_sm_weather")
-            ec_method_str = st.selectbox("EC Method", ["— Select —", "Saturated Paste (ECsat)", "1:1 Soil:Water (EC1:1)"], key=f"{k}_ec_method")
+            # Only show P Method/Weathering if Soil Phosphorus is selected
+            selected_method = "Mehlich-3"
+            selected_weath = "Slightly Weathered"
+            if "Soil Phosphorus" in target_indicators:
+                selected_method = st.selectbox("P Extraction Method", ["— Select —"] + list(SMAF_METHOD_MAP.keys()), key=f"{k}_sm_method")
+                selected_weath = st.selectbox("Soil Weathering Class", ["— Select —"] + list(SMAF_WEATHERING_MAP.keys()), key=f"{k}_sm_weather")
+                
+            # Only show EC Method if EC or SAR is selected
+            ec_method_str = "Saturated Paste (ECsat)"
+            if "Electrical Conductivity" in target_indicators or "Sodium Adsorption Ratio" in target_indicators:
+                ec_method_str = st.selectbox("EC Method", ["— Select —", "Saturated Paste (ECsat)", "1:1 Soil:Water (EC1:1)"], key=f"{k}_ec_method")
             
             use_geo = st.checkbox("Fetch climate from coordinates", key=f"{k}_geo")
             lat_in, lon_in = cfg["default_latlon"]
@@ -1553,50 +1845,86 @@ def render_single_sample(region_name, cfg, df, df_hist):
             else:
                 target_precip = None
 
-            # ✨ SMART UI: Auto-select Iron Oxide ✨
+            # Iron Oxide Class auto-assignment for Aggregates
             sub_lower = selected_sub.lower()
-            # Florida = ult(isol), ox(isol) | WRB = acrisol, alisol, ferralsol | SiBC = argissolo, alissolo, latossolo
             high_fe_keywords = ["ult", "oxs", "oxisol", "acrisol", "alisol", "ferralsol", "argissolo", "alissolo", "latossolo"]
             is_high_fe = any(keyword in sub_lower for keyword in high_fe_keywords)
-            
             derived_fe_id = 1 if is_high_fe else 2 if "— select —" not in sub_lower else 0
-            
             fe_options = ["— Select —"] + list(SMAF_FE_MAP.keys())
             if derived_fe_id != 0: st.session_state[f"{k}_sm_fe_class"] = fe_options[derived_fe_id]
-            selected_fe_class = st.selectbox("Iron-Oxide Class (Auto-Assigned)", fe_options, key=f"{k}_sm_fe_class")
-            # ✨ SMART UI: Auto-select Climate Class ✨
-            is_warm = target_temp >= 15.0
-            is_wet = target_precip >= 600.0 if target_precip is not None else True
-            derived_clim_id = 1 if (is_warm and is_wet) else 2 if (is_warm and not is_wet) else 3 if (not is_warm and is_wet) else 4
+            
+            selected_fe_class = "All Other Soil Orders"
+            if "Macroaggregate Stability" in target_indicators:
+                selected_fe_class = st.selectbox("Iron-Oxide Class (Auto-Assigned)", fe_options, key=f"{k}_sm_fe_class")
+                
             clim_options = ["— Select —"] + list(SMAF_CLIMATE_MAP.keys())
-            st.session_state[f"{k}_sm_climate_class"] = clim_options[derived_clim_id]
-            selected_climate_class = st.selectbox("Climate Class (Auto-Assigned)", clim_options, key=f"{k}_sm_climate_class")
+            selected_climate_class = clim_options[1]
+            if "Potentially Mineralizable Nitrogen" in target_indicators or "Microbial Biomass Carbon" in target_indicators:
+                is_warm = target_temp >= 15.0
+                is_wet = target_precip >= 600.0 if target_precip is not None else True
+                derived_clim_id = 1 if (is_warm and is_wet) else 2 if (is_warm and not is_wet) else 3 if (not is_warm and is_wet) else 4
+                st.session_state[f"{k}_sm_climate_class"] = clim_options[derived_clim_id]
+                selected_climate_class = st.selectbox("Climate Class (Auto-Assigned)", clim_options, key=f"{k}_sm_climate_class")
                 
             if cfg["has_histosol"]:
                 hist_toggle = st.checkbox("📌 This is an organic / Histosol soil (Muck, Peat)", key=f"{k}_hist")
             else:
                 hist_toggle = False
 
-    # ── MASTER LAB INPUTS (Always Visible) ──
+    # ── MASTER LAB INPUTS (DYNAMICALLY FILTERED BY CHECKBOXES) ──
     with st.expander("🧪 Laboratory Measurements", expanded=True):
         lc1, lc2, lc3 = st.columns(3)
+        
         with lc1:
-            oc_val = st.number_input("Measured SOC (%)", 0.01, 80.0, key=f"{k}_oc")
-            agg_val = st.number_input("Agg. Stability (%)", min_value=0.0, max_value=100.0, value=40.0, step=1.0, key=f"{k}_agg_val")
-            pmn_val = st.number_input("Measured PMN (mg/kg)", min_value=0.0, max_value=200.0, value=10.0, step=1.0, key=f"{k}_pmn_val")
-            
+            oc_val = 2.0
+            if "Soil Organic Carbon" in target_indicators or "SMAF Soil Organic Carbon" in target_indicators:
+                oc_val = st.number_input("Measured SOC (%)", 0.01, 80.0, key=f"{k}_oc")
+                
+            agg_val = 40.0
+            if "Macroaggregate Stability" in target_indicators:
+                agg_val = st.number_input("Agg. Stability (%)", min_value=0.0, max_value=100.0, value=40.0, step=1.0, key=f"{k}_agg_val")
+                
+            pmn_val = 10.0
+            if "Potentially Mineralizable Nitrogen" in target_indicators:
+                pmn_val = st.number_input("Measured PMN (mg/kg)", min_value=0.0, max_value=200.0, value=10.0, step=1.0, key=f"{k}_pmn_val")
+                
+            w_val = 0.25
+            if "Water-Filled Pore Space" in target_indicators:
+                w_val = st.number_input("Measured Gravimetric Water (g/g)", min_value=0.0, max_value=1.0, value=0.25, step=0.01, key=f"{k}_w_val")
+                
         with lc2:
-            p_val = st.number_input("Measured Extractable P (mg/kg)", 0.0, 500.0, key=f"{k}_sm_p_input")
-            ec_val = st.number_input("Measured EC (dS/m)", min_value=0.0, max_value=20.0, value=1.5, step=0.1, key=f"{k}_ec_val")
-            sar_val = st.number_input("Measured SAR", min_value=0.0, max_value=50.0, value=2.0, step=0.5, key=f"{k}_sar_val")
-            
+            p_val = 25.0
+            if "Soil Phosphorus" in target_indicators:
+                p_val = st.number_input("Measured Extractable P (mg/kg)", 0.0, 500.0, key=f"{k}_sm_p_input")
+                
+            ec_val = 1.5
+            if "Electrical Conductivity" in target_indicators or "Sodium Adsorption Ratio" in target_indicators:
+                ec_val = st.number_input("Measured EC (dS/m)", min_value=0.0, max_value=20.0, value=1.5, step=0.1, key=f"{k}_ec_val")
+                
+            sar_val = 2.0
+            if "Sodium Adsorption Ratio" in target_indicators:
+                sar_val = st.number_input("Measured SAR", min_value=0.0, max_value=50.0, value=2.0, step=0.5, key=f"{k}_sar_val")
+                
+            mbc_val = 200.0
+            if "Microbial Biomass Carbon" in target_indicators:
+                mbc_val = st.number_input("Measured MBC (mg/kg)", min_value=0.0, max_value=2000.0, value=200.0, step=10.0, key=f"{k}_mbc_val")
+                
         with lc3:
-            bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.5, max_value=2.0, value=1.45, step=0.05, key=f"{k}_bd_input")
-            ph_val = st.number_input("Measured Soil pH", 0.0, 14.0, value=6.0, key=f"{k}_ph_measured_input")
-            # ✨ NEW: AWC Input Box added
-            awc_val = st.number_input("Measured AWC (g/g)", min_value=0.0, max_value=0.5, value=0.15, step=0.01, key=f"{k}_awc_val")
-            target_pct = st.slider("Benchmark Percentile (SOC)", 50, 99, 90, key=f"{k}_pct")
-
+            bd_val = 1.45
+            if "Bulk Density" in target_indicators or "Water-Filled Pore Space" in target_indicators:
+                bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.5, max_value=2.0, value=1.45, step=0.05, key=f"{k}_bd_input")
+                
+            ph_val = 6.0
+            if "pH" in target_indicators:
+                ph_val = st.number_input("Measured Soil pH", 0.0, 14.0, value=6.0, key=f"{k}_ph_measured_input")
+                
+            awc_val = 0.15
+            if "Available Water Capacity" in target_indicators:
+                awc_val = st.number_input("Measured AWC (g/g)", min_value=0.0, max_value=0.5, value=0.15, step=0.01, key=f"{k}_awc_val")
+                
+            target_pct = 90
+            if "Soil Organic Carbon" in target_indicators:
+                target_pct = st.slider("Benchmark Percentile (SOC)", 50, 99, 90, key=f"{k}_pct")
     # ✨ SILENT DERIVATION ENGINE FOR OM CLASS & AWC REGION ✨
     if oc_val >= 2.9: derived_om_id = 1
     elif oc_val >= 1.45: derived_om_id = 2
@@ -1619,6 +1947,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
     # ── GLOBAL SOC PEER GROUP RESOLUTION ──
     tax = parse_code(selected_sub)
     tex = cfg["texture_map"][selected_tex]
+    row = None  # ✨ Initialize row safely here
 
     if hist_toggle and cfg["has_histosol"] and df_hist is not None:
         lp_mean   = float(df_hist["mean_lp"].iloc[0])
@@ -1628,9 +1957,11 @@ def render_single_sample(region_name, cfg, df, df_hist):
         plot_max  = 80.0
     else:
         if df is None:
-            st.error(f"Parameter file '{cfg['csv']}' not found for {region_name}.")
-            return
-        row = get_params_any(cfg, df, tax, tex, target_temp, target_precip)
+            # Bypass SHAPE SOC math for Global SMAF fallback mode
+            lp_mean, lp_lcl, lp_ucl, sigma_val, plot_max = 0.0, 0.0, 0.0, 1.0, 15.0
+        else:
+            row = get_params_any(cfg, df, tax, tex, target_temp, target_precip)
+            
         if row is not None:
             lp_mean   = float(row["mean_lp"])
             lp_lcl    = float(row["lcl_lp"])
@@ -1640,173 +1971,276 @@ def render_single_sample(region_name, cfg, df, df_hist):
         else:
             lp_mean, lp_lcl, lp_ucl, sigma_val, plot_max = 0.0, 0.0, 0.0, 1.0, 15.0
 
-    # ── COMPREHENSIVE SOIL HEALTH SUMMARY ──
+# ── COMPREHENSIVE SOIL HEALTH SUMMARY (DYNAMICALLY FILTERED) ──
     st.markdown("### 📊 Comprehensive Soil Health Overview")
     
-    # 1. Silently calculate all indicator scores for the summary chart
-    # SOC Score (Already calculated globally)
-    score_soc = compute_score(oc_val, lp_mean, sigma_val)
+    target_indicators = st.session_state.get("target_indicators", [])
     
-    # Phosphorus Score
-    crop_id_sum = SMAF_DATA["crop_ui_map"].get(st.session_state[f"{k}_sm_crop"].lower(), 0)
-    method_id_sum = SMAF_METHOD_MAP[st.session_state[f"{k}_sm_method"]]
-    weather_id_sum = SMAF_WEATHERING_MAP[st.session_state[f"{k}_sm_weather"]]
-    texture_id_sum = SMAF_TEXTURE_MAP[st.session_state[f"{k}_sm_tex"]]
-    slope_id_sum = SMAF_SLOPE_MAP[st.session_state[f"{k}_sm_slope"]]
-    score_p_sum = run_smaf_p_score(p_val, crop_id_sum, method_id_sum, weather_id_sum, texture_id_sum, slope_id_sum, oc_val)
-    
-    # Bulk Density Score
-    mineral_str = st.session_state.get(f"{k}_bd_min", "— Select —")
-    mineralogy_id_sum = SMAF_MINERALOGY_MAP.get(mineral_str, 0) if mineral_str != "— Select —" else 0
-    raw_score_bd_sum = run_smaf_bd_score(bd_val, texture_id_sum, mineralogy_id_sum)
-
-    # Electrical Conductivity Score 
-    ec_method_id_sum = 1 if "Saturated Paste" in ec_method_str else 2
-    raw_score_ec_sum = run_smaf_ec_score(ec_val, crop_id_sum, ec_method_id_sum, texture_id_sum, SMAF_DATA)
-
-    # Macroaggregate Stability Score (Silent Calculation)
+    # ── 0. PRE-DEFINE SAFE GLOBAL VARIABLES FOR SUMMARY/TABLE ──
+    texture_id_sum = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
     om_string_sum = st.session_state.get(f"{k}_sm_om_class", "Class 2 (Med-High OM)")
     om_id_sum = SMAF_OM_MAP.get(om_string_sum, 2)
+    fe_id_sum = SMAF_FE_MAP.get(selected_fe_class, 2) if 'selected_fe_class' in locals() else 2
+    climate_id_sum = SMAF_CLIMATE_MAP.get(st.session_state.get(f"{k}_sm_climate_class", ""), 3)
     
-    fe_id_sum = SMAF_FE_MAP.get(selected_fe_class, 2)
-    raw_score_agg_sum = run_smaf_agg_score(agg_val, om_id_sum, texture_id_sum, fe_id_sum, SMAF_DATA)
-    # Sodium Adsorption Ratio (SAR) Score (Silent Calculation)
-    raw_score_sar_sum = run_smaf_sar_score(sar_val, ec_val, ec_method_id_sum, texture_id_sum, SMAF_DATA)
+    bd_val_sum = st.session_state.get(f"{k}_bd_input", 1.45)
+    mineral_str = st.session_state.get(f"{k}_bd_min", "— Select —")
+    mineralogy_id_sum = SMAF_MINERALOGY_MAP.get(mineral_str, 0) if mineral_str != "— Select —" else 0
+    
+    agg_val_sum = st.session_state.get(f"{k}_agg_val", 40.0)
+    awc_val_sum = st.session_state.get(f"{k}_awc_val", 0.15)
+    w_val_sum = st.session_state.get(f"{k}_w_val", 0.25)
+    ph_val_sum = st.session_state.get(f"{k}_ph_measured_input", 6.0)
+    p_val_sum = st.session_state.get(f"{k}_sm_p_input", 25.0)
+    ec_val_sum = st.session_state.get(f"{k}_ec_val", 1.5)
+    sar_val_sum = st.session_state.get(f"{k}_sar_val", 2.0)
+    pmn_val_sum = st.session_state.get(f"{k}_pmn_val", 10.0)
+    mbc_val_sum = st.session_state.get(f"{k}_mbc_val", 200.0)
+    
+    wfps_frac_sum = get_wfps_frac(w_val_sum, bd_val_sum, SMAF_DATA)
 
-    # Potentially Mineralizable Nitrogen (PMN) Score (Silent Calculation)
-    climate_id_sum = SMAF_CLIMATE_MAP.get(selected_climate_class, 3) if selected_climate_class != "— Select —" else 3
-    raw_score_pmn_sum = run_smaf_pmn_score(pmn_val, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)
-
-    # Available Water Capacity (AWC) Score (Silent Calculation)
-    awc_region_sum = st.session_state.get(f"{k}_awc_region", 2)
-    raw_score_awc_sum = run_smaf_awc_score(awc_val, awc_region_sum, texture_id_sum, om_id_sum, SMAF_DATA)
-    # pH Score
-    crop_selected_name_sum = st.session_state[f"{k}_sm_crop"]
-    ph_benchmarks_sum = SMAF_DATA.get("ph_benchmarks", {}) if SMAF_DATA else {}
-    ph_benchmarks_lower_sum = {key.lower(): val for key, val in ph_benchmarks_sum.items()}
-    benchmarks_sum = ph_benchmarks_lower_sum.get(crop_selected_name_sum.lower())
-    if benchmarks_sum:
-        raw_score_ph_sum = float(100.0 * np.exp(-((ph_val - benchmarks_sum["opt"]) / (2.0 * benchmarks_sum["sigma"])) ** 2))
-    else:
-        raw_score_ph_sum = 0.0
+    # Initialize category scores and counts
+    phys_scores, chem_scores, bio_scores = [], [], []
+    
+    # ── PHYSICAL INDICATORS ──
+    if "Bulk Density" in target_indicators:
+        mineral_str = st.session_state.get(f"{k}_bd_min", "— Select —")
+        mineralogy_id_sum = SMAF_MINERALOGY_MAP.get(mineral_str, 0) if mineral_str != "— Select —" else 0
+        phys_scores.append(safe_float(run_smaf_bd_score(bd_val_sum, texture_id_sum, mineralogy_id_sum)))
         
-    # =========================================================================
-    # ✨ Calculate the Category Averages and the Overall Score
-    def safe_float(val):
-        try:
-            return float(val) if val is not None else 0.0
-        except (ValueError, TypeError):
-            return 0.0
+    if "Macroaggregate Stability" in target_indicators:
+        phys_scores.append(safe_float(run_smaf_agg_score(agg_val_sum, om_id_sum, texture_id_sum, fe_id_sum, SMAF_DATA)))
+        
+    if "Available Water Capacity" in target_indicators:
+        awc_region_sum = st.session_state.get(f"{k}_awc_region", 2)
+        phys_scores.append(safe_float(run_smaf_awc_score(awc_val_sum, awc_region_sum, texture_id_sum, om_id_sum, SMAF_DATA)))
+        
+    if "Water-Filled Pore Space" in target_indicators:
+        wfps_scores_sum = run_smaf_wfps_score(wfps_frac_sum, texture_id_sum, SMAF_DATA)
+        phys_scores.append(safe_float(wfps_scores_sum["combined"]))
 
-    # ✨ Biological = Average of SOC and PMN
-    score_bio = (safe_float(score_soc) + safe_float(raw_score_pmn_sum)) / 2.0
-    
-    # ✨ Physical = Average of BD, AGG, and AWC (Divide by 3.0!)
-    score_phys = (safe_float(raw_score_bd_sum) + safe_float(raw_score_agg_sum) + safe_float(raw_score_awc_sum)) / 3.0
-    
-    # ✨ Chemical = Average of pH, P, EC, and SAR (Divide by 4.0!)
-    score_chem = (safe_float(raw_score_ph_sum) + safe_float(score_p_sum) + safe_float(raw_score_ec_sum) + safe_float(raw_score_sar_sum)) / 4.0
-    
-    score_overall = (score_phys + score_chem + score_bio) / 3.0
-    # =========================================================================
-    # =========================================================================
+    # ── CHEMICAL INDICATORS ──
+    if "pH" in target_indicators:
+        crop_selected_name_sum = st.session_state.get(f"{k}_sm_crop", "Corn / maize / sweet corn")
+        ph_benchmarks_sum = SMAF_DATA.get("ph_benchmarks", {}) if SMAF_DATA else {}
+        ph_benchmarks_lower_sum = {key.lower(): val for key, val in ph_benchmarks_sum.items()}
+        benchmarks_sum = ph_benchmarks_lower_sum.get(crop_selected_name_sum.lower())
+        if benchmarks_sum:
+            chem_scores.append(float(100.0 * np.exp(-((ph_val_sum - benchmarks_sum["opt"]) / (2.0 * benchmarks_sum["sigma"])) ** 2)))
+        else:
+            chem_scores.append(0.0)
+            
+    if "Soil Phosphorus" in target_indicators:
+        crop_id_sum = SMAF_DATA["crop_ui_map"].get(st.session_state.get(f"{k}_sm_crop", "").lower(), 0)
+        method_str = st.session_state.get(f"{k}_sm_method", "Mehlich-3")
+        weather_str = st.session_state.get(f"{k}_sm_weather", "Slightly Weathered")
+        method_id_sum = SMAF_METHOD_MAP.get(method_str, 2)
+        weather_id_sum = SMAF_WEATHERING_MAP.get(weather_str, 3)
+        slope_str = st.session_state.get(f"{k}_sm_slope", "0–2% Level Slope")
+        slope_id_sum = SMAF_SLOPE_MAP.get(slope_str, 1)
+        oc_val_sum = st.session_state.get(f"{k}_oc", 2.0)
+        chem_scores.append(safe_float(run_smaf_p_score(p_val_sum, crop_id_sum, method_id_sum, weather_id_sum, texture_id_sum, slope_id_sum, oc_val_sum)))
+        
+    if "Electrical Conductivity" in target_indicators:
+        ec_method_str_sum = st.session_state.get(f"{k}_ec_method", "Saturated Paste (ECsat)")
+        ec_method_id_sum = 1 if "Saturated Paste" in ec_method_str_sum else 2
+        crop_id_sum = SMAF_DATA["crop_ui_map"].get(st.session_state.get(f"{k}_sm_crop", "").lower(), 0)
+        chem_scores.append(safe_float(run_smaf_ec_score(ec_val_sum, crop_id_sum, ec_method_id_sum, texture_id_sum, SMAF_DATA)))
+        
+    if "Sodium Adsorption Ratio" in target_indicators:
+        ec_method_str_sum = st.session_state.get(f"{k}_ec_method", "Saturated Paste (ECsat)")
+        ec_method_id_sum = 1 if "Saturated Paste" in ec_method_str_sum else 2
+        chem_scores.append(safe_float(run_smaf_sar_score(sar_val_sum, ec_val_sum, ec_method_id_sum, texture_id_sum, SMAF_DATA)))
 
-    # 2. Build the Summary Bar Chart
-    summary_scores = [int(round(score_phys)), int(round(score_chem)), int(round(score_bio)), int(round(score_overall))]
-    summary_labels = ["Physical", "Chemical", "Biological", "<b>OVERALL</b>"]
-    summary_colors = [score_color(s) for s in summary_scores]
+    # ── BIOLOGICAL INDICATORS ──
+    if "Soil Organic Carbon" in target_indicators:
+        bio_scores.append(safe_float(compute_score(oc_val, lp_mean, sigma_val)))
+    if "SMAF Soil Organic Carbon" in target_indicators:
+        bio_scores.append(safe_float(run_smaf_soc_score(oc_val, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)))
+        
+    if "Potentially Mineralizable Nitrogen" in target_indicators:
+        bio_scores.append(safe_float(run_smaf_pmn_score(pmn_val_sum, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)))
+        
+    if "Microbial Biomass Carbon" in target_indicators:
+        season_name = st.session_state.get(f"{k}_sm_season", "Spring")
+        season_num = {"Spring": 1, "Summer": 2, "Fall": 3, "Winter": 4}.get(season_name, 1)
+        season_climate_code = 1.0 if season_num == 1 else float(f"{season_num}.{climate_id_sum}")
+        bio_scores.append(safe_float(run_smaf_mbc_score(mbc_val_sum, om_id_sum, texture_id_sum, season_climate_code, SMAF_DATA)))
+
+   # ── DYNAMIC CATEGORY AVERAGING (Only includes categories with selected indicators) ──
+    score_phys = sum(phys_scores) / len(phys_scores) if phys_scores else None
+    score_chem = sum(chem_scores) / len(chem_scores) if chem_scores else None
+    score_bio = sum(bio_scores) / len(bio_scores) if bio_scores else None
     
-    # ✨ Swapped back to horizontal text formatting with the pipe symbol
+    # Collect only categories that have at least one selected indicator
+    active_pillar_scores = [s for s in [score_phys, score_chem, score_bio] if s is not None]
+    score_overall = sum(active_pillar_scores) / len(active_pillar_scores) if active_pillar_scores else 0.0
+
+    # Build chart data dynamically so unselected categories are hidden entirely
+    summary_scores, summary_labels, summary_colors = [], [], []
+    
+    if score_phys is not None:
+        summary_scores.append(int(round(score_phys)))
+        summary_labels.append("Physical")
+        summary_colors.append(score_color(score_phys))
+    if score_chem is not None:
+        summary_scores.append(int(round(score_chem)))
+        summary_labels.append("Chemical")
+        summary_colors.append(score_color(score_chem))
+    if score_bio is not None:
+        summary_scores.append(int(round(score_bio)))
+        summary_labels.append("Biological")
+        summary_colors.append(score_color(score_bio))
+        
+    # Always append Overall at the bottom
+    summary_scores.append(int(round(score_overall)))
+    summary_labels.append("<b>OVERALL</b>")
+    summary_colors.append(score_color(score_overall))
+
     summary_text = [f"{s}/100  |  {score_label(s)}" for s in summary_scores]
-    
-    # ✨ Adjusted the text position threshold back to 25 to account for horizontal space
     text_positions = ["inside" if s >= 25 else "outside" for s in summary_scores]
 
     fig_summary = go.Figure(go.Bar(
-        x=summary_scores, # ✨ Swapped x and y back
+        x=summary_scores,
         y=summary_labels,
-        orientation='h',  # ✨ Added horizontal orientation back
+        orientation='h',
         marker_color=summary_colors,
         text=summary_text,
-        textposition=text_positions, 
+        textposition=text_positions,
         insidetextanchor='middle',
         textfont=dict(color='white', size=15, family="Arial Black")
     ))
 
     fig_summary.update_layout(
-        # ✨ NEW: Added fixedrange=True to both axes to disable pinch-to-zoom and panning
-        xaxis=dict(range=[0, 100], fixedrange=True, title="SHAPE Score", gridcolor="rgba(150,150,150,0.1)"), 
-        yaxis=dict(autorange="reversed", fixedrange=True), 
+        xaxis=dict(range=[0, 100], fixedrange=True, title="SHAPE Score", gridcolor="rgba(150,150,150,0.1)"),
+        yaxis=dict(autorange="reversed", fixedrange=True),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        height=320, 
+        height=max(220, len(summary_labels) * 70),
         margin=dict(l=10, r=20, t=10, b=10)
     )
     
-    # ✨ NEW: Added config={'displayModeBar': False} to hide the floating Plotly toolbar
     st.plotly_chart(
-        fig_summary, 
-        use_container_width=True, 
+        fig_summary,
+        use_container_width=True,
         key=f"{k}_summary_chart",
         config={'displayModeBar': False}
     )
 
-    # =========================================================================
-    # ✨ ✨ NATIVE STREAMLIT SOIL HEALTH CONSTRAINTS DIAGNOSTIC ✨ ✨
-    # =========================================================================
-    st.markdown("### 📋 Soil Health Constraint Diagnostic")
-    st.markdown("Address these critical functional constraints to unlock full soil and crop potential:")
-    
-    # 1. Define the constraints dictionary directly inside the app
-    CONSTRAINTS = {
-        "Physical": {
-            "Medium": "Root penetration; Water transmission",
-            "Low": "Root penetration; Gas exchange; Water Infiltration; Erosion and runoff",
-            "VeryLow": "Root penetration; Water transmission; Gas exchange; Infiltration; Water retention; Solute transport; Seedbed formation",
-        },
-        "Chemical": {
-            "Medium": "Nutrient supply; Nutrient Solubilization",
-            "Low": "Nutrient supply; Nutrient Solubilization; Ion exchange and retention; Rhizosphere habitat",
-            "VeryLow": "Nutrient supply; Nutrient solubility; Ion exchange and retention; Rhizosphere habitat; pH buffering; Ionic toxicity regulation; Nitrogen transformation",
-        },
-        "SOC": {
-            "Medium": "Nutrient mineralization; Microbial habitat",
-            "Low": "Nutrient mineralization; Microbial habitat; Aggregate Formation; Water Retention",
-            "VeryLow": "Nutrient mineralization; Microbial habitat; Aggregate Formation; Water Retention; Infiltration; Structural stability; Buffering capacity",
-        }
+ # ── INDIVIDUAL INDICATOR SUMMARY TABLE ──
+    table_rows = []
+    cat_map = {
+        "Bulk Density": "Physical", "Macroaggregate Stability": "Physical", 
+        "Available Water Capacity": "Physical", "Water-Filled Pore Space": "Physical",
+        "pH": "Chemical", "Soil Phosphorus": "Chemical", 
+        "Electrical Conductivity": "Chemical", "Sodium Adsorption Ratio": "Chemical",
+        "Soil Organic Carbon": "Biological", "SMAF Soil Organic Carbon": "Biological", 
+        "Potentially Mineralizable Nitrogen": "Biological", "Microbial Biomass Carbon": "Biological"
     }
-
-    # 2. Build the dataset based on current scores
-    diag_rows = []
     
-    # Loop through the variables already calculated for the chart above
-    for pillar, s_val in [("Physical", score_phys), ("Chemical", score_chem), ("SOC", score_bio)]:
-        score_int = int(round(s_val))
-        if score_int < 20:
-            diag_rows.append({"Pillar": pillar, "Score": score_int, "Assessment": "🔴 Very Low", "Critical Soil Functions Affected": CONSTRAINTS[pillar]["VeryLow"]})
-        elif score_int < 40:
-            diag_rows.append({"Pillar": pillar, "Score": score_int, "Assessment": "🔴 Low", "Critical Soil Functions Affected": CONSTRAINTS[pillar]["Low"]})
-        elif score_int < 60:
-            diag_rows.append({"Pillar": pillar, "Score": score_int, "Assessment": "🟠 Medium", "Critical Soil Functions Affected": CONSTRAINTS[pillar]["Medium"]})
-
-    # 3. Render natively using Streamlit
-    if len(diag_rows) == 0:
-        st.success("Congratulations! All core soil health pillars scored High (>= 60), indicating fully functional soil systems that are unrestricted by major soil function constraints.")
-    else:
-        # Convert to Pandas DataFrame for clean rendering
-        df_diag = pd.DataFrame(diag_rows)
+    for ind in target_indicators:
+        cat = cat_map.get(ind, "General")
+        val, scr = "—", 0.0
         
-        # Use st.table() so the text wraps nicely on multiple lines
-        st.table(df_diag)
+        if ind == "Bulk Density":
+            val = f"{bd_val_sum} g/cm³"
+            scr = run_smaf_bd_score(bd_val_sum, texture_id_sum, mineralogy_id_sum)
+        elif ind == "Macroaggregate Stability":
+            val = f"{agg_val_sum}%"
+            scr = run_smaf_agg_score(agg_val_sum, om_id_sum, texture_id_sum, fe_id_sum, SMAF_DATA)
+        elif ind == "Available Water Capacity":
+            val = f"{awc_val_sum} g/g"
+            awc_region_sum = st.session_state.get(f"{k}_awc_region", 2)
+            scr = run_smaf_awc_score(awc_val_sum, awc_region_sum, texture_id_sum, om_id_sum, SMAF_DATA)
+        elif ind == "Water-Filled Pore Space":
+            val = f"{wfps_frac_sum:.1%}"
+            wfps_res = run_smaf_wfps_score(wfps_frac_sum, texture_id_sum, SMAF_DATA)
+            scr = wfps_res["combined"]
+        elif ind == "pH":
+            val = f"{ph_val_sum}"
+            crop_selected_name_sum = st.session_state.get(f"{k}_sm_crop", "Corn / maize / sweet corn")
+            ph_benchmarks_sum = SMAF_DATA.get("ph_benchmarks", {}) if SMAF_DATA else {}
+            ph_benchmarks_lower_sum = {key.lower(): val for key, val in ph_benchmarks_sum.items()}
+            benchmarks_sum = ph_benchmarks_lower_sum.get(crop_selected_name_sum.lower())
+            if benchmarks_sum:
+                scr = float(100.0 * np.exp(-((ph_val_sum - benchmarks_sum["opt"]) / (2.0 * benchmarks_sum["sigma"])) ** 2))
+            else:
+                scr = 0.0
+        elif ind == "Soil Phosphorus":
+            val = f"{p_val_sum} mg/kg"
+            crop_id_sum = SMAF_DATA["crop_ui_map"].get(st.session_state.get(f"{k}_sm_crop", "").lower(), 0)
+            method_str = st.session_state.get(f"{k}_sm_method", "Mehlich-3")
+            weather_str = st.session_state.get(f"{k}_sm_weather", "Slightly Weathered")
+            method_id_sum = SMAF_METHOD_MAP.get(method_str, 2)
+            weather_id_sum = SMAF_WEATHERING_MAP.get(weather_str, 3)
+            slope_str = st.session_state.get(f"{k}_sm_slope", "0–2% Level Slope")
+            slope_id_sum = SMAF_SLOPE_MAP.get(slope_str, 1)
+            oc_val_sum = st.session_state.get(f"{k}_oc", 2.0)
+            scr = run_smaf_p_score(p_val_sum, crop_id_sum, method_id_sum, weather_id_sum, texture_id_sum, slope_id_sum, oc_val_sum)
+        elif ind == "Electrical Conductivity":
+            val = f"{ec_val_sum} dS/m"
+            ec_method_str_sum = st.session_state.get(f"{k}_ec_method", "Saturated Paste (ECsat)")
+            ec_method_id_sum = 1 if "Saturated Paste" in ec_method_str_sum else 2
+            crop_id_sum = SMAF_DATA["crop_ui_map"].get(st.session_state.get(f"{k}_sm_crop", "").lower(), 0)
+            scr = run_smaf_ec_score(ec_val_sum, crop_id_sum, ec_method_id_sum, texture_id_sum, SMAF_DATA)
+        elif ind == "Sodium Adsorption Ratio":
+            val = f"{sar_val_sum}"
+            ec_method_str_sum = st.session_state.get(f"{k}_ec_method", "Saturated Paste (ECsat)")
+            ec_method_id_sum = 1 if "Saturated Paste" in ec_method_str_sum else 2
+            scr = run_smaf_sar_score(sar_val_sum, ec_val_sum, ec_method_id_sum, texture_id_sum, SMAF_DATA)
+        elif ind == "Soil Organic Carbon":
+            val = f"{oc_val}%"
+            scr = compute_score(oc_val, lp_mean, sigma_val)
+        elif ind == "SMAF Soil Organic Carbon":
+            val = f"{oc_val}%"
+            scr = run_smaf_soc_score(oc_val, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)
+        elif ind == "Potentially Mineralizable Nitrogen":
+            val = f"{pmn_val_sum} mg/kg"
+            scr = run_smaf_pmn_score(pmn_val_sum, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)
+        elif ind == "Microbial Biomass Carbon":
+            val = f"{mbc_val_sum} mg/kg"
+            season_name = st.session_state.get(f"{k}_sm_season", "Spring")
+            season_num = {"Spring": 1, "Summer": 2, "Fall": 3, "Winter": 4}.get(season_name, 1)
+            season_climate_code = 1.0 if season_num == 1 else float(f"{season_num}.{climate_id_sum}")
+            scr = run_smaf_mbc_score(mbc_val_sum, om_id_sum, texture_id_sum, season_climate_code, SMAF_DATA)
+            
+        zone = score_label(scr)
+        table_rows.append({
+            "Category": cat,
+            "Indicator Name": ind,
+            "Measured Value": val,
+            "Score": f"{int(round(scr))}/100",
+            "Rating": zone,
+            "_raw_score": scr
+        })
         
+    if table_rows:
+        df_summary_table = pd.DataFrame(table_rows)
+        
+        def color_table_rows(row):
+            # Pull the score safely using the row's index position in the dataframe
+            idx = row.name
+            s = df_summary_table.loc[idx, "_raw_score"]
+            
+            if s >= 80: bg = "background-color: rgba(26, 150, 65, 0.25); font-weight: 500;"
+            elif s >= 60: bg = "background-color: rgba(119, 195, 92, 0.25); font-weight: 500;"
+            elif s >= 40: bg = "background-color: rgba(255, 193, 7, 0.25); font-weight: 500;"
+            elif s >= 20: bg = "background-color: rgba(244, 109, 67, 0.25); font-weight: 500;"
+            else: bg = "background-color: rgba(215, 48, 39, 0.25); font-weight: 500;"
+            return [bg] * len(row)
+            
+        display_table_df = df_summary_table.drop(columns=["_raw_score"])
+        st.dataframe(
+            display_table_df.style.apply(color_table_rows, axis=1),
+            width='stretch',
+            hide_index=True
+        )
     st.divider()
-    # =========================================================================
-    
-   # ── INDICATOR SELECTION ──
-    indicator_options = ["Soil Organic Carbon", "Soil Phosphorus", "pH", "Bulk Density", "Electrical Conductivity", "Macroaggregate Stability", "Sodium Adsorption Ratio", "Potentially Mineralizable Nitrogen", "Available Water Capacity"]
+
+    # ── INDICATOR SELECTION DROPDOWN (Correctly positioned below summary) ──
     chosen_indicator = st.selectbox(
         "Soil Health Indicators:",
-        indicator_options,
+        target_indicators,
         key=f"{cfg['key']}_indicator_shared"
     )
 # ALWAYS calculate the SOC score in the background so the Recommendation Engine 
@@ -2467,6 +2901,328 @@ def render_single_sample(region_name, cfg, df, df_hist):
             awc_rec = "Critical physical limitation. Your soil cannot effectively retain water for plant use, heavily restricting yield potential in rainfed systems. A long-term strategy to rebuild soil structure and heavily incorporate organic amendments is essential."
 
         st.info(f"**Score Tier: {awc_level}**\n\n{awc_rec}")
+
+    elif chosen_indicator == "Water-Filled Pore Space":
+        # 1. Grab Global Variables
+        texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
+        
+        # 2. Calculate WFPS Fraction & Scores
+        wfps_frac = get_wfps_frac(w_val, bd_val, SMAF_DATA)
+        wfps_scores = run_smaf_wfps_score(wfps_frac, texture_id, SMAF_DATA)
+        
+        try:
+            score_wfps = float(wfps_scores["combined"]) if wfps_scores["combined"] is not None else 0.0
+        except (ValueError, TypeError):
+            score_wfps = 0.0
+            
+        wfps_color = score_color(score_wfps)
+        wfps_label = score_label(score_wfps)
+        
+        # 3. Create the 1:2 Column Layout
+        col_l, col_r = st.columns([1, 2])
+        
+        with col_l:
+            gauge_title = f"<b style='font-size:17px'>{wfps_label}</b><br><span style='font-size:11px;color:gray'>Calculated WFPS: {wfps_frac:.1%}</span>"
+            fig_wfps_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_wfps)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": wfps_color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": wfps_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
+                    ],
+                    "threshold": {"line": {"color": wfps_color, "width": 5}, "thickness": 0.8, "value": score_wfps}
+                }
+            ))
+            fig_wfps_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
+            st.plotly_chart(fig_wfps_gauge, use_container_width=True, key=f"{k}_wfps_gauge_plot")
+            
+        with col_r:
+            st.markdown("#### Scoring Curve")
+            
+            # Plot the Combined (50/50) curve smoothly to match the gauge
+            xs = np.linspace(0, 1.0, 300)
+            ys_combined = []
+            for x in xs:
+                res = run_smaf_wfps_score(x, texture_id, SMAF_DATA)
+                ys_combined.append(res["combined"] / 100.0)
+            
+            fig_wfps = go.Figure()
+            
+            # Combined Curve (Solid Line)
+            fig_wfps.add_trace(go.Scatter(
+                x=xs, y=ys_combined, mode="lines", 
+                line=dict(color="#356B8C", width=3), 
+                name="Score Curve", hovertemplate="WFPS: %{x:.0%}<br>Score: %{y:.0%}<extra></extra>"
+            ))
+            
+            # Your Soil Data Point (Single point)
+            fig_wfps.add_trace(go.Scatter(
+                x=[wfps_frac], 
+                y=[score_wfps / 100.0], 
+                mode="markers", 
+                marker=dict(color=wfps_color, size=14, line=dict(color="white", width=2)), 
+                name="Your Soil"
+            ))
+            
+            fig_wfps.update_layout(
+                xaxis_title="Water-Filled Pore Space (%)", 
+                yaxis_title="SHAPE Score",
+                yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0, 1.0], tickformat=".0%"),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
+                height=400, margin=dict(l=10, r=10, t=40, b=10)
+            )
+            st.plotly_chart(fig_wfps, width='stretch', key=f"{k}_wfps_curve_plot")
+        # ── 5-TIER WFPS RECOMMENDATION ENGINE ──
+        st.markdown("### 📋 Agronomic Recommendations")
+
+        if score_wfps >= 80:
+            wfps_level = "Very High"
+            wfps_rec = "Your soil porosity and moisture balance is perfectly optimized. The current water level provides excellent conditions for aerobic biological activity (nutrient cycling) while minimizing environmental risks like denitrification and nitrate leaching."
+        elif score_wfps >= 60:
+            wfps_level = "High"
+            wfps_rec = "Your WFPS is in a healthy range. It balances microbial water needs against the risk of anoxia. Continue practices that maintain good soil structure and drainage."
+        elif score_wfps >= 40:
+            wfps_level = "Medium"
+            wfps_rec = "Your WFPS indicates a moderate imbalance. The soil may be either slightly too dry (suppressing microbial mineralization) or slightly too wet (increasing the risk of greenhouse gas emissions). Review your irrigation and drainage strategies."
+        elif score_wfps >= 20:
+            wfps_level = "Low"
+            wfps_rec = "Your soil has poor pore space management. If heavily saturated, you are likely losing significant nitrogen to the atmosphere and experiencing restricted root respiration. If too dry, biological activity has stalled."
+        else:
+            wfps_level = "Very Low"
+            wfps_rec = "Critical physical limitation. Extreme WFPS values mean the soil is either totally waterlogged (causing severe anaerobic conditions and nutrient leaching) or completely desiccated. Immediate adjustments to irrigation, drainage, or compaction management are required."
+
+        st.info(f"**Score Tier: {wfps_level}**\n\n{wfps_rec}")
+
+    elif chosen_indicator == "Microbial Biomass Carbon":
+        # 1. Grab Global Variables
+        texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
+        om_string = st.session_state.get(f"{k}_sm_om_class", "Class 2 (Med-High OM)")
+        om_id = SMAF_OM_MAP.get(om_string, 2)
+        
+        season_name = st.session_state.get(f"{k}_sm_season", "Spring")
+        season_num = {"Spring": 1, "Summer": 2, "Fall": 3, "Winter": 4}.get(season_name, 1)
+        climate_id = SMAF_CLIMATE_MAP.get(st.session_state.get(f"{k}_sm_climate_class", ""), 3)
+        season_climate_code = 1.0 if season_num == 1 else float(f"{season_num}.{climate_id}")
+        
+        # 2. Calculate Score securely
+        raw_score_mbc = run_smaf_mbc_score(mbc_val, om_id, texture_id, season_climate_code, SMAF_DATA)
+        try:
+            score_mbc = float(raw_score_mbc) if raw_score_mbc is not None else 0.0
+        except (ValueError, TypeError):
+            score_mbc = 0.0
+            
+        mbc_color = score_color(score_mbc)
+        mbc_label = score_label(score_mbc)
+        
+        # 3. Create the 1:2 Column Layout
+        col_l, col_r = st.columns([1, 2])
+        
+        with col_l:
+            gauge_title = f"<b style='font-size:17px; color:#333;'>{mbc_label}</b><br><span style='font-size:11px; color:#555;'>Measured MBC: {mbc_val} mg/kg</span>"
+            fig_mbc_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_mbc)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": mbc_color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#555", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": mbc_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.85)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.85)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.85)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.85)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.85)"}
+                    ],
+                    "threshold": {"line": {"color": mbc_color, "width": 5}, "thickness": 0.8, "value": score_mbc}
+                }
+            ))
+            fig_mbc_gauge.update_layout(font=dict(color="#333"), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
+            st.plotly_chart(fig_mbc_gauge, use_container_width=True, key=f"{k}_mbc_gauge_plot")
+            
+        with col_r:
+            st.markdown("#### Scoring Curve")
+            
+            # Smooth plotting using linspace
+            xs = np.linspace(0, 1000, 300)
+            ys = [run_smaf_mbc_score(x, om_id, texture_id, season_climate_code, SMAF_DATA) for x in xs]
+            
+            fig_mbc = go.Figure()
+            fig_mbc.add_trace(go.Scatter(
+                x=xs, y=np.array(ys) / 100.0, mode="lines", 
+                line=dict(color="#8C5A9E", width=3), 
+                name="Score Curve", hovertemplate="MBC: %{x:.0f} mg/kg<br>Score: %{y:.0%}<extra></extra>"
+            ))
+            
+            fig_mbc.add_trace(go.Scatter(
+                x=[mbc_val], y=[score_mbc / 100.0], mode="markers", 
+                marker=dict(color=mbc_color, size=14, line=dict(color="white", width=2)), 
+                name="Your Soil"
+            ))
+            
+            fig_mbc.update_layout(
+                xaxis_title="Microbial Biomass Carbon (mg/kg)", 
+                yaxis_title="SHAPE Score",
+                yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0, 1000]),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
+                height=400, margin=dict(l=10, r=10, t=40, b=10)
+            )
+            st.plotly_chart(fig_mbc, width='stretch', key=f"{k}_mbc_curve_plot")
+
+        # ── 5-TIER MBC RECOMMENDATION ENGINE ──
+        st.markdown("### 📋 Agronomic Recommendations")
+
+        if score_mbc >= 80:
+            mbc_level = "Very High"
+            mbc_rec = "Your soil supports an incredibly active and thriving microbial population. This robust living biomass acts as a massive 'bank' for nutrients, rapidly turning over organic matter and preventing nutrient loss to leaching."
+        elif score_mbc >= 60:
+            mbc_level = "High"
+            mbc_rec = "Your microbial biomass levels indicate healthy biological functioning. The soil microbes are actively mediating nutrient availability and contributing to soil structure. Keep minimizing soil disturbance to protect them."
+        elif score_mbc >= 40:
+            mbc_level = "Medium"
+            mbc_rec = "Your microbial biomass is moderate. The biological engine of your soil is functioning but isn't operating at full capacity. Consider diversifying your crop rotations or adding high-quality compost to stimulate microbial growth."
+        elif score_mbc >= 20:
+            mbc_level = "Low"
+            mbc_rec = "Your soil biology is sluggish. Low microbial biomass means fewer nutrients are being actively cycled, likely forcing a higher dependence on synthetic fertilizers. Adopt practices that 'feed the soil' with continuous living roots."
+        else:
+            mbc_level = "Very Low"
+            mbc_rec = "Critical biological limitation. Your soil is biologically depleted, likely due to heavy tillage, lack of organic inputs, or extended fallow periods. Immediate incorporation of organic amendments and cover cropping is needed to revive the soil food web."
+
+        st.info(f"**Score Tier: {mbc_level}**\n\n{mbc_rec}")
+
+    elif chosen_indicator == "SMAF Soil Organic Carbon":
+        # 1. Grab Global Variables
+        texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
+        om_string = st.session_state.get(f"{k}_sm_om_class", "Class 2 (Med-High OM)")
+        om_id = SMAF_OM_MAP.get(om_string, 2)
+        climate_id = SMAF_CLIMATE_MAP.get(st.session_state.get(f"{k}_sm_climate_class", ""), 3)
+        
+        # 2. Calculate Score securely
+        raw_score_smaf_soc = run_smaf_soc_score(oc_val, om_id, texture_id, climate_id, SMAF_DATA)
+        try:
+            score_smaf_soc = float(raw_score_smaf_soc) if raw_score_smaf_soc is not None else 0.0
+        except (ValueError, TypeError):
+            score_smaf_soc = 0.0
+            
+        smaf_soc_color = score_color(score_smaf_soc)
+        smaf_soc_label = score_label(score_smaf_soc)
+        
+        # 3. Create the 1:2 Column Layout
+        col_l, col_r = st.columns([1, 2])
+        
+        with col_l:
+            gauge_title = f"<b style='font-size:17px; color:#333;'>{smaf_soc_label}</b><br><span style='font-size:11px; color:#555;'>Measured SOC: {oc_val}% (SMAF Logistic)</span>"
+            fig_smaf_soc_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_smaf_soc)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": smaf_soc_color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#555", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": smaf_soc_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.85)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.85)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.85)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.85)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.85)"}
+                    ],
+                    "threshold": {"line": {"color": smaf_soc_color, "width": 5}, "thickness": 0.8, "value": score_smaf_soc}
+                }
+            ))
+            fig_smaf_soc_gauge.update_layout(font=dict(color="#333"), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
+            st.plotly_chart(fig_smaf_soc_gauge, use_container_width=True, key=f"{k}_smaf_soc_gauge_plot")
+            
+            st.divider()
+            st.markdown("**📥 Export result**")
+            result_df = pd.DataFrame([{
+                "Indicator": "SMAF Soil Organic Carbon",
+                "SOC_pct": oc_val, "SMAF_Score": round(score_smaf_soc, 2), "Zone": smaf_soc_label
+            }])
+            st.download_button("⬇️ Download as CSV", data=result_df.to_csv(index=False).encode("utf-8"),
+                               file_name=f"SMAF_{cfg['key']}_{tax}_{tex}_{oc_val}pct.csv",
+                               mime="text/csv", width='stretch', key=f"{k}_export_btn_smaf_unique")
+            # ── SHAPE Peer Group & Target Tracking (Mirroring SHAPE Tab) ──
+            st.divider()
+            gap = tgt_oc - oc_val
+            median_soc = percentile_to_oc(50, lp_mean, sigma_val)
+            
+            m1, m2 = st.columns(2)
+            with m1:
+                soc_diff = oc_val - median_soc
+                st.metric("Peer Group Median", f"{median_soc:.2f}% SOC", f"{soc_diff:+.2f}% difference")
+            with m2:
+                st.metric(f"Target ({target_pct}th pct)", f"{tgt_oc:.2f}% SOC", "✅ Exceeds target" if gap <= 0 else f"-{gap:.2f}% needed")
+
+            st.divider()
+            st.markdown("**SOC targets by percentile**")
+            bench = pd.DataFrame({
+                "Percentile": ["80th", "90th", "95th", "99th"],
+                "Target SOC (%)": [f"{percentile_to_oc(p, lp_mean, sigma_val):.2f}" for p in [80, 90, 95, 99]]
+            })
+            st.dataframe(bench, hide_index=True, width='stretch')
+
+            st.divider()
+            st.markdown("**📥 Export result**")
+            result_df = pd.DataFrame([{
+                "Region": region_name, "Suborder": strip_code(selected_sub), "Texture": strip_code(selected_tex),
+                "Temperature_C": target_temp,
+                **({"Precipitation_mm": target_precip} if has_precip else {}),
+                "SOC_pct": oc_val, "SHAPE_Score": round(score_smaf_soc, 2), "Zone": smaf_soc_label,
+                "Target_SOC_pct": round(tgt_oc, 3)
+            }])
+            st.download_button("⬇️ Download as CSV", data=result_df.to_csv(index=False).encode("utf-8"),
+                               file_name=f"SMAF_{cfg['key']}_{tax}_{tex}_{oc_val}pct.csv",
+                               mime="text/csv", width='stretch', key=f"{k}_export_btn_smaf")
+
+        with col_r:
+            st.markdown("#### Scoring Curve (SMAF Logistic)")
+            
+            # Smooth plotting using linspace
+            xs = np.linspace(0, 5.0, 300)
+            ys = [run_smaf_soc_score(x, om_id, texture_id, climate_id, SMAF_DATA) for x in xs]
+            
+            fig_smaf_soc = go.Figure()
+            fig_smaf_soc.add_trace(go.Scatter(
+                x=xs, y=np.array(ys) / 100.0, mode="lines", 
+                line=dict(color="#5C4033", width=3), 
+                name="Score Curve", hovertemplate="SOC: %{x:.2f}%<br>Score: %{y:.0%}<extra></extra>"
+            ))
+            
+            fig_smaf_soc.add_trace(go.Scatter(
+                x=[oc_val], y=[score_smaf_soc / 100.0], mode="markers", 
+                marker=dict(color=smaf_soc_color, size=14, line=dict(color="white", width=2)), 
+                name="Your Soil"
+            ))
+            
+            fig_smaf_soc.update_layout(
+                xaxis_title="Total Organic Carbon (%)", 
+                yaxis_title="SHAPE Score",
+                yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0, 5.0]),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
+                height=400, margin=dict(l=10, r=10, t=40, b=10)
+            )
+            st.plotly_chart(fig_smaf_soc, width='stretch', key=f"{k}_smaf_soc_curve_plot")
+
+            # ── MAP RENDERER ──
+            if use_geo and f"{k}_lat" in st.session_state and in_bounds(lat_in, lon_in, cfg):
+                st.markdown("#### Site Location")
+                st.map(pd.DataFrame({"lat": [lat_in], "lon": [lon_in]}), zoom=6)
+
+        st.divider()
+        # 🚦 THE TRAFFIC COP: Route SMAF SOC score to the Excel Recommendation Engine
+        render_excel_recommendation_engine(region_name, chosen_crop, score_smaf_soc, key_prefix=f"{k}_smaf_soc_tab")
         
     elif chosen_indicator == "pH":
         # Global definition prevents NameError
@@ -2688,118 +3444,117 @@ def render_single_sample(region_name, cfg, df, df_hist):
         # 🚦 THE TRAFFIC COP: All regions now dynamically route through Excel!
         render_excel_recommendation_engine(region_name, chosen_crop, score, key_prefix=f"{k}_soc_tab")
 
-        # ── Carbon Sequestration Calculator ──
-        st.divider()
-        st.markdown("### 🌍 Carbon Sequestration Calculator")
-        st.markdown("Estimate carbon stock, sequestration gap, credit value, and time to target based on the benchmark above.")
-
-        with st.expander("⚙️ Field & Market Parameters", expanded=True):
-            cc1, cc2, cc3, cc4, cc5 = st.columns(5)
-            with cc1:
-                field_area = st.number_input("Field area (acres)", min_value=1.0, max_value=100000.0, value=None, step=10.0, placeholder="—", key=f"{k}_area")
-            with cc2:
-                bulk_density = st.number_input("Bulk density (g/cm³)", min_value=0.8, max_value=2.0, value=None, step=0.05, placeholder="—", key=f"{k}_bd")
-            with cc3:
-                depth_cm = st.number_input("Sampling depth (cm)", min_value=5, max_value=100, value=None, step=5, placeholder="—", key=f"{k}_depth")
-            with cc4:
-                carbon_price = st.number_input("Carbon price ($/t CO₂e)", min_value=1.0, max_value=500.0, value=None, step=5.0, placeholder="—", key=f"{k}_price")
-            with cc5:
-                annual_rate = st.number_input("Annual SOC gain (%/yr)", min_value=0.01, max_value=2.0, value=None, step=0.05, placeholder="—", key=f"{k}_rate")
-
-        # ✨ THE NEW CARBON GATEKEEPER ✨
-        input_vars = [field_area, bulk_density, depth_cm, carbon_price, annual_rate]
-
-        if None in input_vars:
-            st.info("💡 Please fill in all **Field & Market Parameters** above to unlock your carbon stock and credit estimates.")
-        else:
-            # ⚠️ All math and charts are now indented below the Gatekeeper!
-            def soc_to_tc_per_acre(soc_pct, bd, depth):
-                return (soc_pct / 100.0) * bd * depth * 10.0 * 0.4047
-
-            C_RATIO = 3.667
-            soc_target_90 = percentile_to_oc(90, lp_mean, sigma_val)
-            curr_tc_acre = soc_to_tc_per_acre(oc_val, bulk_density, depth_cm)
-            tgt_tc_acre  = soc_to_tc_per_acre(soc_target_90, bulk_density, depth_cm)
-            curr_tc_field = curr_tc_acre * field_area
-            tgt_tc_field  = tgt_tc_acre * field_area
-            gap_tc_field  = max(0.0, tgt_tc_field - curr_tc_field)
-            gap_co2_field = gap_tc_field * C_RATIO
-            credit_value  = gap_co2_field * carbon_price
-            years_to_tgt  = (max(0.0, soc_target_90 - oc_val) / annual_rate) if annual_rate > 0 else 0
-
-            sc1, sc2, sc3, sc4, sc5 = st.columns(5)
-            sc1.metric("Current C stock", f"{curr_tc_field:,.1f} t C", f"{curr_tc_acre:.2f} t C/acre")
-            sc2.metric("Target C stock (90th pct)", f"{tgt_tc_field:,.1f} t C", f"{tgt_tc_acre:.2f} t C/acre")
-            sc3.metric("Sequestration gap", f"{gap_tc_field:,.1f} t C", f"{gap_co2_field:,.1f} t CO₂e")
-            sc4.metric("Potential credit value", f"${credit_value:,.0f}", f"@ ${carbon_price}/t CO₂e")
-            sc5.metric("Years to 90th pct", f"{years_to_tgt:.1f} yrs", f"@ {annual_rate}%/yr gain")
-
+       # ── Carbon Sequestration Calculator (SHAPE Model Only) ──
+        if "Soil Organic Carbon" in target_indicators:
             st.divider()
-            chart_col, table_col = st.columns([3, 2])
-            with chart_col:
-                st.markdown("**Projected SOC trajectory to 90th percentile benchmark**")
-                max_yrs = max(int(np.ceil(years_to_tgt)) + 5, 20)
-                yr_axis = np.arange(0, max_yrs + 1, 1.0)
-                soc_traj = np.minimum(oc_val + annual_rate * yr_axis, soc_target_90)
-                tc_traj  = soc_to_tc_per_acre(soc_traj, bulk_density, depth_cm) * field_area
-                val_traj = (tc_traj - curr_tc_field) * C_RATIO * carbon_price
+            st.markdown("### 🌍 Carbon Sequestration Calculator")
+            st.markdown("Estimate carbon stock, sequestration gap, credit value, and time to target based on the benchmark above.")
 
-                fig_traj = go.Figure()
-                fig_traj.add_trace(go.Scatter(x=yr_axis, y=soc_traj, mode="lines", name="SOC (%)",
-                                              line=dict(color="#1a9641", width=2.5),
-                                              hovertemplate="Year %{x:.0f}<br>SOC: %{y:.2f}%<extra></extra>"))
-                fig_traj.add_hline(y=soc_target_90, line_dash="dash", line_color="rgba(0,114,178,0.6)",
-                                   annotation_text=f"90th pct target ({soc_target_90:.2f}%)", annotation_position="right")
-                fig_traj.add_hline(y=oc_val, line_dash="dot", line_color="rgba(200,100,0,0.5)",
-                                   annotation_text=f"Current ({oc_val}%)", annotation_position="right")
-                if years_to_tgt > 0:
-                    fig_traj.add_trace(go.Scatter(
-                        x=[years_to_tgt], y=[soc_target_90], mode="markers+text",
-                        marker=dict(color="#0072B2", size=12, line=dict(color="white", width=2)),
-                        text=[f"  Yr {years_to_tgt:.1f}"], textposition="middle right", name="Target reached"
-                    ))
-                fig_traj.add_trace(go.Scatter(x=yr_axis, y=val_traj, mode="lines", name="Cumulative credit value ($)",
-                                              line=dict(color="#E69F00", width=2, dash="dot"), yaxis="y2",
-                                              hovertemplate="Year %{x:.0f}<br>Value: $%{y:,.0f}<extra></extra>"))
-                fig_traj.update_layout(
-                    xaxis_title="Years from now",
-                    yaxis=dict(title="SOC (%)", gridcolor="rgba(150,150,150,0.1)"),
-                    yaxis2=dict(title="Cumulative credit value ($)", overlaying="y", side="right",
-                                showgrid=False, tickformat="$,.0f"),
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02),
-                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                    height=360, margin=dict(l=10, r=60, t=40, b=10)
-                )
-                st.plotly_chart(fig_traj, width='stretch', key=f"{k}_traj_chart")
+            with st.expander("⚙️ Field & Market Parameters", expanded=True):
+                cc1, cc2, cc3, cc4, cc5 = st.columns(5)
+                with cc1:
+                    field_area = st.number_input("Field area (acres)", min_value=1.0, max_value=100000.0, value=None, step=10.0, placeholder="—", key=f"{k}_area")
+                with cc2:
+                    bulk_density = st.number_input("Bulk density (g/cm³)", min_value=0.8, max_value=2.0, value=None, step=0.05, placeholder="—", key=f"{k}_bd")
+                with cc3:
+                    depth_cm = st.number_input("Sampling depth (cm)", min_value=5, max_value=100, value=None, step=5, placeholder="—", key=f"{k}_depth")
+                with cc4:
+                    carbon_price = st.number_input("Carbon price ($/t CO₂e)", min_value=1.0, max_value=500.0, value=None, step=5.0, placeholder="—", key=f"{k}_price")
+                with cc5:
+                    annual_rate = st.number_input("Annual SOC gain (%/yr)", min_value=0.01, max_value=2.0, value=None, step=0.05, placeholder="—", key=f"{k}_rate")
 
-            with table_col:
-                st.markdown("**Credit value sensitivity ($/t CO₂e)**")
-                price_scenarios = [10, 25, 50, 100, 200]
-                milestone_years = sorted(set([5, 10, 20, int(np.ceil(years_to_tgt))] if years_to_tgt > 0 else [5, 10, 20]))
-                rows = []
-                for yr in milestone_years:
-                    soc_at_yr = min(oc_val + annual_rate * yr, soc_target_90)
-                    tc_at_yr = soc_to_tc_per_acre(soc_at_yr, bulk_density, depth_cm) * field_area
-                    co2_at_yr = max(0.0, tc_at_yr - curr_tc_field) * C_RATIO
-                    row_vals = {"Year": f"Yr {yr}"}
-                    for p in price_scenarios:
-                        row_vals[f"${p}"] = f"${co2_at_yr * p:,.0f}"
-                    rows.append(row_vals)
-                st.dataframe(pd.DataFrame(rows), hide_index=True, width='stretch')
+            input_vars = [field_area, bulk_density, depth_cm, carbon_price, annual_rate]
 
-                ann_tc = soc_to_tc_per_acre(annual_rate, bulk_density, depth_cm) * field_area
-                ann_co2 = ann_tc * C_RATIO
-                ann_value = ann_co2 * carbon_price
-                st.markdown(f"""
+            if None in input_vars:
+                st.info("💡 Please fill in all **Field & Market Parameters** above to unlock your carbon stock and credit estimates.")
+            else:
+                def soc_to_tc_per_acre(soc_pct, bd, depth):
+                    return (soc_pct / 100.0) * bd * depth * 10.0 * 0.4047
+
+                C_RATIO = 3.667
+                soc_target_90 = percentile_to_oc(90, lp_mean, sigma_val)
+                curr_tc_acre = soc_to_tc_per_acre(oc_val, bulk_density, depth_cm)
+                tgt_tc_acre  = soc_to_tc_per_acre(soc_target_90, bulk_density, depth_cm)
+                curr_tc_field = curr_tc_acre * field_area
+                tgt_tc_field  = tgt_tc_acre * field_area
+                gap_tc_field  = max(0.0, tgt_tc_field - curr_tc_field)
+                gap_co2_field = gap_tc_field * C_RATIO
+                credit_value  = gap_co2_field * carbon_price
+                years_to_tgt  = (max(0.0, soc_target_90 - oc_val) / annual_rate) if annual_rate > 0 else 0
+
+                sc1, sc2, sc3, sc4, sc5 = st.columns(5)
+                sc1.metric("Current C stock", f"{curr_tc_field:,.1f} t C", f"{curr_tc_acre:.2f} t C/acre")
+                sc2.metric("Target C stock (90th pct)", f"{tgt_tc_field:,.1f} t C", f"{tgt_tc_acre:.2f} t C/acre")
+                sc3.metric("Sequestration gap", f"{gap_tc_field:,.1f} t C", f"{gap_co2_field:,.1f} t CO₂e")
+                sc4.metric("Potential credit value", f"${credit_value:,.0f}", f"@ ${carbon_price}/t CO₂e")
+                sc5.metric("Years to 90th pct", f"{years_to_tgt:.1f} yrs", f"@ {annual_rate}%/yr gain")
+
+                st.divider()
+                chart_col, table_col = st.columns([3, 2])
+                with chart_col:
+                    st.markdown("**Projected SOC trajectory to 90th percentile benchmark**")
+                    max_yrs = max(int(np.ceil(years_to_tgt)) + 5, 20)
+                    yr_axis = np.arange(0, max_yrs + 1, 1.0)
+                    soc_traj = np.minimum(oc_val + annual_rate * yr_axis, soc_target_90)
+                    tc_traj  = soc_to_tc_per_acre(soc_traj, bulk_density, depth_cm) * field_area
+                    val_traj = (tc_traj - curr_tc_field) * C_RATIO * carbon_price
+
+                    fig_traj = go.Figure()
+                    fig_traj.add_trace(go.Scatter(x=yr_axis, y=soc_traj, mode="lines", name="SOC (%)",
+                                                  line=dict(color="#1a9641", width=2.5),
+                                                  hovertemplate="Year %{x:.0f}<br>SOC: %{y:.2f}%<extra></extra>"))
+                    fig_traj.add_hline(y=soc_target_90, line_dash="dash", line_color="rgba(0,114,178,0.6)",
+                                       annotation_text=f"90th pct target ({soc_target_90:.2f}%)", annotation_position="right")
+                    fig_traj.add_hline(y=oc_val, line_dash="dot", line_color="rgba(200,100,0,0.5)",
+                                       annotation_text=f"Current ({oc_val}%)", annotation_position="right")
+                    if years_to_tgt > 0:
+                        fig_traj.add_trace(go.Scatter(
+                            x=[years_to_tgt], y=[soc_target_90], mode="markers+text",
+                            marker=dict(color="#0072B2", size=12, line=dict(color="white", width=2)),
+                            text=[f"  Yr {years_to_tgt:.1f}"], textposition="middle right", name="Target reached"
+                        ))
+                    fig_traj.add_trace(go.Scatter(x=yr_axis, y=val_traj, mode="lines", name="Cumulative credit value ($)",
+                                                  line=dict(color="#E69F00", width=2, dash="dot"), yaxis="y2",
+                                                  hovertemplate="Year %{x:.0f}<br>Value: $%{y:,.0f}<extra></extra>"))
+                    fig_traj.update_layout(
+                        xaxis_title="Years from now",
+                        yaxis=dict(title="SOC (%)", gridcolor="rgba(150,150,150,0.1)"),
+                        yaxis2=dict(title="Cumulative credit value ($)", overlaying="y", side="right",
+                                    showgrid=False, tickformat="$,.0f"),
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        height=360, margin=dict(l=10, r=60, t=40, b=10)
+                    )
+                    st.plotly_chart(fig_traj, width='stretch', key=f"{k}_traj_chart")
+
+                with table_col:
+                    st.markdown("**Credit value sensitivity ($/t CO₂e)**")
+                    price_scenarios = [10, 25, 50, 100, 200]
+                    milestone_years = sorted(set([5, 10, 20, int(np.ceil(years_to_tgt))] if years_to_tgt > 0 else [5, 10, 20]))
+                    rows = []
+                    for yr in milestone_years:
+                        soc_at_yr = min(oc_val + annual_rate * yr, soc_target_90)
+                        tc_at_yr = soc_to_tc_per_acre(soc_at_yr, bulk_density, depth_cm) * field_area
+                        co2_at_yr = max(0.0, tc_at_yr - curr_tc_field) * C_RATIO
+                        row_vals = {"Year": f"Yr {yr}"}
+                        for p in price_scenarios:
+                            row_vals[f"${p}"] = f"${co2_at_yr * p:,.0f}"
+                        rows.append(row_vals)
+                    st.dataframe(pd.DataFrame(rows), hide_index=True, width='stretch')
+
+                    ann_tc = soc_to_tc_per_acre(annual_rate, bulk_density, depth_cm) * field_area
+                    ann_co2 = ann_tc * C_RATIO
+                    ann_value = ann_co2 * carbon_price
+                    st.markdown(f"""
 | Metric | Value |
 |---|---|
 | Annual C gain | {ann_tc:.2f} t C/yr |
 | Annual CO₂e | {ann_co2:.2f} t CO₂e/yr |
 | Annual credit value | ${ann_value:,.0f}/yr |
 """)
-                st.caption("⚠️ Estimates assume linear SOC accumulation. Actual sequestration is nonlinear "
-                           "and depends on management, soil type, and climate. Consult a certified carbon "
-                           "project developer before trading.")
+                    st.caption("⚠️ Estimates assume linear SOC accumulation. Actual sequestration is nonlinear "
+                               "and depends on management, soil type, and climate. Consult a certified carbon "
+                               "project developer before trading.")
     st.divider()
     st.markdown("#### 📚 Resources")
     rc1, rc2, rc3 = st.columns(3)
@@ -3003,11 +3758,10 @@ def render_how_to_use(region_name, cfg):
 def render_region(region_name, cfg):
     mineral_df, hist_df = load_region_data(cfg)
 
-    if mineral_df is None:
+    if mineral_df is None and region_name != "Global_SMAF":
         st.error(f"⚠️ Parameter file '{cfg['csv']}' not found. Upload it to your deployment "
                  f"to activate scoring for {region_name}.")
         return
-
     # 1. Standard sub-tabs setup
     tab_single, tab_batch, tab_use = st.tabs(["🔬 Single Sample", "📊 Batch Scoring", "📖 How to Use"])
 
@@ -3027,12 +3781,90 @@ def render_region(region_name, cfg):
         render_how_to_use(region_name, cfg)
 
 # ════════════════════════════════════════════════════════════════════
-# 9. REGION TABS (TOP LEVEL)
+# 9. GLOBAL ROUTING ENGINE (Replaces Region Tabs)
 # ════════════════════════════════════════════════════════════════════
-region_tabs = st.tabs([f"{cfg['flag']} {name}" for name, cfg in REGIONS.items()])
-for tab, (name, cfg) in zip(region_tabs, REGIONS.items()):
-    with tab:
-        render_region(name, cfg)
+st.markdown("### 🌍 Global Location Setup")
+
+loc_c1, loc_c2 = st.columns(2)
+with loc_c1:
+    selected_country = st.selectbox("Country", ALL_COUNTRIES)
+    
+with loc_c2:
+    selected_state = None
+    if selected_country == "United States":
+        selected_state = st.selectbox("State", US_STATES)
+        
+# ── FRAMEWORK LOGIC (The SHAPE Gatekeeper) ──
+active_region_name = "Global_SMAF"
+if selected_country == "Brazil": active_region_name = "Brazil"
+elif selected_country in SSA_COUNTRIES: active_region_name = "Sub-Saharan Africa"
+elif selected_country == "United States" and selected_state == "Florida": active_region_name = "Florida"
+    
+st.markdown("### ⚙️ Scoring Framework")
+framework_options = ["SMAF Only"]
+if active_region_name != "Global_SMAF":
+    framework_options.insert(0, "SHAPE + SMAF")
+    
+selected_framework = st.selectbox("Select your preferred evaluation framework:", framework_options)
+st.session_state["selected_framework"] = selected_framework
+
+if selected_framework == "SHAPE + SMAF":
+    st.success(f"✨ SHAPE regional SOC models are unlocked for {selected_state if selected_state else selected_country}!")
+else:
+    # Check if the country actually supports SHAPE natively before showing the limited warning
+    is_supported_region = (selected_country == "Brazil") or (selected_country in SSA_COUNTRIES) or (selected_country == "United States" and selected_state == "Florida")
+    
+    if is_supported_region:
+        st.info(f"💡 Operating in SMAF-only mode for {selected_state if selected_state else selected_country}. SHAPE regional SOC modeling has been bypassed.")
+    else:
+        st.info("💡 Operating in global SMAF mode. (SHAPE SOC models are currently limited to Florida, Brazil, and Sub-Saharan Africa).")
+        
+    active_region_name = "Global_SMAF" # Force fallback if they manually select SMAF Only
+
+# Create the Global CFG dynamically if it doesn't exist
+if "Global_SMAF" not in REGIONS:
+    REGIONS["Global_SMAF"] = dict(REGIONS["Florida"]) # Inherit default UI maps
+    REGIONS["Global_SMAF"]["key"] = "GL"
+    REGIONS["Global_SMAF"]["csv"] = None        # Disables SHAPE parsing
+    REGIONS["Global_SMAF"]["csv_hist"] = None   # Disables Histosol parsing
+
+active_cfg = REGIONS[active_region_name]
+
+# ── DYNAMIC INDICATOR FILTER ──
+st.markdown("### 🧪 Target Soil Health Indicators")
+st.markdown("<span style='font-size:13px; color:gray'>Select the indicators you measured in the lab. We will only ask for the site inputs required to calculate these specific scores.</span>", unsafe_allow_html=True)
+
+chk_c1, chk_c2, chk_c3 = st.columns(3)
+target_indicators = []
+
+with chk_c1:
+    if st.checkbox("Soil Organic Carbon", value=True): 
+        if selected_framework == "SHAPE + SMAF": target_indicators.append("Soil Organic Carbon")
+        target_indicators.append("SMAF Soil Organic Carbon")
+    if st.checkbox("Soil Phosphorus", value=True): target_indicators.append("Soil Phosphorus")
+    if st.checkbox("pH", value=True): target_indicators.append("pH")
+    
+with chk_c2:
+    if st.checkbox("Bulk Density", value=True): target_indicators.append("Bulk Density")
+    if st.checkbox("Electrical Conductivity", value=True): target_indicators.append("Electrical Conductivity")
+    if st.checkbox("Macroaggregate Stability", value=True): target_indicators.append("Macroaggregate Stability")
+    
+with chk_c3:
+    if st.checkbox("Sodium Adsorption Ratio", value=False): target_indicators.append("Sodium Adsorption Ratio")
+    if st.checkbox("Potentially Mineralizable Nitrogen", value=False): target_indicators.append("Potentially Mineralizable Nitrogen")
+    if st.checkbox("Available Water Capacity", value=False): target_indicators.append("Available Water Capacity")
+    if st.checkbox("Water-Filled Pore Space", value=False): target_indicators.append("Water-Filled Pore Space")
+    if st.checkbox("Microbial Biomass Carbon", value=False): target_indicators.append("Microbial Biomass Carbon")
+    
+if len(target_indicators) == 0:
+    st.warning("⚠️ Please select at least one indicator to continue.")
+    st.stop()
+    
+st.session_state["target_indicators"] = target_indicators
+st.divider()
+
+# Launch the app engine dynamically based on selections!
+render_region(active_region_name, active_cfg)
 
 # ════════════════════════════════════════════════════════════════════
 # FOOTER

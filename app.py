@@ -3867,6 +3867,57 @@ st.divider()
 render_region(active_region_name, active_cfg)
 
 # ════════════════════════════════════════════════════════════════════
+# 10. DYNAMIC CITATIONS
+# ════════════════════════════════════════════════════════════════════
+st.divider()
+st.markdown("### 📝 Citations")
+st.markdown("<span style='font-size:13px; color:gray'>The following methodologies and frameworks are actively being utilized to evaluate your current selection:</span>", unsafe_allow_html=True)
+
+# 1. gSHAPE App Citation (Always First)
+st.markdown("**gSHAPE Web Application:**")
+st.markdown("- Mohkam Singh & Marcio R. Nunes. *gSHAPE: Global Soil Health Assessment Protocol and Evaluation.* (Citation coming soon).")
+
+# 2. Evaluate active indicators for conditional citations
+has_general_smaf = any(ind in target_indicators for ind in [
+    "Bulk Density", "Macroaggregate Stability", "Available Water Capacity", 
+    "pH", "Soil Phosphorus", "Electrical Conductivity", 
+    "Sodium Adsorption Ratio", "Potentially Mineralizable Nitrogen", 
+    "Microbial Biomass Carbon", "SMAF Soil Organic Carbon"
+])
+has_wfps = "Water-Filled Pore Space" in target_indicators
+has_beta_g = "Beta-glucosidase" in target_indicators
+has_k = "Extractable Potassium" in target_indicators  # Future-proofing 
+has_shape_soc = "Soil Organic Carbon" in target_indicators and selected_framework == "SHAPE + SMAF"
+
+# 3. SHAPE SOC Citations
+if has_shape_soc:
+    if active_region_name == "Sub-Saharan Africa":
+        st.markdown(f"**SHAPE Soil Organic Carbon ({active_region_name}):**")
+        st.markdown("- Biru, M.K., Nunes, M.R., Mohkam-Singh et al. A region-specific soil health assessment protocol and evaluation for Sub-Saharan Africa. *Commun Earth Environ* 7, 670 (2026). [https://doi.org/10.1038/s43247-026-03727-1](https://doi.org/10.1038/s43247-026-03727-1)")
+    elif active_region_name in ["Florida", "Brazil"]:
+        st.markdown(f"**SHAPE Soil Organic Carbon ({active_region_name}):**")
+        st.markdown("- (Citation coming soon).")
+        
+# 4. SMAF Core Citation
+if has_general_smaf:
+    st.markdown("**SMAF General Framework & Core Indicators:**")
+    st.markdown("- Andrews, S.S., Karlen, D.L., & Cambardella, C.A. (2004). The Soil Management Assessment Framework: a quantitative soil quality evaluation method. *Soil Sci. Soc. Am. J.*, 68, 1945-1962. [https://acsess.onlinelibrary.wiley.com/doi/full/10.2136/sssaj2004.1945](https://acsess.onlinelibrary.wiley.com/doi/full/10.2136/sssaj2004.1945)")
+    
+# 5. SMAF WFPS / K Citation
+if has_wfps or has_k:
+    st.markdown("**SMAF Water-Filled Pore Space / Potassium:**")
+    st.markdown("- Wienhold, B.J., Karlen, D.L., Andrews, S.S., & Stott, D.E. (2009). Protocol for indicator scoring in the soil management assessment framework (SMAF). *Renew. Agric. Food Syst.*, 24(4), 260-266. [Link to article](https://www.cambridge.org/core/journals/renewable-agriculture-and-food-systems/article/protocol-for-indicator-scoring-in-the-soil-management-assessment-framework-smaf/3B3C2C94F977CEFF8D294D87B0D06DBF)")
+    
+# 6. SMAF Beta-glucosidase Citation
+if has_beta_g:
+    st.markdown("**SMAF Beta-glucosidase:**")
+    st.markdown("- Stott, D.E., Andrews, S.S., Liebig, M.A., Wienhold, B.J., & Karlen, D.L. (2010). Evaluation of β-glucosidase activity as a soil quality indicator for the soil management assessment framework. *Soil Sci. Soc. Am. J.*, 74, 107-119. [https://acsess.onlinelibrary.wiley.com/doi/full/10.2136/sssaj2009.0029](https://acsess.onlinelibrary.wiley.com/doi/full/10.2136/sssaj2009.0029)")
+
+# ════════════════════════════════════════════════════════════════════
+# FOOTER
+# ════════════════════════════════════════════════════════════════════
+
+# ════════════════════════════════════════════════════════════════════
 # FOOTER
 # ════════════════════════════════════════════════════════════════════
 st.divider()

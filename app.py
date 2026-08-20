@@ -796,11 +796,11 @@ SMAF_WEATHERING_MAP = {
 }
 
 SMAF_TEXTURE_MAP = {
-    "Sand": 1, "Loamy Sand": 1, "Loamy sand": 1,
-    "Sandy Loam": 2, "Sandy loam": 2,
-    "Loam": 3, "Silt Loam": 3, "Silt loam": 3, "Silt": 3,
-    "Sandy Clay Loam": 4, "Sandy clay loam": 4, "Clay Loam": 4, "Clay loam": 4, "Silty Clay Loam": 4, "Silty clay loam": 4,
-    "Sandy Clay": 5, "Sandy clay": 5, "Silty Clay": 5, "Silty clay": 5, "Clay": 5
+    "Sand / loamy sand / sandy loam (<8% clay)": 1, 
+    "Sandy loam (>8% clay) / sandy clay loam / loam": 2, 
+    "Silt loam / silt": 3,
+    "Sandy clay / clay loam / silty clay loam / silty clay / clay (<60% clay)": 4, 
+    "Clay (>60% clay)": 5          
 }
 
 SMAF_SLOPE_MAP = {
@@ -3068,7 +3068,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
     elif chosen_indicator == "Water-Filled Pore Space":
         # 1. Grab Global Variables
-        
+        texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
         
         # 2. Calculate WFPS Fraction & Scores
         wfps_frac = get_wfps_frac(w_val, bd_val, SMAF_DATA)
@@ -3168,7 +3168,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
     elif chosen_indicator == "Microbial Biomass Carbon":
         # 1. Grab Global Variables
-        texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", "Loam").strip().title(), 3)
+        texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
         om_string = st.session_state.get(f"{k}_sm_om_class", "Class 2 (Med-High OM)")
         om_id = SMAF_OM_MAP.get(om_string, 2)
         
@@ -3266,7 +3266,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
     elif chosen_indicator == "Beta-glucosidase":
         # 1. Grab Global Variables
-        texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", "Loam").strip().title(), 3)
+        texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
         om_string = st.session_state.get(f"{k}_sm_om_class", "Class 2 (Med-High OM)")
         om_id = SMAF_OM_MAP.get(om_string, 2)
         climate_id = SMAF_CLIMATE_MAP.get(st.session_state.get(f"{k}_sm_climate_class", ""), 3)
@@ -3355,7 +3355,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
     elif chosen_indicator == "SMAF Soil Organic Carbon":
         # 1. Grab Global Variables
-        
+        texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
         om_string = st.session_state.get(f"{k}_sm_om_class", "Class 2 (Med-High OM)")
         om_id = SMAF_OM_MAP.get(om_string, 2)
         climate_id = SMAF_CLIMATE_MAP.get(st.session_state.get(f"{k}_sm_climate_class", ""), 3)
@@ -4255,9 +4255,6 @@ if has_beta_g:
     st.markdown("**SMAF Beta-glucosidase:**")
     st.markdown("- Stott, D. E., Andrews, S. S., Liebig, M. A., Wienhold, B. J., & Karlen, D. L. (2010). Evaluation of β-glucosidase activity as a soil quality indicator for the soil management assessment framework. *Soil Sci. Soc. Am. J.*, 74, 107-119. [https://doi.org/10.2136/sssaj2009.0029](https://acsess.onlinelibrary.wiley.com/doi/full/10.2136/sssaj2009.0029)")
 
-# ════════════════════════════════════════════════════════════════════
-# FOOTER
-# ════════════════════════════════════════════════════════════════════
 # ════════════════════════════════════════════════════════════════════
 # FOOTER
 # ════════════════════════════════════════════════════════════════════

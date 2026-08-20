@@ -4171,8 +4171,6 @@ active_cfg = REGIONS[active_region_name]
 
 # ── DYNAMIC INDICATOR FILTER ──
 st.markdown("### 🧪 Target Soil Health Indicators")
-st.markdown("<span style='font-size:13px; color:gray'>Select the indicators you measured in the lab. We will only ask for the site inputs required to calculate these specific scores.</span>", unsafe_allow_html=True)
-
 chk_c1, chk_c2, chk_c3 = st.columns(3)
 target_indicators = []
 

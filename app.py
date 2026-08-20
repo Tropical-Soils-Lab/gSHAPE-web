@@ -32,8 +32,35 @@ US_STATES = [
     "Wisconsin", "Wyoming"
 ]
 
-ALL_COUNTRIES = ["United States", "Brazil", "Canada", "Mexico", "United Kingdom", "Australia", "India"] + SSA_COUNTRIES
-ALL_COUNTRIES.sort() # Keep it alphabetical
+# Comprehensive list of all world countries
+WORLD_COUNTRIES = [
+    "Afghanistan", "Albania", "Algeria", "Andorra", "Antigua and Barbuda", "Argentina", 
+    "Armenia", "Australia", "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", 
+    "Barbados", "Belarus", "Belgium", "Belize", "Bhutan", "Bolivia", "Bosnia and Herzegovina", 
+    "Brazil", "Brunei", "Bulgaria", "Cabo Verde", "Cambodia", "Canada", "Chile", "China", 
+    "Colombia", "Congo (Congo-Brazzaville)", "Costa Rica", "Croatia", "Cuba", "Cyprus", 
+    "Czechia", "Denmark", "Dominica", "Dominican Republic", "Ecuador", "Egypt", 
+    "El Salvador", "Estonia", "Fiji", "Finland", "France", "Georgia", "Germany", "Greece", 
+    "Grenada", "Guatemala", "Guyana", "Haiti", "Holy See", "Honduras", "Hungary", "Iceland", 
+    "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy", "Jamaica", "Japan", 
+    "Jordan", "Kazakhstan", "Kiribati", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", 
+    "Libya", "Liechtenstein", "Lithuania", "Luxembourg", "Malaysia", "Maldives", "Malta", 
+    "Marshall Islands", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", 
+    "Morocco", "Myanmar", "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua", 
+    "North Korea", "North Macedonia", "Norway", "Oman", "Pakistan", "Palau", "Palestine State", 
+    "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", 
+    "Qatar", "Romania", "Russia", "Saint Kitts and Nevis", "Saint Lucia", 
+    "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Saudi Arabia", "Serbia", 
+    "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "South Korea", "Spain", "Sri Lanka", 
+    "Suriname", "Sweden", "Switzerland", "Syria", "Tajikistan", "Thailand", "Timor-Leste", 
+    "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan", "Tuvalu", "Ukraine", 
+    "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "Uzbekistan", 
+    "Vanuatu", "Venezuela", "Vietnam", "Yemen"
+]
+
+# Safely combine both lists to ensure no duplicates, then sort alphabetically
+ALL_COUNTRIES = list(set(WORLD_COUNTRIES + SSA_COUNTRIES))
+ALL_COUNTRIES.sort()
 
 # ── EXCEL RECOMMENDATION DATABASE SETUP ──
 EXCEL_PATH = Path(__file__).parent / "gSHAPE_SOC_Recommendations.xlsx"

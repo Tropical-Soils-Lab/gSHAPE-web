@@ -796,10 +796,10 @@ SMAF_WEATHERING_MAP = {
 }
 
 SMAF_TEXTURE_MAP = {
-    "Sand / loamy sand / sandy loam (<8% clay)": 1, 
-    "Sandy loam (>8% clay) / sandy clay loam / loam": 2, 
-    "Silt loam / silt": 3,
-    "Sandy clay / clay loam / silty clay loam / silty clay / clay (<60% clay)": 4, 
+    "Sand / Loamy Sand / Sandy Loam (<8% clay)": 1, 
+    "Sandy Loam (>8% clay) / Sandy Clay Loam / Loam": 2, 
+    "Silt Loam / Silt": 3,
+    "Sandy Clay / Clay Loam / Silty Clay loam / Silty Clay / Clay (<60% clay)": 4, 
     "Clay (>60% clay)": 5          
 }
 

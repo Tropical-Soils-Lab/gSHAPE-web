@@ -3431,38 +3431,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
             st.download_button("⬇️ Download as CSV", data=result_df.to_csv(index=False).encode("utf-8"),
                                file_name=f"SMAF_{cfg['key']}_{tax}_{tex}_{oc_val}pct.csv",
                                mime="text/csv", width='stretch', key=f"{k}_export_btn_smaf_unique")
-            # ── SHAPE Peer Group & Target Tracking (Mirroring SHAPE Tab) ──
-            st.divider()
-            gap = tgt_oc - oc_val
-            median_soc = percentile_to_oc(50, lp_mean, sigma_val)
-            
-            m1, m2 = st.columns(2)
-            with m1:
-                soc_diff = oc_val - median_soc
-                st.metric("Peer Group Median", f"{median_soc:.2f}% SOC", f"{soc_diff:+.2f}% difference")
-            with m2:
-                st.metric(f"Target ({target_pct}th pct)", f"{tgt_oc:.2f}% SOC", "✅ Exceeds target" if gap <= 0 else f"-{gap:.2f}% needed")
-
-            st.divider()
-            st.markdown("**SOC targets by percentile**")
-            bench = pd.DataFrame({
-                "Percentile": ["80th", "90th", "95th", "99th"],
-                "Target SOC (%)": [f"{percentile_to_oc(p, lp_mean, sigma_val):.2f}" for p in [80, 90, 95, 99]]
-            })
-            st.dataframe(bench, hide_index=True, width='stretch')
-
-            st.divider()
-            st.markdown("**📥 Export result**")
-            result_df = pd.DataFrame([{
-                "Region": region_name, "Suborder": strip_code(selected_sub), "Texture": strip_code(selected_tex),
-                "Temperature_C": target_temp,
-                **({"Precipitation_mm": target_precip} if has_precip else {}),
-                "SOC_pct": oc_val, "SHAPE_Score": round(score_smaf_soc, 2), "Zone": smaf_soc_label,
-                "Target_SOC_pct": round(tgt_oc, 3)
-            }])
-            st.download_button("⬇️ Download as CSV", data=result_df.to_csv(index=False).encode("utf-8"),
-                               file_name=f"SMAF_{cfg['key']}_{tax}_{tex}_{oc_val}pct.csv",
-                               mime="text/csv", width='stretch', key=f"{k}_export_btn_smaf")
 
         with col_r:
             st.markdown("#### Scoring Curve (SMAF Logistic)")

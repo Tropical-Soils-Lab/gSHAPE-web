@@ -1914,18 +1914,37 @@ def render_single_sample(region_name, cfg, df, df_hist):
             selected_sub = st.selectbox(taxon_label, ["— Select —"] + active_taxon_display, format_func=lambda x: strip_code(x) if x != "— Select —" else x, key=f"{k}_sub")
             selected_tex = st.selectbox("Texture", ["— Select —"] + list(cfg["texture_map"].keys()), format_func=lambda x: strip_code(x) if x != "— Select —" else x, key=f"{k}_tex")
             
-            # ✨ SMART UI: Auto-select Texture Profile ✨
-            raw_tex = selected_tex.lower() if selected_tex else ""
-            if "— select —" in raw_tex: derived_tex_id = 0
-            elif "silt loam" in raw_tex or "silt" in raw_tex: derived_tex_id = 3
-            elif "clay" in raw_tex and "loam" not in raw_tex and "sandy" not in raw_tex and "silty" not in raw_tex: derived_tex_id = 5 
-            elif "clay" in raw_tex: derived_tex_id = 4 
-            elif "loam" in raw_tex: derived_tex_id = 2 
-            elif "sand" in raw_tex: derived_tex_id = 1 
-            else: derived_tex_id = 2
+           # ✨ SMART UI: Auto-select Texture Profile ✨
+            raw_tex = selected_tex.lower().strip() if selected_tex else ""
             
+            if "— select —" in raw_tex or not raw_tex:
+                derived_tex_id = 0
+            elif raw_tex in ["sand", "loamy sand"]:
+                derived_tex_id = 1
+            elif raw_tex in ["sandy loam", "sandy clay loam", "loam"]:
+                derived_tex_id = 2
+            elif raw_tex in ["silt", "silt loam"]:
+                derived_tex_id = 3
+            elif raw_tex in ["silty clay", "silty clay loam", "clay loam", "sandy clay"]:
+                derived_tex_id = 4
+            elif raw_tex == "clay":
+                derived_tex_id = 5
+            else:
+                if "silt loam" in raw_tex or "silt" in raw_tex: derived_tex_id = 3
+                elif "sandy clay loam" in raw_tex: derived_tex_id = 2
+                elif "loamy sand" in raw_tex: derived_tex_id = 1
+                elif "sandy loam" in raw_tex: derived_tex_id = 2
+                elif "clay loam" in raw_tex or "silty clay" in raw_tex or "sandy clay" in raw_tex: derived_tex_id = 4
+                elif "clay" in raw_tex: derived_tex_id = 5
+                elif "loam" in raw_tex: derived_tex_id = 2
+                elif "sand" in raw_tex: derived_tex_id = 1
+                else: derived_tex_id = 2
+                
             tex_options = ["— Select —"] + list(SMAF_TEXTURE_MAP.keys())
-            if derived_tex_id != 0: st.session_state[f"{k}_sm_tex"] = tex_options[derived_tex_id]
+            
+            if derived_tex_id != 0: 
+                st.session_state[f"{k}_sm_tex"] = tex_options[derived_tex_id]
+                
             selected_sm_tex = st.selectbox("Texture Profile (Auto-Assigned)", tex_options, key=f"{k}_sm_tex")
             
             texture_id = SMAF_TEXTURE_MAP.get(selected_sm_tex, 0)

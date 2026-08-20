@@ -1930,11 +1930,18 @@ def render_single_sample(region_name, cfg, df, df_hist):
             elif raw_tex == "clay":
                 derived_tex_id = 5
             else:
-                if "silt loam" in raw_tex or "silt" in raw_tex: derived_tex_id = 3
-                elif "sandy clay loam" in raw_tex: derived_tex_id = 2
-                elif "loamy sand" in raw_tex: derived_tex_id = 1
+                # 3-word combinations first
+                if "sandy clay loam" in raw_tex: derived_tex_id = 2
+                elif "silty clay loam" in raw_tex: derived_tex_id = 4
+                # 2-word combinations next
+                elif "silty clay" in raw_tex: derived_tex_id = 4
+                elif "sandy clay" in raw_tex: derived_tex_id = 4
+                elif "clay loam" in raw_tex: derived_tex_id = 4
+                elif "silt loam" in raw_tex: derived_tex_id = 3
                 elif "sandy loam" in raw_tex: derived_tex_id = 2
-                elif "clay loam" in raw_tex or "silty clay" in raw_tex or "sandy clay" in raw_tex: derived_tex_id = 4
+                elif "loamy sand" in raw_tex: derived_tex_id = 1
+                # Single words last (so they don't steal the multi-word phrases)
+                elif "silt" in raw_tex: derived_tex_id = 3
                 elif "clay" in raw_tex: derived_tex_id = 5
                 elif "loam" in raw_tex: derived_tex_id = 2
                 elif "sand" in raw_tex: derived_tex_id = 1

@@ -1639,6 +1639,70 @@ def run_smaf_bg_score(bg_val, om_class, texture, climate, smaf_data, clamp=True)
         
     return y * 100.0
 
+# ----------------------------------------------------------------------
+# SMAF EXTRACTABLE POTASSIUM (EX-K) BACKEND ENGINE
+# ----------------------------------------------------------------------
+def load_exk_data(smaf_data, path="SMAF_lookup.xlsx"):
+    """Injects the Ex-K sheets into the global SMAF_DATA dictionary safely."""
+    if "exk_params" in smaf_data and len(smaf_data.get("exk_params", {})) > 0: return 
+    
+    import math, pandas as pd
+    sh = pd.read_excel(path, sheet_name=None, dtype=str)
+    
+    def clean_df(name):
+        if name not in sh: return pd.DataFrame()
+        df = sh[name].copy()
+        df.columns = [str(c).strip() for c in df.columns]
+        return df
+        
+    def num(x):
+        try: return float(x) if not pd.isna(x) else None
+        except: return None
+        
+    exk_texture = {}
+    df_tex = clean_df("exk_texture_params")
+    if not df_tex.empty:
+        for _, r in df_tex.iterrows():
+            tc = num(r.get("texture_code"))
+            if tc is not None:
+                exk_texture[int(tc)] = str(r.get("param_set")).strip()
+                
+    exk_params = {}
+    df_const = clean_df("exk_constants")
+    if not df_const.empty:
+        for _, r in df_const.iterrows():
+            ps = str(r.get("param_set")).strip()
+            a, b = num(r.get("a")), num(r.get("b"))
+            if ps != "nan" and a is not None and b is not None:
+                exk_params[ps] = {"a": a, "b": b}
+                
+    smaf_data["exk_texture"] = exk_texture
+    smaf_data["exk_params"] = exk_params
+
+def run_smaf_exk_score(k_val, texture_id, smaf_data, clamp=True):
+    load_exk_data(smaf_data)
+    t = smaf_data.get("exk_texture", {})
+    p = smaf_data.get("exk_params", {})
+    
+    if not t or not p: return 0.0
+    
+    pset = t.get(texture_id)
+    if not pset or pset not in p: return 0.0
+    
+    a = p[pset]["a"]
+    b = p[pset]["b"]
+    
+    import math
+    try:
+        y = a * (1.0 - math.exp(b * k_val))
+    except OverflowError:
+        y = 1.0
+        
+    if clamp:
+        y = max(0.0, min(1.0, y))
+        
+    return y * 100.0
+
 def fetch_climate(lat, lon, need_precip=False):
     """Fetch MAT (and optionally MAP) from NASA POWER climatology."""
     try:
@@ -1986,6 +2050,10 @@ def render_single_sample(region_name, cfg, df, df_hist):
             bg_val = 300.0
             if "Beta-glucosidase" in target_indicators:
                 bg_val = st.number_input("Measured Beta-glucosidase (mg/kg/hr)", min_value=0.0, max_value=2000.0, value=300.0, step=10.0, key=f"{k}_bg_val")
+
+            k_val = 125.0
+            if "Extractable Potassium" in target_indicators:
+                k_val = st.number_input("Measured Extractable K (mg/kg)", min_value=0.0, max_value=1000.0, value=125.0, step=5.0, key=f"{k}_exk_val")
         
                 
         with lc3:
@@ -2071,6 +2139,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
     w_val_sum = st.session_state.get(f"{k}_w_val", 0.25)
     ph_val_sum = st.session_state.get(f"{k}_ph_measured_input", 6.0)
     p_val_sum = st.session_state.get(f"{k}_sm_p_input", 25.0)
+    k_val_sum = st.session_state.get(f"{k}_exk_val", 125.0)
     ec_val_sum = st.session_state.get(f"{k}_ec_val", 1.5)
     sar_val_sum = st.session_state.get(f"{k}_sar_val", 2.0)
     pmn_val_sum = st.session_state.get(f"{k}_pmn_val", 10.0)
@@ -2131,6 +2200,9 @@ def render_single_sample(region_name, cfg, df, df_hist):
         ec_method_str_sum = st.session_state.get(f"{k}_ec_method", "Saturated Paste (ECsat)")
         ec_method_id_sum = 1 if "Saturated Paste" in ec_method_str_sum else 2
         chem_scores.append(safe_float(run_smaf_sar_score(sar_val_sum, ec_val_sum, ec_method_id_sum, texture_id_sum, SMAF_DATA)))
+
+    if "Extractable Potassium" in target_indicators:
+        chem_scores.append(safe_float(run_smaf_exk_score(k_val_sum, texture_id_sum, SMAF_DATA)))
 
     # ── BIOLOGICAL INDICATORS ──
     if "Soil Organic Carbon" in target_indicators:
@@ -2215,7 +2287,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
     cat_map = {
         "Bulk Density": "Physical", "Macroaggregate Stability": "Physical", 
         "Available Water Capacity": "Physical", "Water-Filled Pore Space": "Physical",
-        "pH": "Chemical", "Soil Phosphorus": "Chemical", 
+        "pH": "Chemical", "Soil Phosphorus": "Chemical", "Extractable Potassium": "Chemical",
         "Electrical Conductivity": "Chemical", "Sodium Adsorption Ratio": "Chemical",
         "Soil Organic Carbon": "Biological", "SMAF Soil Organic Carbon": "Biological", 
         "Potentially Mineralizable Nitrogen": "Biological", "Microbial Biomass Carbon": "Biological","Beta-glucosidase": "Biological"
@@ -2284,6 +2356,10 @@ def render_single_sample(region_name, cfg, df, df_hist):
         elif ind == "Beta-glucosidase":
             val = f"{bg_val_sum} mg/kg/hr"
             scr = run_smaf_bg_score(bg_val_sum, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)
+
+        elif ind == "Extractable Potassium":
+            val = f"{k_val_sum} mg/kg"
+            scr = run_smaf_exk_score(k_val_sum, texture_id_sum, SMAF_DATA)
             
         elif ind == "Microbial Biomass Carbon":
             val = f"{mbc_val_sum} mg/kg"
@@ -3400,6 +3476,92 @@ def render_single_sample(region_name, cfg, df, df_hist):
         st.divider()
         # 🚦 THE TRAFFIC COP: Route SMAF SOC score to the Excel Recommendation Engine
         render_excel_recommendation_engine(region_name, chosen_crop, score_smaf_soc, key_prefix=f"{k}_smaf_soc_tab")
+
+    elif chosen_indicator == "Extractable Potassium":
+        # 1. Grab Global Variables
+        texture_id = SMAF_TEXTURE_MAP[st.session_state[f"{k}_sm_tex"]]
+        
+        # 2. Calculate Score
+        raw_score_exk = run_smaf_exk_score(k_val, texture_id, SMAF_DATA)
+        try:
+            score_exk = float(raw_score_exk) if raw_score_exk is not None else 0.0
+        except (ValueError, TypeError):
+            score_exk = 0.0
+            
+        exk_color = score_color(score_exk)
+        exk_label = score_label(score_exk)
+        
+        # 3. Layout
+        col_l, col_r = st.columns([1, 2])
+        
+        with col_l:
+            gauge_title = f"<b style='font-size:17px; color:#333;'>{exk_label}</b><br><span style='font-size:11px; color:#555;'>Measured K: {k_val} mg/kg</span>"
+            fig_exk_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_exk)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": exk_color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#555", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": exk_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.85)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.85)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.85)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.85)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.85)"}
+                    ],
+                    "threshold": {"line": {"color": exk_color, "width": 5}, "thickness": 0.8, "value": score_exk}
+                }
+            ))
+            fig_exk_gauge.update_layout(font=dict(color="#333"), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
+            st.plotly_chart(fig_exk_gauge, use_container_width=True, key=f"{k}_exk_gauge_plot")
+            
+        with col_r:
+            st.markdown("#### Scoring Curve")
+            xs = np.linspace(0, 400, 300)
+            ys = [run_smaf_exk_score(x, texture_id, SMAF_DATA) for x in xs]
+            
+            fig_exk = go.Figure()
+            fig_exk.add_trace(go.Scatter(
+                x=xs, y=np.array(ys) / 100.0, mode="lines", 
+                line=dict(color="#1E6B52", width=3), 
+                name="Score Curve", hovertemplate="K: %{x:.0f} mg/kg<br>Score: %{y:.0%}<extra></extra>"
+            ))
+            fig_exk.add_trace(go.Scatter(
+                x=[k_val], y=[score_exk / 100.0], mode="markers", 
+                marker=dict(color=exk_color, size=14, line=dict(color="white", width=2)), 
+                name="Your Soil"
+            ))
+            fig_exk.update_layout(
+                xaxis_title="Extractable Potassium (mg/kg)", 
+                yaxis_title="SHAPE Score",
+                yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0, 400]),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
+                height=400, margin=dict(l=10, r=10, t=40, b=10)
+            )
+            st.plotly_chart(fig_exk, width='stretch', key=f"{k}_exk_curve_plot")
+
+        # ── 5-TIER EX-K RECOMMENDATION ENGINE ──
+        st.markdown("### 📋 Agronomic Recommendations")
+        if score_exk >= 80:
+            k_level = "Very High"
+            k_rec = "Your soil potassium levels are highly optimal. Sufficient potassium is available to regulate plant stomata, maintain drought resistance, and support maximum crop yields. No additional potash applications are required at this time."
+        elif score_exk >= 60:
+            k_level = "High"
+            k_rec = "Your soil potassium is adequate for general crop production. You should maintain these levels through routine maintenance applications matching annual crop removal rates."
+        elif score_exk >= 40:
+            k_level = "Medium"
+            k_rec = "Your soil potassium levels are moderate and may occasionally become limiting, particularly during dry periods or late-season pod/grain fill. Consider a targeted potash application based on local extension recommendations."
+        elif score_exk >= 20:
+            k_level = "Low"
+            k_rec = "Your extractable potassium is deficient. Crops will likely suffer from reduced drought tolerance, weaker stalk strength, and diminished yields. A corrective application of a potassium fertilizer is recommended."
+        else:
+            k_level = "Very Low"
+            k_rec = "Critical nutrient limitation. Your soil potassium is severely depleted, which will result in stunted growth, high susceptibility to diseases, and major yield penalties. An immediate, soil-test guided corrective application of potash is strongly advised."
+
+        st.info(f"**Score Tier: {k_level}**\n\n{k_rec}")
         
     elif chosen_indicator == "pH":
         # Global definition prevents NameError
@@ -4015,22 +4177,26 @@ chk_c1, chk_c2, chk_c3 = st.columns(3)
 target_indicators = []
 
 with chk_c1:
+    st.markdown("**🪨 Physical Indicators**")
+    if st.checkbox("Bulk Density", value=True): target_indicators.append("Bulk Density")
+    if st.checkbox("Macroaggregate Stability", value=True): target_indicators.append("Macroaggregate Stability")
+    if st.checkbox("Available Water Capacity", value=False): target_indicators.append("Available Water Capacity")
+    if st.checkbox("Water-Filled Pore Space", value=False): target_indicators.append("Water-Filled Pore Space")
+
+with chk_c2:
+    st.markdown("**🧪 Chemical Indicators**")
+    if st.checkbox("pH", value=True): target_indicators.append("pH")
+    if st.checkbox("Soil Phosphorus", value=True): target_indicators.append("Soil Phosphorus")
+    if st.checkbox("Extractable Potassium", value=False): target_indicators.append("Extractable Potassium")
+    if st.checkbox("Electrical Conductivity", value=True): target_indicators.append("Electrical Conductivity")
+    if st.checkbox("Sodium Adsorption Ratio", value=False): target_indicators.append("Sodium Adsorption Ratio")
+
+with chk_c3:
+    st.markdown("**🦠 Biological Indicators**")
     if st.checkbox("Soil Organic Carbon", value=True): 
         if selected_framework == "SHAPE + SMAF": target_indicators.append("Soil Organic Carbon")
         target_indicators.append("SMAF Soil Organic Carbon")
-    if st.checkbox("Soil Phosphorus", value=True): target_indicators.append("Soil Phosphorus")
-    if st.checkbox("pH", value=True): target_indicators.append("pH")
-    
-with chk_c2:
-    if st.checkbox("Bulk Density", value=True): target_indicators.append("Bulk Density")
-    if st.checkbox("Electrical Conductivity", value=True): target_indicators.append("Electrical Conductivity")
-    if st.checkbox("Macroaggregate Stability", value=True): target_indicators.append("Macroaggregate Stability")
-    
-with chk_c3:
-    if st.checkbox("Sodium Adsorption Ratio", value=False): target_indicators.append("Sodium Adsorption Ratio")
     if st.checkbox("Potentially Mineralizable Nitrogen", value=False): target_indicators.append("Potentially Mineralizable Nitrogen")
-    if st.checkbox("Available Water Capacity", value=False): target_indicators.append("Available Water Capacity")
-    if st.checkbox("Water-Filled Pore Space", value=False): target_indicators.append("Water-Filled Pore Space")
     if st.checkbox("Microbial Biomass Carbon", value=False): target_indicators.append("Microbial Biomass Carbon")
     if st.checkbox("Beta-glucosidase", value=False): target_indicators.append("Beta-glucosidase")
     

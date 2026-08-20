@@ -2037,67 +2037,68 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
     # ── MASTER LAB INPUTS (DYNAMICALLY FILTERED BY CHECKBOXES) ──
     with st.expander("🧪 Laboratory Measurements", expanded=True):
-        lc1, lc2, lc3 = st.columns(3)
-        
-        with lc1:
-            oc_val = 2.0
-            if "Soil Organic Carbon" in target_indicators or "SMAF Soil Organic Carbon" in target_indicators:
-                oc_val = st.number_input("Measured SOC (%)", 0.01, 80.0, key=f"{k}_oc")
-                
-            agg_val = 40.0
-            if "Macroaggregate Stability" in target_indicators:
-                agg_val = st.number_input("Agg. Stability (%)", min_value=0.0, max_value=100.0, value=40.0, step=1.0, key=f"{k}_agg_val")
-                
-            pmn_val = 10.0
-            if "Potentially Mineralizable Nitrogen" in target_indicators:
-                pmn_val = st.number_input("Measured PMN (mg/kg)", min_value=0.0, max_value=200.0, value=10.0, step=1.0, key=f"{k}_pmn_val")
-                
-            w_val = 0.25
-            if "Water-Filled Pore Space" in target_indicators:
-                w_val = st.number_input("Measured Gravimetric Water (g/g)", min_value=0.0, max_value=1.0, value=0.25, step=0.01, key=f"{k}_w_val")
-                
-        with lc2:
-            p_val = 25.0
-            if "Soil Phosphorus" in target_indicators:
-                p_val = st.number_input("Measured Extractable P (mg/kg)", 0.0, 500.0, key=f"{k}_sm_p_input")
-                
-            ec_val = 1.5
-            if "Electrical Conductivity" in target_indicators or "Sodium Adsorption Ratio" in target_indicators:
-                ec_val = st.number_input("Measured EC (dS/m)", min_value=0.0, max_value=20.0, value=1.5, step=0.1, key=f"{k}_ec_val")
-                
-            sar_val = 2.0
-            if "Sodium Adsorption Ratio" in target_indicators:
-                sar_val = st.number_input("Measured SAR", min_value=0.0, max_value=50.0, value=2.0, step=0.5, key=f"{k}_sar_val")
-                
-            mbc_val = 200.0
-            if "Microbial Biomass Carbon" in target_indicators:
-                mbc_val = st.number_input("Measured MBC (mg/kg)", min_value=0.0, max_value=2000.0, value=200.0, step=10.0, key=f"{k}_mbc_val")
-                
-            bg_val = 300.0
-            if "Beta-glucosidase" in target_indicators:
-                bg_val = st.number_input("Measured Beta-glucosidase (mg/kg/hr)", min_value=0.0, max_value=2000.0, value=300.0, step=10.0, key=f"{k}_bg_val")
+            # 1. Define safe defaults for all variables first so the app never crashes
+            oc_val, p_val, k_val, ph_val, ec_val, sar_val = 2.0, 25.0, 125.0, 6.0, 1.5, 2.0
+            bd_val, agg_val, awc_val, wfps_frac = 1.45, 40.0, 0.15, 0.60
+            pmn_val, mbc_val, bg_val = 20.0, 200.0, 300.0
 
-            k_val = 125.0
+            # 2. Setup columns and a counter to dynamically route inputs left-to-right
+            cols = st.columns(3)
+            col_idx = 0 
+
+            # 3. Render inputs dynamically into the next available column
+            if "Soil Organic Carbon" in target_indicators or "SMAF Soil Organic Carbon" in target_indicators:
+                with cols[col_idx % 3]: oc_val = st.number_input("Measured SOC (%)", min_value=0.0, max_value=20.0, value=2.0, step=0.1, key=f"{k}_oc")
+                col_idx += 1
+                
+            if "Soil Phosphorus" in target_indicators:
+                with cols[col_idx % 3]: p_val = st.number_input("Measured Phosphorus (mg/kg)", min_value=0.0, max_value=500.0, value=25.0, step=5.0, key=f"{k}_sm_p_input")
+                col_idx += 1
+                
             if "Extractable Potassium" in target_indicators:
-                k_val = st.number_input("Measured Extractable K (mg/kg)", min_value=0.0, max_value=1000.0, value=125.0, step=5.0, key=f"{k}_exk_val")
-        
+                with cols[col_idx % 3]: k_val = st.number_input("Measured Extractable K (mg/kg)", min_value=0.0, max_value=1000.0, value=125.0, step=5.0, key=f"{k}_exk_val")
+                col_idx += 1
                 
-        with lc3:
-            bd_val = 1.45
-            if "Bulk Density" in target_indicators or "Water-Filled Pore Space" in target_indicators:
-                bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.5, max_value=2.0, value=1.45, step=0.05, key=f"{k}_bd_input")
-                
-            ph_val = 6.0
             if "pH" in target_indicators:
-                ph_val = st.number_input("Measured Soil pH", 0.0, 14.0, value=6.0, key=f"{k}_ph_measured_input")
+                with cols[col_idx % 3]: ph_val = st.number_input("Measured Soil pH", min_value=0.0, max_value=14.0, value=6.0, step=0.1, key=f"{k}_ph")
+                col_idx += 1
                 
-            awc_val = 0.15
+            if "Electrical Conductivity" in target_indicators:
+                with cols[col_idx % 3]: ec_val = st.number_input("Measured EC (dS/m)", min_value=0.0, max_value=20.0, value=1.5, step=0.1, key=f"{k}_ec")
+                col_idx += 1
+                
+            if "Sodium Adsorption Ratio" in target_indicators:
+                with cols[col_idx % 3]: sar_val = st.number_input("Measured SAR", min_value=0.0, max_value=50.0, value=2.0, step=0.1, key=f"{k}_sar")
+                col_idx += 1
+                
+            if "Bulk Density" in target_indicators:
+                with cols[col_idx % 3]: bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.1, max_value=2.5, value=1.45, step=0.05, key=f"{k}_bd")
+                col_idx += 1
+                
+            if "Macroaggregate Stability" in target_indicators:
+                with cols[col_idx % 3]: agg_val = st.number_input("Macroaggregate Stability (%)", min_value=0.0, max_value=100.0, value=40.0, step=1.0, key=f"{k}_agg")
+                col_idx += 1
+                
             if "Available Water Capacity" in target_indicators:
-                awc_val = st.number_input("Measured AWC (g/g)", min_value=0.0, max_value=0.5, value=0.15, step=0.01, key=f"{k}_awc_val")
+                with cols[col_idx % 3]: awc_val = st.number_input("Measured AWC (g/g)", min_value=0.0, max_value=1.0, value=0.15, step=0.01, key=f"{k}_awc")
+                col_idx += 1
                 
-            target_pct = 90
-            if "Soil Organic Carbon" in target_indicators:
-                target_pct = st.slider("Benchmark Percentile (SOC)", 50, 99, 90, key=f"{k}_pct")
+            if "Water-Filled Pore Space" in target_indicators:
+                with cols[col_idx % 3]: wfps_frac = st.number_input("Measured WFPS (fraction)", min_value=0.0, max_value=1.0, value=0.60, step=0.05, key=f"{k}_wfps")
+                col_idx += 1
+                
+            if "Potentially Mineralizable Nitrogen" in target_indicators:
+                with cols[col_idx % 3]: pmn_val = st.number_input("Measured PMN (mg/kg)", min_value=0.0, max_value=200.0, value=20.0, step=1.0, key=f"{k}_pmn")
+                col_idx += 1
+                
+            if "Microbial Biomass Carbon" in target_indicators:
+                with cols[col_idx % 3]: mbc_val = st.number_input("Measured MBC (mg/kg)", min_value=0.0, max_value=2000.0, value=200.0, step=10.0, key=f"{k}_mbc_val")
+                col_idx += 1
+                
+            if "Beta-glucosidase" in target_indicators:
+                with cols[col_idx % 3]: bg_val = st.number_input("Measured BG (mg/kg/hr)", min_value=0.0, max_value=2000.0, value=300.0, step=10.0, key=f"{k}_bg_val")
+                col_idx += 1
+                
     # ✨ SILENT DERIVATION ENGINE FOR OM CLASS & AWC REGION ✨
     if oc_val >= 2.9: derived_om_id = 1
     elif oc_val >= 1.45: derived_om_id = 2

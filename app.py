@@ -2465,7 +2465,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
 # and Carbon Calculator at the bottom of the page don't crash when switching tabs!
     score = compute_score(oc_val, lp_mean, sigma_val)
     # Safely grab the target percentile from the slider (default to 90 if it doesn't exist)
-        target_pct = st.session_state.get(f"{k}_target_pct", 90)
+    target_pct = st.session_state.get(f"{k}_target_pct", 90)
 
         # Safely calculate Target SOC ONCE for the entire sample
         try:

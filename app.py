@@ -2183,20 +2183,20 @@ def render_single_sample(region_name, cfg, df, df_hist):
     om_id_sum = SMAF_OM_MAP.get(om_string_sum, 2)
     fe_id_sum = SMAF_FE_MAP.get(selected_fe_class, 2) if 'selected_fe_class' in locals() else 2
     climate_id_sum = SMAF_CLIMATE_MAP.get(st.session_state.get(f"{k}_sm_climate_class", ""), 3)
-    
-    bd_val_sum = st.session_state.get(f"{k}_bd_input", 1.45)
+
+    bd_val_sum = st.session_state.get(f"{k}_bd", 1.45)
     mineral_str = st.session_state.get(f"{k}_bd_min", "— Select —")
     mineralogy_id_sum = SMAF_MINERALOGY_MAP.get(mineral_str, 0) if mineral_str != "— Select —" else 0
-    
-    agg_val_sum = st.session_state.get(f"{k}_agg_val", 40.0)
-    awc_val_sum = st.session_state.get(f"{k}_awc_val", 0.15)
+
+    agg_val_sum = st.session_state.get(f"{k}_agg", 40.0)
+    awc_val_sum = st.session_state.get(f"{k}_awc", 0.15)
     w_val_sum = st.session_state.get(f"{k}_w_val", 0.25)
-    ph_val_sum = st.session_state.get(f"{k}_ph_measured_input", 6.0)
+    ph_val_sum = st.session_state.get(f"{k}_ph", 6.0)
     p_val_sum = st.session_state.get(f"{k}_sm_p_input", 25.0)
     k_val_sum = st.session_state.get(f"{k}_exk_val", 125.0)
-    ec_val_sum = st.session_state.get(f"{k}_ec_val", 1.5)
-    sar_val_sum = st.session_state.get(f"{k}_sar_val", 2.0)
-    pmn_val_sum = st.session_state.get(f"{k}_pmn_val", 10.0)
+    ec_val_sum = st.session_state.get(f"{k}_ec", 1.5)
+    sar_val_sum = st.session_state.get(f"{k}_sar", 2.0)
+    pmn_val_sum = st.session_state.get(f"{k}_pmn", 10.0)
     mbc_val_sum = st.session_state.get(f"{k}_mbc_val", 200.0)
     bg_val_sum = st.session_state.get(f"{k}_bg_val", 300.0)
     

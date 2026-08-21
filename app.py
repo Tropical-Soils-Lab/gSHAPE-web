@@ -2468,10 +2468,10 @@ def render_single_sample(region_name, cfg, df, df_hist):
     target_pct = st.session_state.get(f"{k}_target_pct", 90)
 
         # Safely calculate Target SOC ONCE for the entire sample
-        try:
-            tgt_oc = percentile_to_oc(target_pct, lp_mean, sigma_val)
+    try:
+        tgt_oc = percentile_to_oc(target_pct, lp_mean, sigma_val)
         except (NameError, TypeError, ValueError):
-            tgt_oc = 0.0
+        tgt_oc = 0.0
     col_l, col_r = st.columns([1, 2])
 # ── CONDITIONAL SCORING LOGIC ──
     if chosen_indicator == "Soil Phosphorus":

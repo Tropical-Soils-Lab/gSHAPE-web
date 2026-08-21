@@ -2470,7 +2470,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
         # Safely calculate Target SOC ONCE for the entire sample
     try:
         tgt_oc = percentile_to_oc(target_pct, lp_mean, sigma_val)
-        except (NameError, TypeError, ValueError):
+    except (NameError, TypeError, ValueError):
         tgt_oc = 0.0
     col_l, col_r = st.columns([1, 2])
 # ── CONDITIONAL SCORING LOGIC ──

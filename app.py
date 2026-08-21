@@ -2576,7 +2576,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             mineral_string = st.session_state.get(f"{k}_bd_min", list(SMAF_MINERALOGY_MAP.keys())[0])
             mineralogy_id = SMAF_MINERALOGY_MAP[mineral_string]
             
-        bd_val = st.session_state[f"{k}_bd_input"]
+        bd_val = st.session_state.get(f"{k}_bd", 1.45)
         
         # 2. Score Calculation
         raw_score_bd = run_smaf_bd_score(bd_val, texture_id, mineralogy_id)

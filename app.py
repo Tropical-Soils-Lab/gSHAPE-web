@@ -2058,10 +2058,12 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 selected_climate_class = st.selectbox("Climate Class (Auto-Assigned)", clim_options, key=f"{k}_sm_climate_class")
 
             # ✨ VISIBLE OM CLASS DERIVATION (Taxonomy-Based Default) ✨
+            # 1. Clean the string and fix Oxisols pluralization (e.g., Udoxs -> Udox)
             raw_sub = selected_sub.lower().strip() if 'selected_sub' in locals() and selected_sub else ""
+            raw_sub = raw_sub.replace("oxs", "ox").replace("oxes", "ox")
             
             class_1_subs = ["aquands", "aquods", "aquox", "fibrists", "folists", "hemists", "histels", "saprists", "turbels"]
-            class_2_subs = ["albolls", "aquepts", "aquerts", "aquolls", "aquults", "borolls", "cryolls", "humods", "humults", "rendolls", "udands", "udolls", "udoxs", "ustands", "usterts", "ustolls", "xererts", "xerolls"]
+            class_2_subs = ["albolls", "aquepts", "aquerts", "aquolls", "aquults", "borolls", "cryolls", "humods", "humults", "rendolls", "udands", "udolls", "udox", "ustands", "usterts", "ustolls", "xererts", "xerolls"]
             class_3_subs = ["andepts", "anthrepts", "aqualfs", "aquents", "boralfs", "cryalfs", "cryands", "cryerts", "cryods", "orthels", "udalfs", "ustalfs", "vitrands", "xeralfs"]
             
             if raw_sub in class_1_subs:
@@ -2071,26 +2073,28 @@ def render_single_sample(region_name, cfg, df, df_hist):
             elif raw_sub in class_3_subs:
                 default_om_idx = 2  # Class 3
             else:
-                default_om_idx = 3  
-        
+                default_om_idx = 3  # Class 4 (Default for Calcids, Durids, etc.)
+            
             om_options = [
                 "Class 1 (Highest OM)", 
                 "Class 2 (Med-High OM)", 
                 "Class 3 (Med-Low OM)", 
                 "Class 4 (Lowest OM)"
             ]
-        
+            
+            # 2. SMART AUTO-UPDATE LOGIC
+            # If the user changes the Taxonomy dropdown, force the OM class to update.
+            # (By tracking the 'last seen' taxonomy, we still allow manual overrides!)
+            if st.session_state.get(f"{k}_last_tax_sub") != raw_sub:
+                st.session_state[f"{k}_sm_om_class"] = om_options[default_om_idx]
+                st.session_state[f"{k}_last_tax_sub"] = raw_sub
+            
+            # 3. Render the visible dropdown (No 'index=' needed, session_state controls it)
             selected_om_class = st.selectbox(
                 "Organic Matter (OM) Class (Auto-Assigned)", 
                 options=om_options, 
-                index=default_om_idx, 
                 key=f"{k}_sm_om_class"
             )
-                
-            if cfg["has_histosol"]:
-                hist_toggle = st.checkbox("📌 This is an organic / Histosol soil (Muck, Peat)", key=f"{k}_hist")
-            else:
-                hist_toggle = False
 
     # ── MASTER LAB INPUTS (DYNAMICALLY FILTERED BY CHECKBOXES) ──
     with st.expander("🧪 Laboratory Measurements", expanded=True):

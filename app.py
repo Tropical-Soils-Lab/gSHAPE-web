@@ -2126,7 +2126,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 with cols[col_idx % 3]: bg_val = st.number_input("Measured BG (mg/kg/hr)", min_value=0.0, max_value=2000.0, value=300.0, step=10.0, key=f"{k}_bg_val")
                 col_idx += 1
                 
-   # ✨ SILENT DERIVATION ENGINE FOR OM CLASS (Taxonomy-Based) ✨
+   # ✨ VISIBLE OM CLASS DERIVATION (Taxonomy-Based Default) ✨
     raw_sub = selected_sub.lower().strip() if 'selected_sub' in locals() and selected_sub else ""
 
     class_1_subs = ["aquands", "aquods", "aquox", "fibrists", "folists", "hemists", "histels", "saprists", "turbels"]
@@ -2134,17 +2134,29 @@ def render_single_sample(region_name, cfg, df, df_hist):
     class_3_subs = ["andepts", "anthrepts", "aqualfs", "aquents", "boralfs", "cryalfs", "cryands", "cryerts", "cryods", "orthels", "udalfs", "ustalfs", "vitrands", "xeralfs"]
     
     if raw_sub in class_1_subs:
-        derived_om_id = 1
+        default_om_idx = 0  # Class 1
     elif raw_sub in class_2_subs:
-        derived_om_id = 2
+        default_om_idx = 1  # Class 2
     elif raw_sub in class_3_subs:
-        derived_om_id = 3
+        default_om_idx = 2  # Class 3
     else:
         # Defaults to Class 4 Low for all remaining suborders (Calcids, Durids, etc.)
-        derived_om_id = 4
+        default_om_idx = 3  
 
-    rev_om = {1: "Class 1 (Highest OM)", 2: "Class 2 (Med-High OM)", 3: "Class 3 (Med-Low OM)", 4: "Class 4 (Lowest OM)"}
-    st.session_state[f"{k}_sm_om_class"] = rev_om[derived_om_id]
+    om_options = [
+        "Class 1 (Highest OM)", 
+        "Class 2 (Med-High OM)", 
+        "Class 3 (Med-Low OM)", 
+        "Class 4 (Lowest OM)"
+    ]
+
+    # Render a visible selectbox, automatically set to the Taxonomy default
+    selected_om_class = st.selectbox(
+        "Organic Matter (OM) Class (Auto-Assigned)", 
+        options=om_options, 
+        index=default_om_idx, 
+        key=f"{k}_sm_om_class"
+    )
     
     # Auto-assign AWC Region: Humid (2) if MAP >= 600mm, Arid (1) if MAP < 600mm
     is_wet_for_awc = target_precip >= 600.0 if target_precip is not None else True

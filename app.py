@@ -2056,6 +2056,36 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 derived_clim_id = 1 if (is_warm and is_wet) else 2 if (is_warm and not is_wet) else 3 if (not is_warm and is_wet) else 4
                 st.session_state[f"{k}_sm_climate_class"] = clim_options[derived_clim_id]
                 selected_climate_class = st.selectbox("Climate Class (Auto-Assigned)", clim_options, key=f"{k}_sm_climate_class")
+
+            # ✨ VISIBLE OM CLASS DERIVATION (Taxonomy-Based Default) ✨
+            raw_sub = selected_sub.lower().strip() if 'selected_sub' in locals() and selected_sub else ""
+            
+            class_1_subs = ["aquands", "aquods", "aquox", "fibrists", "folists", "hemists", "histels", "saprists", "turbels"]
+            class_2_subs = ["albolls", "aquepts", "aquerts", "aquolls", "aquults", "borolls", "cryolls", "humods", "humults", "rendolls", "udands", "udolls", "udox", "ustands", "usterts", "ustolls", "xererts", "xerolls"]
+            class_3_subs = ["andepts", "anthrepts", "aqualfs", "aquents", "boralfs", "cryalfs", "cryands", "cryerts", "cryods", "orthels", "udalfs", "ustalfs", "vitrands", "xeralfs"]
+            
+            if raw_sub in class_1_subs:
+                default_om_idx = 0  # Class 1
+            elif raw_sub in class_2_subs:
+                default_om_idx = 1  # Class 2
+            elif raw_sub in class_3_subs:
+                default_om_idx = 2  # Class 3
+            else:
+                default_om_idx = 3  
+        
+            om_options = [
+                "Class 1 (Highest OM)", 
+                "Class 2 (Med-High OM)", 
+                "Class 3 (Med-Low OM)", 
+                "Class 4 (Lowest OM)"
+            ]
+        
+            selected_om_class = st.selectbox(
+                "Organic Matter (OM) Class (Auto-Assigned)", 
+                options=om_options, 
+                index=default_om_idx, 
+                key=f"{k}_sm_om_class"
+            )
                 
             if cfg["has_histosol"]:
                 hist_toggle = st.checkbox("📌 This is an organic / Histosol soil (Muck, Peat)", key=f"{k}_hist")
@@ -2126,37 +2156,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 with cols[col_idx % 3]: bg_val = st.number_input("Measured BG (mg/kg/hr)", min_value=0.0, max_value=2000.0, value=300.0, step=10.0, key=f"{k}_bg_val")
                 col_idx += 1
                 
-   # ✨ VISIBLE OM CLASS DERIVATION (Taxonomy-Based Default) ✨
-    raw_sub = selected_sub.lower().strip() if 'selected_sub' in locals() and selected_sub else ""
-
-    class_1_subs = ["aquands", "aquods", "aquox", "fibrists", "folists", "hemists", "histels", "saprists", "turbels"]
-    class_2_subs = ["albolls", "aquepts", "aquerts", "aquolls", "aquults", "borolls", "cryolls", "humods", "humults", "rendolls", "udands", "udolls", "udox", "ustands", "usterts", "ustolls", "xererts", "xerolls"]
-    class_3_subs = ["andepts", "anthrepts", "aqualfs", "aquents", "boralfs", "cryalfs", "cryands", "cryerts", "cryods", "orthels", "udalfs", "ustalfs", "vitrands", "xeralfs"]
-    
-    if raw_sub in class_1_subs:
-        default_om_idx = 0  # Class 1
-    elif raw_sub in class_2_subs:
-        default_om_idx = 1  # Class 2
-    elif raw_sub in class_3_subs:
-        default_om_idx = 2  # Class 3
-    else:
-        # Defaults to Class 4 Low for all remaining suborders (Calcids, Durids, etc.)
-        default_om_idx = 3  
-
-    om_options = [
-        "Class 1 (Highest OM)", 
-        "Class 2 (Med-High OM)", 
-        "Class 3 (Med-Low OM)", 
-        "Class 4 (Lowest OM)"
-    ]
-
-    # Render a visible selectbox, automatically set to the Taxonomy default
-    selected_om_class = st.selectbox(
-        "Organic Matter (OM) Class (Auto-Assigned)", 
-        options=om_options, 
-        index=default_om_idx, 
-        key=f"{k}_sm_om_class"
-    )
     
     # Auto-assign AWC Region: Humid (2) if MAP >= 600mm, Arid (1) if MAP < 600mm
     is_wet_for_awc = target_precip >= 600.0 if target_precip is not None else True

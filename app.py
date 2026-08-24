@@ -2057,23 +2057,25 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 st.session_state[f"{k}_sm_climate_class"] = clim_options[derived_clim_id]
                 selected_climate_class = st.selectbox("Climate Class (Auto-Assigned)", clim_options, key=f"{k}_sm_climate_class")
 
-            # ✨ VISIBLE OM CLASS DERIVATION (Taxonomy-Based Default) ✨
-            # 1. Clean the string and fix Oxisols pluralization (e.g., Udoxs -> Udox)
-            raw_sub = selected_sub.lower().strip() if 'selected_sub' in locals() and selected_sub else ""
-            raw_sub = raw_sub.replace("oxs", "ox").replace("oxes", "ox")
+           # ✨ VISIBLE OM CLASS DERIVATION (Taxonomy-Based Default) ✨
+            # Safely grab the taxonomy dropdown value (Ensure 'selected_sub' matches your left-column variable!)
+            raw_tax = selected_sub.lower().strip() if 'selected_sub' in locals() and selected_sub else ""
+            raw_tax = raw_tax.replace("oxs", "ox").replace("oxes", "ox")
             
-            class_1_subs = ["aquands", "aquods", "aquox", "fibrists", "folists", "hemists", "histels", "saprists", "turbels"]
-            class_2_subs = ["albolls", "aquepts", "aquerts", "aquolls", "aquults", "borolls", "cryolls", "humods", "humults", "rendolls", "udands", "udolls", "udox", "ustands", "usterts", "ustolls", "xererts", "xerolls"]
-            class_3_subs = ["andepts", "anthrepts", "aqualfs", "aquents", "boralfs", "cryalfs", "cryands", "cryerts", "cryods", "orthels", "udalfs", "ustalfs", "vitrands", "xeralfs"]
+            # Use base (singular) forms to catch any variations or pluralizations
+            class_1_subs = ["aquand", "aquod", "aquox", "fibrist", "folist", "hemist", "histel", "saprist", "turbel"]
+            class_2_subs = ["alboll", "aquept", "aquert", "aquoll", "aquult", "boroll", "cryoll", "humod", "humult", "rendoll", "udand", "udoll", "udox", "ustand", "ustert", "ustoll", "xerert", "xeroll"]
+            class_3_subs = ["andept", "anthrept", "aqualf", "aquent", "boralf", "cryalf", "cryand", "cryert", "cryod", "orthel", "udalf", "ustalf", "vitrand", "xeralf"]
             
-            if raw_sub in class_1_subs:
-                default_om_idx = 0  # Class 1
-            elif raw_sub in class_2_subs:
-                default_om_idx = 1  # Class 2
-            elif raw_sub in class_3_subs:
-                default_om_idx = 2  # Class 3
+            # Use 'any()' to search for the keyword anywhere inside the dropdown string
+            if any(sub in raw_tax for sub in class_1_subs):
+                default_om_idx = 0
+            elif any(sub in raw_tax for sub in class_2_subs):
+                default_om_idx = 1
+            elif any(sub in raw_tax for sub in class_3_subs):
+                default_om_idx = 2
             else:
-                default_om_idx = 3  # Class 4 (Default for Calcids, Durids, etc.)
+                default_om_idx = 3  # Class 4 fallback
             
             om_options = [
                 "Class 1 (Highest OM)", 
@@ -2082,14 +2084,11 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 "Class 4 (Lowest OM)"
             ]
             
-            # 2. SMART AUTO-UPDATE LOGIC
-            # If the user changes the Taxonomy dropdown, force the OM class to update.
-            # (By tracking the 'last seen' taxonomy, we still allow manual overrides!)
-            if st.session_state.get(f"{k}_last_tax_sub") != raw_sub:
+            # Force the dropdown to update if a new taxonomy is chosen
+            if st.session_state.get(f"{k}_last_tax_sub") != raw_tax:
                 st.session_state[f"{k}_sm_om_class"] = om_options[default_om_idx]
-                st.session_state[f"{k}_last_tax_sub"] = raw_sub
+                st.session_state[f"{k}_last_tax_sub"] = raw_tax
             
-            # 3. Render the visible dropdown (No 'index=' needed, session_state controls it)
             selected_om_class = st.selectbox(
                 "Organic Matter (OM) Class (Auto-Assigned)", 
                 options=om_options, 

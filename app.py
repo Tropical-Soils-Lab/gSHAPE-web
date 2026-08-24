@@ -2061,7 +2061,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             raw_sub = selected_sub.lower().strip() if 'selected_sub' in locals() and selected_sub else ""
             
             class_1_subs = ["aquands", "aquods", "aquox", "fibrists", "folists", "hemists", "histels", "saprists", "turbels"]
-            class_2_subs = ["albolls", "aquepts", "aquerts", "aquolls", "aquults", "borolls", "cryolls", "humods", "humults", "rendolls", "udands", "udolls", "udox", "ustands", "usterts", "ustolls", "xererts", "xerolls"]
+            class_2_subs = ["albolls", "aquepts", "aquerts", "aquolls", "aquults", "borolls", "cryolls", "humods", "humults", "rendolls", "udands", "udolls", "udoxs", "ustands", "usterts", "ustolls", "xererts", "xerolls"]
             class_3_subs = ["andepts", "anthrepts", "aqualfs", "aquents", "boralfs", "cryalfs", "cryands", "cryerts", "cryods", "orthels", "udalfs", "ustalfs", "vitrands", "xeralfs"]
             
             if raw_sub in class_1_subs:

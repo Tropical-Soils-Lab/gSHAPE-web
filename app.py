@@ -3294,8 +3294,8 @@ def render_single_sample(region_name, cfg, df, df_hist):
             wfps_rec = "Critical physical limitation. Extreme WFPS values mean the soil is either totally waterlogged (causing severe anaerobic conditions and nutrient leaching) or completely desiccated. Immediate adjustments to irrigation, drainage, or compaction management are required."
 
         st.info(f"**Score Tier: {wfps_level}**\n\n{wfps_rec}")
-
-   elif chosen_indicator == "Microbial Biomass Carbon":
+    
+    elif chosen_indicator == "Microbial Biomass Carbon":
         # 1. Grab Global Variables
         texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
         om_string = st.session_state.get(f"{k}_sm_om_class", "Class 2 (Med-High OM)")

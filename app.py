@@ -2117,12 +2117,13 @@ def render_single_sample(region_name, cfg, df, df_hist):
             )
         
             # This explicitly locks the checkbox so it ONLY appears for United States -> Florida
+            hist_toggle = False 
+            
             if region_name == "Florida":
-                st.checkbox(
+                hist_toggle = st.checkbox(
                     "📌 This is an organic / Histosol soil (Muck, Peat)", 
                     key=f"{k}_hist_toggle"
                 )
-
     # ── MASTER LAB INPUTS (DYNAMICALLY FILTERED BY CHECKBOXES) ──
     with st.expander("🧪 Laboratory Measurements", expanded=True):
             # 1. Define safe defaults for all variables first so the app never crashes

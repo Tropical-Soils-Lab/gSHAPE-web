@@ -3680,7 +3680,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
                                file_name=f"SMAF_{cfg['key']}_pH_{ph_val}.csv", mime="text/csv", width='stretch', key=f"{k}_export_ph")
 
         with col_r:
-            st.markdown("#### Scoring Curve (SMAF Gaussian)")
+            st.markdown("#### Scoring Curve")
             
             xs = np.linspace(3.5, 9.5, 300)
             ys = [run_smaf_ph_score(x, crop_id, SMAF_DATA) / 100.0 for x in xs]
@@ -3699,8 +3699,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             
             crop_name = SMAF_DATA.get("ph_crops", {}).get(crop_id, {}).get("name", "Target Crop")
             fig_ph_curve.update_layout(
-                title=dict(text=f"Optimum Curve for {crop_name}", font=dict(size=14)),
-                xaxis_title="Soil pH (2:1)", yaxis_title="Score",
+                xaxis_title="Soil pH", yaxis_title="Score",
                 yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[3.5, 9.5]),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02),
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 

@@ -2407,7 +2407,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             val = f"{wfps_frac_sum:.1%}"
             wfps_res = run_smaf_wfps_score(wfps_frac_sum, texture_id_sum, SMAF_DATA)
             scr = wfps_res["combined"]
-       elif ind == "pH":
+        elif ind == "pH":
             val = f"{ph_val_sum}"
             crop_id_sum = SMAF_DATA.get("crop_ui_map", {}).get(st.session_state.get(f"{k}_sm_crop", "").lower(), 82)
             scr = run_smaf_ph_score(ph_val_sum, crop_id_sum, SMAF_DATA)

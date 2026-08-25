@@ -1489,13 +1489,10 @@ def load_mbc_data(smaf_data, path="SMAF_lookup.xlsx"):
             
     df_om = clean_df("mbc_om_factors")
     if not df_om.empty:
-        for _, r in df_om.iterrows():
+       for _, r in df_om.iterrows():
             oc = num(r.get("om_class"))
-            if oc is not None:
-                mbc_om[int(oc)] = {
-                    "max_range": num(r.get("max_range")),
-                    "c1_override": num(r.get("c1_override"))
-                }
+            if oc is not None: 
+                mbc_om[int(oc)] = num(r.get("c1"))
                 
     df_tex = clean_df("mbc_texture_factors")
     if not df_tex.empty:
@@ -1520,12 +1517,9 @@ def run_smaf_mbc_score(mbc_val, om_class, texture, season_climate, smaf_data, cl
     if not K: return 0.0
     
     import math
-    o = smaf_data.get("mbc_om", {}).get(om_class, {})
-    c1 = o.get("c1_override")
-    if c1 is None:
-        R = o.get("max_range", 1.0)
-        c1 = K.get("c1_coef_a", 0.0) + K.get("c1_coef_b", 0.0) * R + K.get("c1_coef_c", 0.0) * (R ** 2)
-        
+    # ✨ Grab the discrete c1 value directly from the table (no more quadratic math!)
+    c1 = smaf_data.get("mbc_om", {}).get(om_class, 0.0124192) 
+    
     c2 = smaf_data.get("mbc_texture", {}).get(texture, 1.0)
     c3 = smaf_data.get("mbc_sc", {}).get(round(float(season_climate), 1), 1.0)
     c = c1 * c2 * c3

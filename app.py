@@ -2347,7 +2347,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
     if "Microbial Biomass Carbon" in target_indicators:
         season_name = st.session_state.get(f"{k}_sm_season", "Spring")
         season_num = {"Spring": 1, "Summer": 2, "Fall": 3, "Winter": 4}.get(season_name, 1)
-        season_climate_code = float(f"{season_num}.{climate_id}")
+        season_climate_code = 1.0 if season_num == 1 else float(f"{season_num}.{climate_id}")
         bio_scores.append(safe_float(run_smaf_mbc_score(mbc_val_sum, om_id_sum, texture_id_sum, season_climate_code, SMAF_DATA)))
 
     if "Beta-glucosidase" in target_indicators:

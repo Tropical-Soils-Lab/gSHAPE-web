@@ -48,7 +48,7 @@ WORLD_COUNTRIES = [
     "Marshall Islands", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", 
     "Morocco", "Myanmar", "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua", 
     "North Korea", "North Macedonia", "Norway", "Oman", "Pakistan", "Palau", "Palestine State", 
-    "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", 
+    "Panama", "Papua New Guinea", "Paraguay", "Peru", "ilippines", "Poland", "Portugal", 
     "Qatar", "Romania", "Russia", "Saint Kitts and Nevis", "Saint Lucia", 
     "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Saudi Arabia", "Serbia", 
     "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "South Korea", "Spain", "Sri Lanka", 
@@ -58,7 +58,7 @@ WORLD_COUNTRIES = [
     "Vanuatu", "Venezuela", "Vietnam", "Yemen"
 ]
 
-# Safely combine both lists to ensure no duplicates, then sort alphabetically
+# Safely combine both lists to ensure no duplicates, then sort alabetically
 ALL_COUNTRIES = list(set(WORLD_COUNTRIES + SSA_COUNTRIES))
 ALL_COUNTRIES.sort()
 
@@ -285,7 +285,7 @@ st.markdown("""
     margin-top: 0px !important;
 }
 
-/* Enhanced title banner: centered, fully visible corners, and flanking soil graphics */
+/* Enhanced title banner: centered, fully visible corners, and flanking soil graics */
 .fl-header {
     background: linear-gradient(135deg, #0a3d1f 0%, #1a6b35 60%, #0f5132 100%);
     border-radius: 12px !important;
@@ -299,7 +299,7 @@ st.markdown("""
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
-/* Left Side Graphic: Soil & Diagnostics Microscope Symbol */
+/* Left Side Graic: Soil & Diagnostics Microscope Symbol */
 .fl-header::before {
     content: "🔬" !important;
     position: absolute !important;
@@ -311,7 +311,7 @@ st.markdown("""
     pointer-events: none !important;
 }
 
-/* Right Side Graphic: Regenerative Sprout Symbol */
+/* Right Side Graic: Regenerative Sprout Symbol */
 .fl-header::after {
     content: "🌱" !important;
     position: absolute !important;
@@ -523,7 +523,7 @@ BR_R1 = ["Acrisols","Fluvisols","Technosols","Anthrosols","Durisols","Gypsisols"
          "Solonchaks","Solonetz","Leptosols","Alisols","Regosols","Arenosols","Cryosols"]
 BR_R2 = ["Ferralsols","Nitisols","Stagnosols","Plinthosols","Luvisols","Lixisols","Retisols",
          "Planosols","Vertisols","Gleysols"]
-BR_R3 = ["Histosols","Umbrisols","Phaeozems","Chernozems","Kastanozems","Podzols","Andosols","Cambisols"]
+BR_R3 = ["Histosols","Umbrisols","aeozems","Chernozems","Kastanozems","Podzols","Andosols","Cambisols"]
 
 BR_TAXON_DISPLAY = sorted(
     make_display(BR_R1, "R1") + make_display(BR_R2, "R2") + make_display(BR_R3, "R3")
@@ -538,7 +538,7 @@ BR_TEXTURE_MAP = {
 BR_PG_TAXON_DESC = {
     "R1": "Acrisols, Fluvisols, Technosols, Anthrosols, Durisols, Gypsisols, Calcisols, Solonchaks, Solonetz, Leptosols, Alisols, Regosols, Arenosols, Cryosols",
     "R2": "Ferralsols, Nitisols, Stagnosols, Plinthosols, Luvisols, Lixisols, Retisols, Planosols, Vertisols, Gleysols",
-    "R3": "Histosols, Umbrisols, Phaeozems, Chernozems, Kastanozems, Podzols, Andosols, Cambisols",
+    "R3": "Histosols, Umbrisols, aeozems, Chernozems, Kastanozems, Podzols, Andosols, Cambisols",
 }
 BR_PG_TEXTURE_DESC = {
     "T1": "Sand, Loamy Sand, Sandy Loam",
@@ -570,7 +570,7 @@ BR_TAXON_DISPLAY_SIBC = sorted(
 )
 
 # ---- SUB-SAHARAN AFRICA (Ethiopia-calibrated, WRB Reference Soil Groups) ----
-ET_OR2 = ["Andosols","Chernozems","Gleysols","Kastanozems","Phaeozems","Podzols","Stagnosols"]
+ET_OR2 = ["Andosols","Chernozems","Gleysols","Kastanozems","aeozems","Podzols","Stagnosols"]
 ET_OR3 = ["Acrisols","Alisols","Cambisols","Fluvisols","Planosols","Vertisols","Nitisols","Umbrisols"]
 ET_OR4 = ["Ferralsols","Leptosols","Lixisols","Luvisols","Plinthosols","Retisols","Regosols"]
 ET_OR5 = ["Arenosols","Calcisols","Durisols","Gypsisols","Solonchaks","Solonetz"]
@@ -587,7 +587,7 @@ ET_TEXTURE_MAP = {
     "Sandy Clay (T3)": "T3", "Silty Clay (T3)": "T3", "Clay (T3)": "T3",
 }
 ET_PG_TAXON_DESC = {
-    "Or2": "Andosols, Chernozems, Gleysols, Kastanozems, Phaeozems, Podzols, Stagnosols",
+    "Or2": "Andosols, Chernozems, Gleysols, Kastanozems, aeozems, Podzols, Stagnosols",
     "Or3": "Acrisols, Alisols, Cambisols, Fluvisols, Planosols, Vertisols, Nitisols, Umbrisols",
     "Or4": "Ferralsols, Leptosols, Lixisols, Luvisols, Plinthosols, Retisols, Regosols",
     "Or5": "Arenosols, Calcisols, Durisols, Gypsisols, Solonchaks, Solonetz",
@@ -726,7 +726,7 @@ def load_smaf_lookup_dynamic(path):
             if r["param_name"] and v is not None:
                 K[str(r["param_name"]).strip()] = v
 
-        # 2. Parse Phosphorus Crop Factors
+        # 2. Parse osorus Crop Factors
         crops = {}
         crop_ui_map = {}
         for _, r in rows("crop_factors").iterrows():
@@ -741,22 +741,24 @@ def load_smaf_lookup_dynamic(path):
             }
             crop_ui_map[c_name] = c_id
 
-        # 3. Parse Dynamic pH Crop Benchmarks from min/max columns
-        ph_benchmarks = {}
-        if "ph_factors" in sh:
-            for _, r in rows("ph_factors").iterrows():
-                c_name = str(r["Clean crop name"]).strip()
-                pmin = num(r["pH_min"])
-                pmax = num(r["pH_max"])
-                
-                if pmin is not None and pmax is not None:
-                    # Compute opt as midpoint, and sigma width tolerance dynamically
-                    popt_val = (pmin + pmax) / 2.0
-                    psigma_val = max(0.1, (pmax - pmin) / 4.0)
-                    ph_benchmarks[c_name] = {"opt": popt_val, "sigma": psigma_val}
-        else:
-            # Fallback array if sheet isn't loaded yet
-            ph_benchmarks = {c: {"opt": 6.0, "sigma": 0.5} for c in crop_ui_map.keys()}
+        # 3. Parse NEW pH Gaussian Factors
+        K_ph = {}
+        if "ph_constants" in sh:
+            for _, r in rows("ph_constants").iterrows():
+                v = num(r["value"])
+                if pd.notna(r["param_name"]) and str(r["param_name"]).strip() not in ("", "nan", "None") and v is not None:
+                    K_ph[str(r["param_name"]).strip()] = v
+                    
+        ph_crops = {}
+        if "ph_crop_factors" in sh:
+            for _, r in rows("ph_crop_factors").iterrows():
+                cc = num(r["crop_code"])
+                if cc is not None:
+                    ph_crops[int(cc)] = {
+                        "name": str(r["crop_name"]).strip(),
+                        "b": num(r["b_optimum"]),
+                        "c": num(r["c_half_range"])
+                    }
 
         # 4. Parse method factors
         method = {}
@@ -788,7 +790,9 @@ def load_smaf_lookup_dynamic(path):
 
         return {
             "crops": crops, "method": method, "texture": texture, "slope": slope, "om": om, "K": K,
-            "crop_ui_map": crop_ui_map, "ph_benchmarks": ph_benchmarks
+            "crop_ui_map": crop_ui_map, 
+            "ph_constants": K_ph, 
+            "ph_crops": ph_crops
         }
     except Exception as e:
         st.error(f"⚠️ Could not dynamically process SMAF_lookup.xlsx: {e}")
@@ -797,11 +801,8 @@ def load_smaf_lookup_dynamic(path):
 # Initial database processing build
 SMAF_DATA = load_smaf_lookup_dynamic("SMAF_lookup.xlsx")
 
-# ── CONSTRAINT: Use only verified pH crops as the master list to prevent missing values ──
-if SMAF_DATA and "ph_benchmarks" in SMAF_DATA and SMAF_DATA["ph_benchmarks"]:
-    # Capitalize each crop name here
-    MASTER_CROP_OPTIONS = sorted([c.capitalize() for c in list(SMAF_DATA["ph_benchmarks"].keys())])
-elif SMAF_DATA and "crop_ui_map" in SMAF_DATA:
+# ── CONSTRAINT: Master crop list ──
+if SMAF_DATA and "crop_ui_map" in SMAF_DATA:
     MASTER_CROP_OPTIONS = sorted([c.capitalize() for c in list(SMAF_DATA["crop_ui_map"].keys())])
 else:
     MASTER_CROP_OPTIONS = ["Apple", "Blueberry", "Corn / maize / sweet corn", "Orange", "Soybean"]
@@ -868,6 +869,26 @@ def safe_float(val):
     try:
         return float(val) if val is not None else 0.0
     except (ValueError, TypeError):
+        return 0.0
+
+def run_smaf_ph_score(ph_val, crop_id, smaf_data, use_alt_c=False):
+    """Calculates SMAF pH score using a Gaussian curve based on crop tolerances."""
+    try:
+        import math
+        K = smaf_data.get("ph_constants", {})
+        cr = smaf_data.get("ph_crops", {}).get(crop_id)
+        if not cr or not K: return 0.0
+        
+        b, c = cr["b"], cr["c"]
+        if b is None or c is None or c == 0: return 0.0
+            
+        if use_alt_c:
+            c = K.get("alt_c_coef_b", 1.2627176) * c + K.get("alt_c_coef_c", 0.29161387) * (c ** 2)
+            
+        y = K.get("a", 1.0) * math.exp(-((ph_val - b) ** 2) / (2 * (c ** 2)))
+        score_val = max(K.get("score_min", 0.0), min(K.get("score_max", 1.0), y))
+        return score_val * 100.0
+    except (KeyError, TypeError, ValueError):
         return 0.0
 
 def run_smaf_p_score(soil_p, crop, method, weathering, texture, slope, toc):
@@ -2249,16 +2270,11 @@ def render_single_sample(region_name, cfg, df, df_hist):
         phys_scores.append(safe_float(wfps_scores_sum["combined"]))
 
     # ── CHEMICAL INDICATORS ──
+  # ── CHEMICAL INDICATORS ──
     if "pH" in target_indicators:
-        crop_selected_name_sum = st.session_state.get(f"{k}_sm_crop", "Corn / maize / sweet corn")
-        ph_benchmarks_sum = SMAF_DATA.get("ph_benchmarks", {}) if SMAF_DATA else {}
-        ph_benchmarks_lower_sum = {key.lower(): val for key, val in ph_benchmarks_sum.items()}
-        benchmarks_sum = ph_benchmarks_lower_sum.get(crop_selected_name_sum.lower())
-        if benchmarks_sum:
-            chem_scores.append(float(100.0 * np.exp(-((ph_val_sum - benchmarks_sum["opt"]) / (2.0 * benchmarks_sum["sigma"])) ** 2)))
-        else:
-            chem_scores.append(0.0)
-            
+        crop_id_sum = SMAF_DATA.get("crop_ui_map", {}).get(st.session_state.get(f"{k}_sm_crop", "").lower(), 82)
+        chem_scores.append(safe_float(run_smaf_ph_score(ph_val_sum, crop_id_sum, SMAF_DATA)))
+        
     if "Soil Phosphorus" in target_indicators:
         crop_id_sum = SMAF_DATA["crop_ui_map"].get(st.session_state.get(f"{k}_sm_crop", "").lower(), 0)
         method_str = st.session_state.get(f"{k}_sm_method", "Mehlich-3")
@@ -2391,16 +2407,11 @@ def render_single_sample(region_name, cfg, df, df_hist):
             val = f"{wfps_frac_sum:.1%}"
             wfps_res = run_smaf_wfps_score(wfps_frac_sum, texture_id_sum, SMAF_DATA)
             scr = wfps_res["combined"]
-        elif ind == "pH":
+       elif ind == "pH":
             val = f"{ph_val_sum}"
-            crop_selected_name_sum = st.session_state.get(f"{k}_sm_crop", "Corn / maize / sweet corn")
-            ph_benchmarks_sum = SMAF_DATA.get("ph_benchmarks", {}) if SMAF_DATA else {}
-            ph_benchmarks_lower_sum = {key.lower(): val for key, val in ph_benchmarks_sum.items()}
-            benchmarks_sum = ph_benchmarks_lower_sum.get(crop_selected_name_sum.lower())
-            if benchmarks_sum:
-                scr = float(100.0 * np.exp(-((ph_val_sum - benchmarks_sum["opt"]) / (2.0 * benchmarks_sum["sigma"])) ** 2))
-            else:
-                scr = 0.0
+            crop_id_sum = SMAF_DATA.get("crop_ui_map", {}).get(st.session_state.get(f"{k}_sm_crop", "").lower(), 82)
+            scr = run_smaf_ph_score(ph_val_sum, crop_id_sum, SMAF_DATA)
+
         elif ind == "Soil Phosphorus":
             val = f"{p_val_sum} mg/kg"
             crop_id_sum = SMAF_DATA["crop_ui_map"].get(st.session_state.get(f"{k}_sm_crop", "").lower(), 0)
@@ -3618,101 +3629,98 @@ def render_single_sample(region_name, cfg, df, df_hist):
         st.info(f"**Score Tier: {k_level}**\n\n{k_rec}")
         
     elif chosen_indicator == "pH":
-        # Global definition prevents NameError
-        crop_selected_name = st.session_state[f"{k}_sm_crop"]
-        ph_benchmarks = SMAF_DATA.get("ph_benchmarks", {}) if SMAF_DATA else {}
+        # 1. Grab Live Variables
+        ph_val = st.session_state.get(f"{k}_ph", 6.0)
+        selected_crop_input = st.session_state.get(f"{k}_sm_crop", "").lower()
+        crop_id = SMAF_DATA.get("crop_ui_map", {}).get(selected_crop_input, 82) # Defaults to Soybean
         
-        # Case insensitive lookup
-        ph_benchmarks_lower = {key.lower(): val for key, val in ph_benchmarks.items()}
-        benchmarks = ph_benchmarks_lower.get(crop_selected_name.lower())
+        # 2. Calculate Score
+        score_ph = run_smaf_ph_score(ph_val, crop_id, SMAF_DATA)
+        ph_color = score_color(score_ph)
+        ph_label = score_label(score_ph)
         
-        if not benchmarks:
-            st.warning(f"ℹ️ **pH Target Data:** Optimum thresholds for **{crop_selected_name}** are being calibrated.")
-            st.metric("Soil pH", ph_val)
-        else:
-            ph_opt = benchmarks["opt"]
-            ph_sigma = benchmarks["sigma"]
-            score_ph = float(100.0 * np.exp(-((ph_val - ph_opt) / (2.0 * ph_sigma)) ** 2))
-            color_ph = score_color(score_ph)
-            label_ph = score_label(score_ph)
-
-            with col_l:
-                gauge_title = f"<b style='font-size:17px'>{label_ph}</b><br><span style='font-size:11px;color:gray'>{crop_selected_name} · pH {ph_val}</span>"
-                fig_gauge = go.Figure(go.Indicator(
-                    mode="gauge+number", value=int(round(score_ph)),
-                    title={"text": gauge_title, "font": {"size": 13}},
-                    number={"suffix": "/100", "font": {"size": 38, "color": color_ph}},
-                    gauge={
-                        "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray", "tickvals": [0, 20, 40, 60, 80, 100]},
-                        "bar": {"color": color_ph, "thickness": 0.28},
-                        "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
-                        "steps": [
-                            {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
-                            {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
-                            {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
-                            {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
-                            {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
-                        ],
-                        "threshold": {"line": {"color": color_ph, "width": 5}, "thickness": 0.8, "value": score_ph}
-                    }
-                ))
-                fig_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10), autosize=True)
-                st.plotly_chart(fig_gauge, use_container_width=True, key=f"{k}_gauge_chart_ph")
-
-                st.divider()
-                gap = ph_val - ph_opt
-                st.metric("Variance from Optimum", f"{gap:+.2f} pH", "Target Achieved" if abs(gap) < 0.2 else "Needs Adjustment")
-
-            with col_r:
-                st.markdown("#### Scoring Curve")
-                x_axis = np.linspace(3.0, 9.0, 300) 
-                y_axis = 100.0 * np.exp(-((x_axis - ph_opt) / (2.0 * ph_sigma)) ** 2)
-                
-                fig_cdf = go.Figure()
-                fig_cdf.add_trace(go.Scatter(x=x_axis, y=y_axis / 100, mode="lines", line=dict(color="#1a9641", width=3), name="Score Curve", hovertemplate="pH: %{x:.1f}<br>Score: %{y:.1%}<extra></extra>"))
-                fig_cdf.add_trace(go.Scatter(x=[ph_val], y=[score_ph / 100], mode="markers", marker=dict(color=color_ph, size=14, symbol="circle", line=dict(color="white", width=2)), name="Your Field pH"))
-                fig_cdf.add_trace(go.Scatter(x=[ph_opt], y=[1.0], mode="markers", marker=dict(color="#0072B2", size=13, symbol="x-thin", line=dict(color="#0072B2", width=3)), name=f"Optimum ({ph_opt})"))
-                
-                fig_cdf.update_layout(
-                    xaxis_title="Soil pH", yaxis_title="SHAPE Score",
-                    yaxis=dict(range=[0, 1.1], tickformat=".0%"), xaxis=dict(range=[3.0, 9.0]),
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02),
-                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=400, margin=dict(l=10, r=10, t=40, b=10)
-                )
-                st.plotly_chart(fig_cdf, width='stretch', key=f"{k}_cdf_chart_ph")
-                
-                if use_geo and f"{k}_lat" in st.session_state and in_bounds(lat_in, lon_in, cfg):
-                    st.markdown("#### Site Location")
-                    st.map(pd.DataFrame({"lat": [lat_in], "lon": [lon_in]}), zoom=6)
-    # ── 5-TIER pH RECOMMENDATION ENGINE ──
-            st.markdown("### 📋 Agronomic Recommendations")
+        # 3. Create Layout
+        col_l, col_r = st.columns([1, 2])
+        
+        with col_l:
+            gauge_title = f"<b style='font-size:17px; color:#333;'>{ph_label}</b><br><span style='font-size:11px; color:#555;'>Measured pH: {ph_val} (2:1 Water)</span>"
+            fig_ph_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_ph)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": ph_color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#555"},
+                    "bar": {"color": ph_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.85)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.85)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.85)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.85)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.85)"}
+                    ],
+                    "threshold": {"line": {"color": ph_color, "width": 5}, "thickness": 0.8, "value": score_ph}
+                }
+            ))
+            fig_ph_gauge.update_layout(font=dict(color="#333"), paper_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
+            st.plotly_chart(fig_ph_gauge, use_container_width=True, key=f"{k}_ph_gauge")
             
-            # 1. Determine the direction of the problem
-            opt_ph = benchmarks["opt"]
-            if ph_val > opt_ph:
-                direction = "lower"
-                amendment = "elemental sulfur, acidifying fertilizers (like ammonium sulfate), or organic matter"
-            else:
-                direction = "raise"
-                amendment = "agricultural lime (calcium carbonate) or dolomite"
-            # 2. Assign the 5-tier logic
-            if score_ph >= 80:
-                ph_level = "Very High"
-                ph_rec = "Your soil pH is optimal for this crop, supporting maximum nutrient availability. Maintain current management practices; no amendments appear necessary at this time."
-            elif score_ph >= 60:
-                ph_level = "High"
-                ph_rec = f"Your soil pH is adequate, though slightly outside the perfect optimum. Monitor in future seasons to ensure it doesn't drift further. Routine management is likely sufficient."
-            elif score_ph >= 40:
-                ph_level = "Medium"
-                ph_rec = f"Your soil pH may be moderately limiting crop potential and nutrient availability. You might consider a targeted application of {amendment} to gradually {direction} the pH towards the {opt_ph} optimum. Please consult a local agronomist to determine the precise application rate for your specific soil type."
-            elif score_ph >= 20:
-                ph_level = "Low"
-                ph_rec = f"Your soil pH is likely limiting yield potential and reducing fertilizer efficiency. An application of {amendment} is recommended to {direction} the pH. We suggest consulting a local agronomist or extension agent to calculate an accurate and safe application rate."
-            else:
-                ph_level = "Very Low"
-                ph_rec = f"Your soil pH is substantially outside the optimal range for this crop, which can severely lock up essential nutrients. A corrective application of {amendment} to {direction} the pH towards {opt_ph} is highly recommended. Please consult with a certified agronomist for an accurate prescription and safe application strategy."
-            # 3. Render the recommendation box
-            st.info(f"**Score Tier: {ph_level}**\n\n{ph_rec}")
+            st.divider()
+            st.markdown("**📥 Export result**")
+            result_df = pd.DataFrame([{"Indicator": "SMAF pH", "pH_Val": ph_val, "Score": round(score_ph, 2), "Zone": ph_label}])
+            st.download_button("⬇️ Download as CSV", data=result_df.to_csv(index=False).encode("utf-8"),
+                               file_name=f"SMAF_{cfg['key']}_pH_{ph_val}.csv", mime="text/csv", width='stretch', key=f"{k}_export_ph")
+
+        with col_r:
+            st.markdown("#### Scoring Curve (SMAF Gaussian)")
+            
+            xs = np.linspace(3.5, 9.5, 300)
+            ys = [run_smaf_ph_score(x, crop_id, SMAF_DATA) / 100.0 for x in xs]
+            
+            fig_ph_curve = go.Figure()
+            fig_ph_curve.add_trace(go.Scatter(
+                x=xs, y=ys, mode="lines", 
+                line=dict(color="#8C3F5A", width=3), 
+                name="Target Range", hovertemplate="pH: %{x:.2f}<br>Score: %{y:.0%}<extra></extra>"
+            ))
+            fig_ph_curve.add_trace(go.Scatter(
+                x=[ph_val], y=[score_ph / 100.0], mode="markers", 
+                marker=dict(color="#D1495B", size=14, line=dict(color="white", width=2)), 
+                name="Your Soil"
+            ))
+            
+            crop_name = SMAF_DATA.get("ph_crops", {}).get(crop_id, {}).get("name", "Target Crop")
+            fig_ph_curve.update_layout(
+                title=dict(text=f"Optimum Curve for {crop_name}", font=dict(size=14)),
+                xaxis_title="Soil pH (2:1)", yaxis_title="Score",
+                yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[3.5, 9.5]),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
+                height=400, margin=dict(l=10, r=10, t=40, b=10)
+            )
+            st.plotly_chart(fig_ph_curve, width='stretch', key=f"{k}_ph_curve")
+
+        # ── 5-TIER pH RECOMMENDATION ENGINE ──
+        st.markdown("### 📋 Agronomic Recommendations")
+        opt_ph = SMAF_DATA.get("ph_crops", {}).get(crop_id, {}).get("b", 6.0)
+        
+        if ph_val > opt_ph:
+            direction, amendment = "lower", "elemental sulfur or acidifying fertilizers"
+        else:
+            direction, amendment = "raise", "agricultural lime (calcium carbonate)"
+
+        if score_ph >= 80:
+            ph_level, ph_rec = "Very High", "Your soil pH is optimal for this crop, supporting maximum nutrient availability. Maintain current management practices."
+        elif score_ph >= 60:
+            ph_level, ph_rec = "High", "Your soil pH is adequate, though slightly outside the perfect optimum. Monitor in future seasons to ensure it doesn't drift further."
+        elif score_ph >= 40:
+            ph_level, ph_rec = "Medium", f"Your soil pH may be moderately limiting nutrient availability. Consider a targeted application of {amendment} to gradually {direction} the pH towards the {opt_ph} optimum."
+        elif score_ph >= 20:
+            ph_level, ph_rec = "Low", f"Your soil pH is likely limiting yield potential. An application of {amendment} is recommended to {direction} the pH."
+        else:
+            ph_level, ph_rec = "Very Low", f"Your soil pH is substantially outside the optimal range. A corrective application of {amendment} to {direction} the pH towards {opt_ph} is highly recommended."
+
+        st.info(f"**Score Tier: {ph_level}**\n\n{ph_rec}")
 
     elif chosen_indicator == "Soil Organic Carbon":
         score  = compute_score(oc_val, lp_mean, sigma_val)

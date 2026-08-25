@@ -2115,10 +2115,11 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 options=om_options, 
                 key=f"{k}_sm_om_class"
             )
-            hist_toggle = st.checkbox(
-                "📌 This is an organic / Histosol soil (Muck, Peat)", 
-                key=f"{k}_hist_toggle"
-            )
+            if cfg.get("has_histosol", False):
+                st.checkbox(
+                    "📌 This is an organic / Histosol soil (Muck, Peat)", 
+                    key=f"{k}_hist_toggle"
+                )
 
     # ── MASTER LAB INPUTS (DYNAMICALLY FILTERED BY CHECKBOXES) ──
     with st.expander("🧪 Laboratory Measurements", expanded=True):

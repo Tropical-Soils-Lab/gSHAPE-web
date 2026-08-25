@@ -2120,13 +2120,13 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 "Class 4 (Lowest OM)"
             ]
 
-            # Force the dropdown to update if a new taxonomy is chosen
-            if st.session_state.get(f"{k}_last_tax_sub") != raw_tax:
-                st.session_state[f"{k}_sm_om_class"] = om_options[default_om_idx]
-                st.session_state[f"{k}_last_tax_sub"] = raw_tax
-            
+            # Initialize session state default if it doesn't exist yet
+            if f"{k}_sm_om_class" not in st.session_state:
+                st.session_state[f"{k}_sm_om_class"] = om_options[1] # Default to Class 2
+
+            # ✨ REMOVED THE TAXONOMY OVERRIDE LOOP SO YOUR MANUAL SELECTION STICKS!
             selected_om_class = st.selectbox(
-                "Organic Matter (OM) Class (Auto-Assigned)", 
+                "Organic Matter (OM) Class", 
                 options=om_options, 
                 key=f"{k}_sm_om_class"
             )

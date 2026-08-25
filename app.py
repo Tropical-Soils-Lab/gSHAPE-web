@@ -1518,24 +1518,37 @@ def run_smaf_mbc_score(mbc_val, om_class, texture, season_climate, smaf_data, cl
     K = smaf_data.get("mbc_K", {})
     if not K: return 0.0
     
-    import math
-    # Grab the discrete c1 value matching your updated Excel table
-    c1 = smaf_data.get("mbc_om", {}).get(om_class, 0.0124192) 
-    c2 = smaf_data.get("mbc_texture", {}).get(texture, 1.0)
-    c3 = smaf_data.get("mbc_sc", {}).get(round(float(season_climate), 1), 1.0)
-    
-    if c1 is None or c2 is None or c3 is None:
-        return 0.0
+    try:
+        mbc_val = float(mbc_val)
+    except (TypeError, ValueError):
+        mbc_val = 0.0
         
-    c = c1 * c2 * c3
+    if mbc_val <= 0:
+        return 0.0
+
+    import math
+    om_dict = smaf_data.get("mbc_om", {})
+    c1 = om_dict.get(int(om_class)) or om_dict.get(str(om_class)) or 0.0124192
+    
+    tex_dict = smaf_data.get("mbc_texture", {})
+    c2 = tex_dict.get(int(texture)) or tex_dict.get(str(texture)) or 1.0
+    
+    sc_dict = smaf_data.get("mbc_sc", {})
+    sc_key = round(float(season_climate), 1)
+    c3 = sc_dict.get(sc_key) or sc_dict.get(str(sc_key)) or 1.0
+    
+    c = float(c1) * float(c2) * float(c3)
+    
+    # ✨ Diagnostic print: Remove this after we check the screen!
+    st.write(f"DEBUG -> c1: {c1}, c2: {c2}, c3: {c3}, c: {c}, mbc: {mbc_val}")
     
     try:
-        y = K.get("a", 1.0) / (1.0 + K.get("b", 1.0) * math.exp(-c * mbc_val))
-    except OverflowError:
+        y = float(K.get("a", 1.0)) / (1.0 + float(K.get("b", 1.0)) * math.exp(-c * mbc_val))
+    except (OverflowError, TypeError, ValueError):
         y = 0.0
         
     if clamp:
-        y = max(K.get("score_min", 0.0), min(K.get("score_max", 1.0), y))
+        y = max(float(K.get("score_min", 0.0)), min(float(K.get("score_max", 1.0)), y))
         
     return y * 100.0
 

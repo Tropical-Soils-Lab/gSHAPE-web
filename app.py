@@ -2030,7 +2030,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             # Only show EC Method if EC or SAR is selected
             ec_method_str = "Saturated Paste (ECsat)"
             if "Electrical Conductivity" in target_indicators or "Sodium Adsorption Ratio" in target_indicators:
-                ec_method_str = st.selectbox("EC Method", ["— Select —", "Saturated Paste (ECsat)", "1:1 Soil:Water (EC1:1)"], key=f"{k}_ec_method")
+                ec_method_str = st.selectbox("EC Method", ["— Select —", "Saturated Paste (ECsat)", "1:1 Soil:Water"], key=f"{k}_ec_method")
             
             use_geo = st.checkbox("Fetch climate from coordinates", key=f"{k}_geo")
             lat_in, lon_in = cfg["default_latlon"]

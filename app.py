@@ -2115,7 +2115,9 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 options=om_options, 
                 key=f"{k}_sm_om_class"
             )
-            if cfg.get("has_histosol", False):
+        
+            # This explicitly locks the checkbox so it ONLY appears for United States -> Florida
+            if region_name == "Florida":
                 st.checkbox(
                     "📌 This is an organic / Histosol soil (Muck, Peat)", 
                     key=f"{k}_hist_toggle"

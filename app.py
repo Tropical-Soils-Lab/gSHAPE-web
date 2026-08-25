@@ -3295,7 +3295,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
         st.info(f"**Score Tier: {wfps_level}**\n\n{wfps_rec}")
 
-    elif chosen_indicator == "Microbial Biomass Carbon":
+   elif chosen_indicator == "Microbial Biomass Carbon":
         # 1. Grab Global Variables
         texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
         om_string = st.session_state.get(f"{k}_sm_om_class", "Class 2 (Med-High OM)")
@@ -3345,7 +3345,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
         with col_r:
             st.markdown("#### Scoring Curve")
             
-            # Smooth plotting using linspace
+            # ✨ Dynamically re-calculates the curve using the active OM class!
             xs = np.linspace(0, 1000, 300)
             ys = [run_smaf_mbc_score(x, om_id, texture_id, season_climate_code, SMAF_DATA) for x in xs]
             

@@ -1461,8 +1461,11 @@ def run_smaf_wfps_score(wfps_frac, texture, smaf_data, clamp=True):
 # ----------------------------------------------------------------------
 # SMAF MICROBIAL BIOMASS CARBON (MBC) BACKEND ENGINE
 # ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# SMAF MICROBIAL BIOMASS CARBON (MBC) BACKEND ENGINE
+# ----------------------------------------------------------------------
 def load_mbc_data(smaf_data, path="SMAF_lookup.xlsx"):
-    """Injects the 4 new MBC sheets into the global SMAF_DATA dictionary safely."""
+    """Injects the MBC sheets into the global SMAF_DATA dictionary safely."""
     import math, pandas as pd
     sh = pd.read_excel(path, sheet_name=None, dtype=str)
     
@@ -1490,7 +1493,7 @@ def load_mbc_data(smaf_data, path="SMAF_lookup.xlsx"):
         for _, r in df_om.iterrows():
             oc = num(r.get("om_class"))
             if oc is not None:
-                # ✨ THIS IS THE FIX: Saves a discrete number instead of a dictionary!
+                # Pulls the discrete c1 value directly from your Excel sheet
                 mbc_om[int(oc)] = num(r.get("c1"))
                 
     df_tex = clean_df("mbc_texture_factors")
@@ -1509,6 +1512,32 @@ def load_mbc_data(smaf_data, path="SMAF_lookup.xlsx"):
     smaf_data["mbc_om"] = mbc_om
     smaf_data["mbc_texture"] = mbc_texture
     smaf_data["mbc_sc"] = mbc_sc
+
+def run_smaf_mbc_score(mbc_val, om_class, texture, season_climate, smaf_data, clamp=True):
+    load_mbc_data(smaf_data)
+    K = smaf_data.get("mbc_K", {})
+    if not K: return 0.0
+    
+    import math
+    # Grab the discrete c1 value matching your updated Excel table
+    c1 = smaf_data.get("mbc_om", {}).get(om_class, 0.0124192) 
+    c2 = smaf_data.get("mbc_texture", {}).get(texture, 1.0)
+    c3 = smaf_data.get("mbc_sc", {}).get(round(float(season_climate), 1), 1.0)
+    
+    if c1 is None or c2 is None or c3 is None:
+        return 0.0
+        
+    c = c1 * c2 * c3
+    
+    try:
+        y = K.get("a", 1.0) / (1.0 + K.get("b", 1.0) * math.exp(-c * mbc_val))
+    except OverflowError:
+        y = 0.0
+        
+    if clamp:
+        y = max(K.get("score_min", 0.0), min(K.get("score_max", 1.0), y))
+        
+    return y * 100.0
 
 # ----------------------------------------------------------------------
 # SMAF SOIL ORGANIC CARBON (SOC) BACKEND ENGINE

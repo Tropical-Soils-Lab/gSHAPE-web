@@ -1466,10 +1466,8 @@ def run_smaf_wfps_score(wfps_frac, texture, smaf_data, clamp=True):
 # ----------------------------------------------------------------------
 def load_mbc_data(smaf_data, path="SMAF_lookup.xlsx"):
     """Injects the MBC sheets into the global SMAF_DATA dictionary safely."""
-    # ✅ FIX: Cache guard prevents re-reading Excel on every score call
     if "mbc_K" in smaf_data and len(smaf_data.get("mbc_K", {})) > 0:
         return
-
     import math, pandas as pd
     sh = pd.read_excel(path, sheet_name=None, dtype=str)
     
@@ -1497,7 +1495,13 @@ def load_mbc_data(smaf_data, path="SMAF_lookup.xlsx"):
         for _, r in df_om.iterrows():
             oc = num(r.get("om_class"))
             if oc is not None:
-                mbc_om[int(oc)] = num(r.get("c1"))
+                # ✨ FIXED: Pulls 'c1_override' and falls back to a safe number if blank
+                val = num(r.get("c1_override"))
+                if val is None:
+                    # Fallback math if override cell is empty
+                    R = num(r.get("max_range")) or 1.0
+                    val = mbc_K.get("c1_coef_a", 0.0) + mbc_K.get("c1_coef_b", 0.0) * R + mbc_K.get("c1_coef_c", 0.0) * (R ** 2)
+                mbc_om[int(oc)] = val
                 
     df_tex = clean_df("mbc_texture_factors")
     if not df_tex.empty:

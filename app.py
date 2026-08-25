@@ -2104,7 +2104,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 "Class 3 (Med-Low OM)", 
                 "Class 4 (Lowest OM)"
             ]
-            
+
             # Force the dropdown to update if a new taxonomy is chosen
             if st.session_state.get(f"{k}_last_tax_sub") != raw_tax:
                 st.session_state[f"{k}_sm_om_class"] = om_options[default_om_idx]
@@ -2114,6 +2114,10 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 "Organic Matter (OM) Class (Auto-Assigned)", 
                 options=om_options, 
                 key=f"{k}_sm_om_class"
+            )
+            hist_toggle = st.checkbox(
+                "📌 This is an organic / Histosol soil (Muck, Peat)", 
+                key=f"{k}_hist_toggle"
             )
 
     # ── MASTER LAB INPUTS (DYNAMICALLY FILTERED BY CHECKBOXES) ──

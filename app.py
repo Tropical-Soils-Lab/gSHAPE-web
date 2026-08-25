@@ -2136,57 +2136,69 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
             # 3. Render inputs dynamically into the next available column
             if "Soil Organic Carbon" in target_indicators or "SMAF Soil Organic Carbon" in target_indicators:
-                with cols[col_idx % 3]: oc_val = st.number_input("Measured SOC (%)", min_value=0.0, max_value=20.0, value=2.0, step=0.1, key=f"{k}_oc")
+                with cols[col_idx % 3]: 
+                    oc_val = st.number_input("Measured SOC (%)", min_value=0.0, max_value=20.0, step=0.1, key=f"{k}_oc")
                 col_idx += 1
                 
             if "Soil Phosphorus" in target_indicators:
-                with cols[col_idx % 3]: p_val = st.number_input("Measured Phosphorus (mg/kg)", min_value=0.0, max_value=500.0, value=25.0, step=5.0, key=f"{k}_sm_p_input")
+                with cols[col_idx % 3]: 
+                    p_val = st.number_input("Measured Phosphorus (mg/kg)", min_value=0.0, max_value=500.0, step=5.0, key=f"{k}_sm_p_input")
                 col_idx += 1
                 
             if "Extractable Potassium" in target_indicators:
-                with cols[col_idx % 3]: k_val = st.number_input("Measured Extractable K (mg/kg)", min_value=0.0, max_value=1000.0, value=125.0, step=5.0, key=f"{k}_exk_val")
+                with cols[col_idx % 3]: 
+                    k_val = st.number_input("Measured Extractable K (mg/kg)", min_value=0.0, max_value=1000.0, step=5.0, key=f"{k}_exk_val")
                 col_idx += 1
                 
             if "pH" in target_indicators:
-                with cols[col_idx % 3]: ph_val = st.number_input("Measured Soil pH", min_value=0.0, max_value=14.0, value=6.0, step=0.1, key=f"{k}_ph")
+                with cols[col_idx % 3]: 
+                    ph_val = st.number_input("Measured Soil pH", min_value=0.0, max_value=14.0, step=0.1, key=f"{k}_ph")
                 col_idx += 1
                 
             if "Electrical Conductivity" in target_indicators:
-                with cols[col_idx % 3]: ec_val = st.number_input("Measured EC (dS/m)", min_value=0.0, max_value=20.0, value=1.5, step=0.1, key=f"{k}_ec")
+                with cols[col_idx % 3]: 
+                    ec_val = st.number_input("Measured EC (dS/m)", min_value=0.0, max_value=20.0, step=0.1, key=f"{k}_ec")
                 col_idx += 1
                 
             if "Sodium Adsorption Ratio" in target_indicators:
-                with cols[col_idx % 3]: sar_val = st.number_input("Measured SAR", min_value=0.0, max_value=50.0, value=2.0, step=0.1, key=f"{k}_sar")
+                with cols[col_idx % 3]: 
+                    sar_val = st.number_input("Measured SAR", min_value=0.0, max_value=50.0, step=0.1, key=f"{k}_sar")
                 col_idx += 1
                 
             if "Bulk Density" in target_indicators:
-                with cols[col_idx % 3]: bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.1, max_value=2.5, value=1.45, step=0.05, key=f"{k}_bd")
+                with cols[col_idx % 3]: 
+                    bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.1, max_value=2.5, step=0.05, key=f"{k}_bd")
                 col_idx += 1
                 
             if "Macroaggregate Stability" in target_indicators:
-                with cols[col_idx % 3]: agg_val = st.number_input("Macroaggregate Stability (%)", min_value=0.0, max_value=100.0, value=40.0, step=1.0, key=f"{k}_agg")
+                with cols[col_idx % 3]: 
+                    agg_val = st.number_input("Macroaggregate Stability (%)", min_value=0.0, max_value=100.0, step=1.0, key=f"{k}_agg")
                 col_idx += 1
                 
             if "Available Water Capacity" in target_indicators:
-                with cols[col_idx % 3]: awc_val = st.number_input("Measured AWC (g/g)", min_value=0.0, max_value=1.0, value=0.15, step=0.01, key=f"{k}_awc")
+                with cols[col_idx % 3]: 
+                    awc_val = st.number_input("Measured AWC (g/g)", min_value=0.0, max_value=1.0, step=0.01, key=f"{k}_awc")
                 col_idx += 1
                 
             if "Water-Filled Pore Space" in target_indicators:
-                with cols[col_idx % 3]: wfps_frac = st.number_input("Measured WFPS (fraction)", min_value=0.0, max_value=1.0, value=0.60, step=0.05, key=f"{k}_wfps")
+                with cols[col_idx % 3]: 
+                    wfps_frac = st.number_input("Measured WFPS (fraction)", min_value=0.0, max_value=1.0, step=0.05, key=f"{k}_wfps")
                 col_idx += 1
                 
             if "Potentially Mineralizable Nitrogen" in target_indicators:
-                with cols[col_idx % 3]: pmn_val = st.number_input("Measured PMN (mg/kg)", min_value=0.0, max_value=200.0, value=20.0, step=1.0, key=f"{k}_pmn")
+                with cols[col_idx % 3]: 
+                    pmn_val = st.number_input("Measured PMN (mg/kg)", min_value=0.0, max_value=200.0, step=1.0, key=f"{k}_pmn")
                 col_idx += 1
                 
             if "Microbial Biomass Carbon" in target_indicators:
-                with cols[col_idx % 3]: mbc_val = st.number_input("Measured MBC (mg/kg)", min_value=0.0, max_value=2000.0, value=200.0, step=10.0, key=f"{k}_mbc_val")
+                with cols[col_idx % 3]: 
+                    mbc_val = st.number_input("Measured MBC (mg/kg)", min_value=0.0, max_value=2000.0, step=10.0, key=f"{k}_mbc_val")
                 col_idx += 1
                 
             if "Beta-glucosidase" in target_indicators:
-                with cols[col_idx % 3]: bg_val = st.number_input("Measured BG (mg/kg/hr)", min_value=0.0, max_value=2000.0, value=300.0, step=10.0, key=f"{k}_bg_val")
+                with cols[col_idx % 3]: 
+                    bg_val = st.number_input("Measured BG (mg/kg/hr)", min_value=0.0, max_value=2000.0, step=10.0, key=f"{k}_bg_val")
                 col_idx += 1
-                
     
     # Auto-assign AWC Region: Humid (2) if MAP >= 600mm, Arid (1) if MAP < 600mm
     is_wet_for_awc = target_precip >= 600.0 if target_precip is not None else True

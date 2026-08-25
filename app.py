@@ -1540,7 +1540,7 @@ def run_smaf_mbc_score(mbc_val, om_class, texture, season_climate, smaf_data, cl
     c = float(c1) * float(c2) * float(c3)
     
     # ✨ Diagnostic print: Remove this after we check the screen!
-    st.write(f"DEBUG -> c1: {c1}, c2: {c2}, c3: {c3}, c: {c}, mbc: {mbc_val}")
+    #st.write(f"DEBUG -> c1: {c1}, c2: {c2}, c3: {c3}, c: {c}, mbc: {mbc_val}")
     
     try:
         y = float(K.get("a", 1.0)) / (1.0 + float(K.get("b", 1.0)) * math.exp(-c * mbc_val))

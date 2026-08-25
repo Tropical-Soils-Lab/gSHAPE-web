@@ -1466,6 +1466,10 @@ def run_smaf_wfps_score(wfps_frac, texture, smaf_data, clamp=True):
 # ----------------------------------------------------------------------
 def load_mbc_data(smaf_data, path="SMAF_lookup.xlsx"):
     """Injects the MBC sheets into the global SMAF_DATA dictionary safely."""
+    # ✅ FIX: Cache guard prevents re-reading Excel on every score call
+    if "mbc_K" in smaf_data and len(smaf_data.get("mbc_K", {})) > 0:
+        return
+
     import math, pandas as pd
     sh = pd.read_excel(path, sheet_name=None, dtype=str)
     
@@ -1493,7 +1497,6 @@ def load_mbc_data(smaf_data, path="SMAF_lookup.xlsx"):
         for _, r in df_om.iterrows():
             oc = num(r.get("om_class"))
             if oc is not None:
-                # Pulls the discrete c1 value directly from your Excel sheet
                 mbc_om[int(oc)] = num(r.get("c1"))
                 
     df_tex = clean_df("mbc_texture_factors")
@@ -2344,7 +2347,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
     if "Microbial Biomass Carbon" in target_indicators:
         season_name = st.session_state.get(f"{k}_sm_season", "Spring")
         season_num = {"Spring": 1, "Summer": 2, "Fall": 3, "Winter": 4}.get(season_name, 1)
-        season_climate_code = 1.0 if season_num == 1 else float(f"{season_num}.{climate_id_sum}")
+        season_climate_code = float(f"{season_num}.{climate_id}")
         bio_scores.append(safe_float(run_smaf_mbc_score(mbc_val_sum, om_id_sum, texture_id_sum, season_climate_code, SMAF_DATA)))
 
     if "Beta-glucosidase" in target_indicators:

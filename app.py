@@ -1458,9 +1458,7 @@ def run_smaf_wfps_score(wfps_frac, texture, smaf_data, clamp=True):
         "combined": combined_y * 100.0
     }
 
-# ----------------------------------------------------------------------
-# SMAF MICROBIAL BIOMASS CARBON (MBC) BACKEND ENGINE
-# ----------------------------------------------------------------------
+
 # ----------------------------------------------------------------------
 # SMAF MICROBIAL BIOMASS CARBON (MBC) BACKEND ENGINE
 # ----------------------------------------------------------------------
@@ -1554,8 +1552,7 @@ def run_smaf_mbc_score(mbc_val, om_class, texture, season_climate, smaf_data, cl
     sc_key = round(float(season_climate), 1)
     c3 = sc_dict.get(sc_key) or sc_dict.get(str(sc_key)) or 1.0
     
-    c = (float(c1) * float(c2)) + (float(c1) * float(c2) * float(c3))
-    
+    c = float(c1) * float(c2) * float(c3)    
     try:
         y = float(K.get("a", 1.0)) / (1.0 + float(K.get("b", 1.0)) * math.exp(-c * mbc_val))
     except (OverflowError, TypeError, ValueError):

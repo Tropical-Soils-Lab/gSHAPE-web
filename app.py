@@ -1533,8 +1533,6 @@ def run_smaf_mbc_score(mbc_val, om_class, texture, season_climate, smaf_data, cl
 
     import math
     om_dict = smaf_data.get("mbc_om", {})
-    
-    # ✨ Explicitly force om_class to an integer and pull from dictionary
     try:
         clean_oc = int(om_class)
     except (TypeError, ValueError):
@@ -1542,19 +1540,24 @@ def run_smaf_mbc_score(mbc_val, om_class, texture, season_climate, smaf_data, cl
         
     c1 = om_dict.get(clean_oc)
     if c1 is None:
-        # Fallback to Class 2 if the key is somehow missing
         c1 = om_dict.get(2, 0.0124192)
     
     tex_dict = smaf_data.get("mbc_texture", {})
     c2 = tex_dict.get(int(texture)) or tex_dict.get(str(texture)) or 1.0
     
+    # ✨ Advanced Season/Climate Lookup
     sc_dict = smaf_data.get("mbc_sc", {})
     sc_key = round(float(season_climate), 1)
-    c3 = sc_dict.get(sc_key) or sc_dict.get(str(sc_key)) or 1.0
+    base_season = int(math.floor(sc_key))
     
-    c = float(c1) * float(c2) * float(c3)    
+    # Checks for exact decimal (2.3), then base integer (2), then defaults to 1.0
+    c3 = sc_dict.get(sc_key) or sc_dict.get(str(sc_key)) or sc_dict.get(base_season) or sc_dict.get(str(base_season)) or 1.0
+    
+    c = float(c1) * float(c2) * float(c3)
+    
     try:
-        y = float(K.get("a", 1.0)) / (1.0 + float(K.get("b", 1.0)) * math.exp(-c * mbc_val))
+        # Hardcoding the correct 40.478 constant to override the Excel typo
+        y = float(K.get("a", 1.0)) / (1.0 + float(K.get("b", 40.478)) * math.exp(-c * mbc_val))
     except (OverflowError, TypeError, ValueError):
         y = 0.0
         

@@ -1517,6 +1517,10 @@ def load_mbc_data(smaf_data, path="SMAF_lookup.xlsx"):
     smaf_data["mbc_om"] = mbc_om
     smaf_data["mbc_texture"] = mbc_texture
     smaf_data["mbc_sc"] = mbc_sc
+    # TEMP DEBUG — remove after confirming
+import streamlit as st
+c_check = (float(c1) * float(c2)) + (float(c1) * float(c2) * float(c3))
+st.caption(f"DEBUG: c1={c1:.6f} c2={c2:.4f} c3={c3:.4f} → c={c_check:.6f} | MBC={mbc_val}")
 
 def run_smaf_mbc_score(mbc_val, om_class, texture, season_climate, smaf_data, clamp=True):
     load_mbc_data(smaf_data)
@@ -1553,8 +1557,8 @@ def run_smaf_mbc_score(mbc_val, om_class, texture, season_climate, smaf_data, cl
     # Checks for exact decimal (2.3), then base integer (2), then defaults to 1.0
     c3 = sc_dict.get(sc_key) or sc_dict.get(str(sc_key)) or sc_dict.get(base_season) or sc_dict.get(str(base_season)) or 1.0
     
-    c = float(c1) * float(c2) * float(c3)
-    
+    c = (float(c1) * float(c2)) + (float(c1) * float(c2) * float(c3))
+
     try:
         # Hardcoding the correct 40.478 constant to override the Excel typo
         y = float(K.get("a", 1.0)) / (1.0 + float(K.get("b", 40.478)) * math.exp(-c * mbc_val))

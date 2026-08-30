@@ -2542,6 +2542,56 @@ def render_single_sample(region_name, cfg, df, df_hist):
         )
     st.divider()
 
+    # =========================================================================
+    # ✨ ✨ NATIVE STREAMLIT SOIL HEALTH CONSTRAINTS DIAGNOSTIC ✨ ✨
+    # =========================================================================
+    st.markdown("### 📋 Soil Health Constraint Diagnostic")
+    st.markdown("Address these critical functional constraints to unlock full soil and crop potential:")
+    
+    # 1. Define the constraints dictionary directly inside the app
+    CONSTRAINTS = {
+        "Physical": {
+            "Medium": "Root penetration; Water transmission",
+            "Low": "Root penetration; Gas exchange; Water Infiltration; Erosion and runoff",
+            "VeryLow": "Root penetration; Water transmission; Gas exchange; Infiltration; Water retention; Solute transport; Seedbed formation",
+        },
+        "Chemical": {
+            "Medium": "Nutrient supply; Nutrient Solubilization",
+            "Low": "Nutrient supply; Nutrient Solubilization; Ion exchange and retention; Rhizosphere habitat",
+            "VeryLow": "Nutrient supply; Nutrient solubility; Ion exchange and retention; Rhizosphere habitat; pH buffering; Ionic toxicity regulation; Nitrogen transformation",
+        },
+        "SOC": {
+            "Medium": "Nutrient mineralization; Microbial habitat",
+            "Low": "Nutrient mineralization; Microbial habitat; Aggregate Formation; Water Retention",
+            "VeryLow": "Nutrient mineralization; Microbial habitat; Aggregate Formation; Water Retention; Infiltration; Structural stability; Buffering capacity",
+        }
+    }
+
+    # 2. Build the dataset based on current scores
+    diag_rows = []
+    
+    # Loop through the variables already calculated for the chart above
+    for pillar, s_val in [("Physical", score_phys), ("Chemical", score_chem), ("SOC", score_bio)]:
+        score_int = int(round(s_val))
+        if score_int < 20:
+            diag_rows.append({"Pillar": pillar, "Score": score_int, "Assessment": "🔴 Very Low", "Critical Soil Functions Affected": CONSTRAINTS[pillar]["VeryLow"]})
+        elif score_int < 40:
+            diag_rows.append({"Pillar": pillar, "Score": score_int, "Assessment": "🔴 Low", "Critical Soil Functions Affected": CONSTRAINTS[pillar]["Low"]})
+        elif score_int < 60:
+            diag_rows.append({"Pillar": pillar, "Score": score_int, "Assessment": "🟠 Medium", "Critical Soil Functions Affected": CONSTRAINTS[pillar]["Medium"]})
+
+    # 3. Render natively using Streamlit
+    if len(diag_rows) == 0:
+        st.success("Congratulations! All core soil health pillars scored High (>= 60), indicating fully functional soil systems that are unrestricted by major soil function constraints.")
+    else:
+        # Convert to Pandas DataFrame for clean rendering
+        df_diag = pd.DataFrame(diag_rows)
+        
+        # Use st.table() so the text wraps nicely on multiple lines
+        st.table(df_diag)
+        
+    st.divider()
+
     # ── INDICATOR SELECTION DROPDOWN (Correctly positioned below summary) ──
     chosen_indicator = st.selectbox(
         "Soil Health Indicators:",

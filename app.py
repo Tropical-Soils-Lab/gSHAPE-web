@@ -4298,17 +4298,20 @@ active_region_name = "Global_SMAF"
 if selected_country == "Brazil": active_region_name = "Brazil"
 elif selected_country in SSA_COUNTRIES: active_region_name = "Sub-Saharan Africa"
 elif selected_country == "United States" and selected_state == "Florida": active_region_name = "Florida"
-    
+
 st.markdown("### ⚙️ Scoring Framework")
 framework_options = ["SMAF Only"]
 if active_region_name != "Global_SMAF":
-    framework_options.insert(0, "SHAPE + SMAF")
-    
+    # ✨ Add all three modes here!
+    framework_options = ["SHAPE + SMAF (Hybrid)", "SMAF Only", "SHAPE Only"]
+
 selected_framework = st.selectbox("Select your preferred evaluation framework:", framework_options)
 st.session_state["selected_framework"] = selected_framework
 
-if selected_framework == "SHAPE + SMAF":
-    st.success(f"SHAPE regional SOC models are unlocked for {selected_state if selected_state else selected_country}!")
+if selected_framework == "SHAPE + SMAF (Hybrid)":
+    st.success(f"SHAPE regional SOC models and SMAF indicators unlocked for {selected_state if selected_state else selected_country}!")
+elif selected_framework == "SHAPE Only":
+    st.success(f"Running strictly SHAPE regional models for {selected_state if selected_state else selected_country}.")
 else:
     # Check if the country actually supports SHAPE natively before showing the limited warning
     is_supported_region = (selected_country == "Brazil") or (selected_country in SSA_COUNTRIES) or (selected_country == "United States" and selected_state == "Florida")
@@ -4329,42 +4332,73 @@ if "Global_SMAF" not in REGIONS:
 
 active_cfg = REGIONS[active_region_name]
 
+# Create the Global CFG dynamically if it doesn't exist
+if "Global_SMAF" not in REGIONS:
+    REGIONS["Global_SMAF"] = dict(REGIONS["Florida"]) # Inherit default UI maps
+    REGIONS["Global_SMAF"]["key"] = "GL"
+    REGIONS["Global_SMAF"]["csv"] = None        # Disables SHAPE parsing
+    REGIONS["Global_SMAF"]["csv_hist"] = None   # Disables Histosol parsing
+
+active_cfg = REGIONS[active_region_name]
+
 # ── DYNAMIC INDICATOR FILTER ──
 st.markdown("### 🧪 Target Soil Health Indicators")
 chk_c1, chk_c2, chk_c3 = st.columns(3)
 target_indicators = []
 
+# Helper variable: True if we need to load SMAF indicators
+smaf_active = selected_framework in ["SMAF Only", "SHAPE + SMAF (Hybrid)"]
+
 with chk_c1:
     st.markdown("**🪨 Physical Indicators**")
-    if st.checkbox("Bulk Density", value=True): target_indicators.append("Bulk Density")
-    if st.checkbox("Macroaggregate Stability", value=True): target_indicators.append("Macroaggregate Stability")
-    if st.checkbox("Available Water Capacity", value=False): target_indicators.append("Available Water Capacity")
-    if st.checkbox("Water-Filled Pore Space", value=False): target_indicators.append("Water-Filled Pore Space")
+    # Disables and unchecks the boxes automatically if SHAPE Only is selected!
+    if st.checkbox("Bulk Density", value=smaf_active, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("Bulk Density")
+    if st.checkbox("Macroaggregate Stability", value=smaf_active, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("Macroaggregate Stability")
+    if st.checkbox("Available Water Capacity", value=False, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("Available Water Capacity")
+    if st.checkbox("Water-Filled Pore Space", value=False, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("Water-Filled Pore Space")
 
 with chk_c2:
     st.markdown("**🧪 Chemical Indicators**")
-    if st.checkbox("pH", value=True): target_indicators.append("pH")
-    if st.checkbox("Soil Phosphorus", value=True): target_indicators.append("Soil Phosphorus")
-    if st.checkbox("Extractable Potassium", value=False): target_indicators.append("Extractable Potassium")
-    if st.checkbox("Electrical Conductivity", value=True): target_indicators.append("Electrical Conductivity")
-    if st.checkbox("Sodium Adsorption Ratio", value=False): target_indicators.append("Sodium Adsorption Ratio")
+    if st.checkbox("pH", value=smaf_active, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("pH")
+    if st.checkbox("Soil Phosphorus", value=smaf_active, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("Soil Phosphorus")
+    if st.checkbox("Extractable Potassium", value=False, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("Extractable Potassium")
+    if st.checkbox("Electrical Conductivity", value=smaf_active, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("Electrical Conductivity")
+    if st.checkbox("Sodium Adsorption Ratio", value=False, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("Sodium Adsorption Ratio")
 
 with chk_c3:
     st.markdown("**🦠 Biological Indicators**")
-    if st.checkbox("Soil Organic Carbon", value=True): 
-        if selected_framework == "SHAPE + SMAF": target_indicators.append("Soil Organic Carbon")
-        target_indicators.append("SMAF Soil Organic Carbon")
-    if st.checkbox("Potentially Mineralizable Nitrogen", value=False): target_indicators.append("Potentially Mineralizable Nitrogen")
-    if st.checkbox("Microbial Biomass Carbon", value=False): target_indicators.append("Microbial Biomass Carbon")
-    if st.checkbox("Beta-glucosidase", value=False): target_indicators.append("Beta-glucosidase")
     
+    # The SOC logic gatekeeper
+    if st.checkbox("Soil Organic Carbon", value=True): 
+        if selected_framework == "SHAPE Only":
+            target_indicators.append("Soil Organic Carbon") # Routes to SHAPE math
+        elif selected_framework == "SMAF Only":
+            target_indicators.append("SMAF Soil Organic Carbon") # Routes to SMAF math
+        else: # Hybrid Mode
+            target_indicators.append("Soil Organic Carbon") # Uses SHAPE for SOC override
+            
+    if st.checkbox("Potentially Mineralizable Nitrogen", value=False, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("Potentially Mineralizable Nitrogen")
+    if st.checkbox("Microbial Biomass Carbon", value=False, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("Microbial Biomass Carbon")
+    if st.checkbox("Beta-glucosidase", value=False, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("Beta-glucosidase")
+        
 if len(target_indicators) == 0:
     st.warning("⚠️ Please select at least one indicator to continue.")
     st.stop()
     
 st.session_state["target_indicators"] = target_indicators
 st.divider()
-
 # Launch the app engine dynamically based on selections!
 render_region(active_region_name, active_cfg)
 

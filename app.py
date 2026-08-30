@@ -4304,7 +4304,7 @@ elif selected_country in SSA_COUNTRIES: active_region_name = "Sub-Saharan Africa
 elif selected_country == "United States" and selected_state == "Florida": active_region_name = "Florida"
 
 st.markdown("### ⚙️ Scoring Framework")
-framework_options = ["SMAF Only"]
+framework_options = ["SMAF"]
 if active_region_name != "Global_SMAF":
     # ✨ Add all three modes here!
     framework_options = ["SHAPE + SMAF (Hybrid)", "SMAF", "SHAPE"]
@@ -4312,20 +4312,9 @@ if active_region_name != "Global_SMAF":
 selected_framework = st.selectbox("Select your preferred evaluation framework:", framework_options)
 st.session_state["selected_framework"] = selected_framework
 
-if selected_framework == "SHAPE + SMAF (Hybrid)":
-    st.success(f"SHAPE regional SOC models and SMAF indicators unlocked for {selected_state if selected_state else selected_country}!")
-elif selected_framework == "SHAPE Only":
-    st.success(f"Running strictly SHAPE regional models for {selected_state if selected_state else selected_country}.")
-else:
-    # Check if the country actually supports SHAPE natively before showing the limited warning
-    is_supported_region = (selected_country == "Brazil") or (selected_country in SSA_COUNTRIES) or (selected_country == "United States" and selected_state == "Florida")
-    
-    if is_supported_region:
-        st.info(f"Operating in SMAF-only mode for {selected_state if selected_state else selected_country}. SHAPE regional SOC modeling has been bypassed.")
-    else:
-        st.info("Operating in global SMAF mode. (SHAPE SOC models are currently limited to Florida, Brazil, and Sub-Saharan Africa).")
-        
-    active_region_name = "Global_SMAF" # Force fallback if they manually select SMAF Only
+# Silently force the fallback to global parameters if they strictly select SMAF
+if selected_framework in ["SMAF", "SMAF Only"]:
+    active_region_name = "Global_SMAF"
 
 # Create the Global CFG dynamically if it doesn't exist
 if "Global_SMAF" not in REGIONS:

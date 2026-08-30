@@ -2567,11 +2567,15 @@ def render_single_sample(region_name, cfg, df, df_hist):
         }
     }
 
-    # 2. Build the dataset based on current scores
+   # 2. Build the dataset based on current scores
     diag_rows = []
     
     # Loop through the variables already calculated for the chart above
     for pillar, s_val in [("Physical", score_phys), ("Chemical", score_chem), ("SOC", score_bio)]:
+        # ✨ THE FIX: Skip this pillar entirely if no indicators were selected for it
+        if s_val is None:
+            continue
+            
         score_int = int(round(s_val))
         if score_int < 20:
             diag_rows.append({"Pillar": pillar, "Score": score_int, "Assessment": "🔴 Very Low", "Critical Soil Functions Affected": CONSTRAINTS[pillar]["VeryLow"]})
@@ -2582,7 +2586,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
     # 3. Render natively using Streamlit
     if len(diag_rows) == 0:
-        st.success("Congratulations! All core soil health pillars scored High (>= 60), indicating fully functional soil systems that are unrestricted by major soil function constraints.")
+        st.success("Congratulations! All measured soil health pillars scored High (>= 60), indicating fully functional soil systems that are unrestricted by major soil function constraints.")
     else:
         # Convert to Pandas DataFrame for clean rendering
         df_diag = pd.DataFrame(diag_rows)

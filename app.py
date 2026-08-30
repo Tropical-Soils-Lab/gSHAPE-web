@@ -4307,7 +4307,7 @@ st.markdown("### ⚙️ Scoring Framework")
 framework_options = ["SMAF Only"]
 if active_region_name != "Global_SMAF":
     # ✨ Add all three modes here!
-    framework_options = ["SHAPE + SMAF (Hybrid)", "SMAF Only", "SHAPE Only"]
+    framework_options = ["SHAPE + SMAF (Hybrid)", "SMAF", "SHAPE"]
 
 selected_framework = st.selectbox("Select your preferred evaluation framework:", framework_options)
 st.session_state["selected_framework"] = selected_framework

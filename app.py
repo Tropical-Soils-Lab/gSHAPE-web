@@ -2151,7 +2151,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
                     key=f"{k}_hist_toggle"
                 )
     # ── MASTER LAB INPUTS (DYNAMICALLY FILTERED BY CHECKBOXES) ──
-   # ── MASTER LAB INPUTS (DYNAMICALLY FILTERED BY CHECKBOXES) ──
+ # ── MASTER LAB INPUTS (DYNAMICALLY FILTERED BY CHECKBOXES) ──
     with st.expander("🧪 Laboratory Measurements", expanded=True):
         # 1. Initialize variables as None so they start completely blank!
         oc_val, p_val, k_val, ph_val, ec_val, sar_val = None, None, None, None, None, None
@@ -2165,67 +2165,67 @@ def render_single_sample(region_name, cfg, df, df_hist):
         # 3. Render inputs dynamically into the next available column
         if "Soil Organic Carbon" in target_indicators or "SMAF Soil Organic Carbon" in target_indicators:
             with cols[col_idx % 3]: 
-                oc_val = st.number_input("Measured SOC (%)", min_value=0.0, max_value=20.0, step=0.1, value=None, placeholder="e.g., 2.0", key=f"{k}_oc")
+                oc_val = st.number_input("Measured SOC (%)", min_value=0.0, max_value=20.0, step=0.1, value=None, placeholder="Enter value...", key=f"{k}_oc")
             col_idx += 1
             
         if "Soil Phosphorus" in target_indicators:
             with cols[col_idx % 3]: 
-                p_val = st.number_input("Measured Phosphorus (mg/kg)", min_value=0.0, max_value=500.0, step=5.0, value=None, placeholder="e.g., 25.0", key=f"{k}_sm_p_input")
+                p_val = st.number_input("Measured Phosphorus (mg/kg)", min_value=0.0, max_value=500.0, step=5.0, value=None, placeholder="Enter value...", key=f"{k}_sm_p_input")
             col_idx += 1
             
         if "Extractable Potassium" in target_indicators:
             with cols[col_idx % 3]: 
-                k_val = st.number_input("Measured Extractable K (mg/kg)", min_value=0.0, max_value=1000.0, step=5.0, value=None, placeholder="e.g., 125.0", key=f"{k}_exk_val")
+                k_val = st.number_input("Measured Extractable K (mg/kg)", min_value=0.0, max_value=1000.0, step=5.0, value=None, placeholder="Enter value...", key=f"{k}_exk_val")
             col_idx += 1
             
         if "pH" in target_indicators:
             with cols[col_idx % 3]: 
-                ph_val = st.number_input("Measured Soil pH", min_value=0.0, max_value=14.0, step=0.1, value=None, placeholder="e.g., 6.0", key=f"{k}_ph")
+                ph_val = st.number_input("Measured Soil pH", min_value=0.0, max_value=14.0, step=0.1, value=None, placeholder="Enter value...", key=f"{k}_ph")
             col_idx += 1
             
         if "Electrical Conductivity" in target_indicators:
             with cols[col_idx % 3]: 
-                ec_val = st.number_input("Measured EC (dS/m)", min_value=0.0, max_value=20.0, step=0.1, value=None, placeholder="e.g., 1.5", key=f"{k}_ec")
+                ec_val = st.number_input("Measured EC (dS/m)", min_value=0.0, max_value=20.0, step=0.1, value=None, placeholder="Enter value...", key=f"{k}_ec")
             col_idx += 1
             
         if "Sodium Adsorption Ratio" in target_indicators:
             with cols[col_idx % 3]: 
-                sar_val = st.number_input("Measured SAR", min_value=0.0, max_value=50.0, step=0.1, value=None, placeholder="e.g., 2.0", key=f"{k}_sar")
+                sar_val = st.number_input("Measured SAR", min_value=0.0, max_value=50.0, step=0.1, value=None, placeholder="Enter value...", key=f"{k}_sar")
             col_idx += 1
             
         if "Bulk Density" in target_indicators:
             with cols[col_idx % 3]: 
-                bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.1, max_value=2.5, step=0.05, value=None, placeholder="e.g., 1.45", key=f"{k}_bd")
+                bd_val = st.number_input("Measured Bulk Density (g/cm³)", min_value=0.1, max_value=2.5, step=0.05, value=None, placeholder="Enter value...", key=f"{k}_bd")
             col_idx += 1
             
         if "Macroaggregate Stability" in target_indicators:
             with cols[col_idx % 3]: 
-                agg_val = st.number_input("Macroaggregate Stability (%)", min_value=0.0, max_value=100.0, step=1.0, value=None, placeholder="e.g., 40.0", key=f"{k}_agg")
+                agg_val = st.number_input("Macroaggregate Stability (%)", min_value=0.0, max_value=100.0, step=1.0, value=None, placeholder="Enter value...", key=f"{k}_agg")
             col_idx += 1
             
         if "Available Water Capacity" in target_indicators:
             with cols[col_idx % 3]: 
-                awc_val = st.number_input("Measured AWC (g/g)", min_value=0.0, max_value=1.0, step=0.01, value=None, placeholder="e.g., 0.15", key=f"{k}_awc")
+                awc_val = st.number_input("Measured AWC (g/g)", min_value=0.0, max_value=1.0, step=0.01, value=None, placeholder="Enter value...", key=f"{k}_awc")
             col_idx += 1
             
         if "Water-Filled Pore Space" in target_indicators:
             with cols[col_idx % 3]: 
-                wfps_frac = st.number_input("Measured WFPS (fraction)", min_value=0.0, max_value=1.0, step=0.05, value=None, placeholder="e.g., 0.60", key=f"{k}_wfps")
+                wfps_frac = st.number_input("Measured WFPS (fraction)", min_value=0.0, max_value=1.0, step=0.05, value=None, placeholder="Enter value...", key=f"{k}_wfps")
             col_idx += 1
             
         if "Potentially Mineralizable Nitrogen" in target_indicators:
             with cols[col_idx % 3]: 
-                pmn_val = st.number_input("Measured PMN (mg/kg)", min_value=0.0, max_value=200.0, step=1.0, value=None, placeholder="e.g., 20.0", key=f"{k}_pmn")
+                pmn_val = st.number_input("Measured PMN (mg/kg)", min_value=0.0, max_value=200.0, step=1.0, value=None, placeholder="Enter value...", key=f"{k}_pmn")
             col_idx += 1
             
         if "Microbial Biomass Carbon" in target_indicators:
             with cols[col_idx % 3]: 
-                mbc_val = st.number_input("Measured MBC (mg/kg)", min_value=0.0, max_value=2000.0, step=10.0, value=None, placeholder="e.g., 200.0", key=f"{k}_mbc_val")
+                mbc_val = st.number_input("Measured MBC (mg/kg)", min_value=0.0, max_value=2000.0, step=10.0, value=None, placeholder="Enter value...", key=f"{k}_mbc_val")
             col_idx += 1
             
         if "Beta-glucosidase" in target_indicators:
             with cols[col_idx % 3]: 
-                bg_val = st.number_input("Measured BG (mg/kg/hr)", min_value=0.0, max_value=2000.0, step=10.0, value=None, placeholder="e.g., 300.0", key=f"{k}_bg_val")
+                bg_val = st.number_input("Measured BG (mg/kg/hr)", min_value=0.0, max_value=2000.0, step=10.0, value=None, placeholder="Enter value...", key=f"{k}_bg_val")
             col_idx += 1
 
     # ✨ THE NEW LAB MEASUREMENTS GATEKEEPER ✨
@@ -2249,7 +2249,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
     if missing_labs:
         st.info(f"🧪 **Pending Lab Results:** Please enter values for **{', '.join(missing_labs)}** to calculate your scores.")
         st.stop()
-    
     # Auto-assign AWC Region: Humid (2) if MAP >= 600mm, Arid (1) if MAP < 600mm
     is_wet_for_awc = target_precip >= 600.0 if target_precip is not None else True
     st.session_state[f"{k}_awc_region"] = 2 if is_wet_for_awc else 1

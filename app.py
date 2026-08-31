@@ -4336,18 +4336,25 @@ active_cfg = REGIONS[active_region_name]
 
 # ── DYNAMIC INDICATOR FILTER ──
 # ── DYNAMIC INDICATOR FILTER ──
-st.markdown("### 🧪 Target Soil Health Indicators")
+# ── DYNAMIC INDICATOR FILTER ──
+col_head, col_btn = st.columns([3, 1])
+with col_head:
+    st.markdown("### 🧪 Target Soil Health Indicators")
+with col_btn:
+    # This one-line callback wipes the entire session state, resetting all dropdowns and checkboxes instantly
+    st.button("🔄 Clear All Selections", on_click=lambda: st.session_state.clear(), use_container_width=True)
+
 chk_c1, chk_c2, chk_c3 = st.columns(3)
 target_indicators = []
 
-# ✨ THE FIX: Updated string names to match your clean dropdown labels
 smaf_active = selected_framework in ["SMAF", "SHAPE + SMAF (Hybrid)"]
 
 with chk_c1:
     st.markdown("**🪨 Physical Indicators**")
-    if st.checkbox("Bulk Density", value=smaf_active, disabled=not smaf_active): 
+    # All checkboxes now default to value=False so nothing is selected on startup
+    if st.checkbox("Bulk Density", value=False, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("Bulk Density")
-    if st.checkbox("Macroaggregate Stability", value=smaf_active, disabled=not smaf_active): 
+    if st.checkbox("Macroaggregate Stability", value=False, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("Macroaggregate Stability")
     if st.checkbox("Available Water Capacity", value=False, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("Available Water Capacity")
@@ -4356,13 +4363,13 @@ with chk_c1:
 
 with chk_c2:
     st.markdown("**🧪 Chemical Indicators**")
-    if st.checkbox("pH", value=smaf_active, disabled=not smaf_active): 
+    if st.checkbox("pH", value=False, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("pH")
-    if st.checkbox("Soil Phosphorus", value=smaf_active, disabled=not smaf_active): 
+    if st.checkbox("Soil Phosphorus", value=False, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("Soil Phosphorus")
     if st.checkbox("Extractable Potassium", value=False, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("Extractable Potassium")
-    if st.checkbox("Electrical Conductivity", value=smaf_active, disabled=not smaf_active): 
+    if st.checkbox("Electrical Conductivity", value=False, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("Electrical Conductivity")
     if st.checkbox("Sodium Adsorption Ratio", value=False, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("Sodium Adsorption Ratio")
@@ -4370,14 +4377,14 @@ with chk_c2:
 with chk_c3:
     st.markdown("**🦠 Biological Indicators**")
     
-    # ✨ THE FIX: Updated string names for the SOC routing
-    if st.checkbox("Soil Organic Carbon", value=True): 
+    # SOC also defaults to False now
+    if st.checkbox("Soil Organic Carbon", value=False): 
         if selected_framework == "SHAPE":
-            target_indicators.append("Soil Organic Carbon") # Routes to SHAPE math
+            target_indicators.append("Soil Organic Carbon") 
         elif selected_framework == "SMAF":
-            target_indicators.append("SMAF Soil Organic Carbon") # Routes to SMAF math
-        else: # Hybrid Mode
-            target_indicators.append("Soil Organic Carbon") # Uses SHAPE for SOC override
+            target_indicators.append("SMAF Soil Organic Carbon") 
+        else: 
+            target_indicators.append("Soil Organic Carbon") 
             
     if st.checkbox("Potentially Mineralizable Nitrogen", value=False, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("Potentially Mineralizable Nitrogen")
@@ -4387,7 +4394,7 @@ with chk_c3:
         if smaf_active: target_indicators.append("Beta-glucosidase")
         
 if len(target_indicators) == 0:
-    st.warning("⚠️ Please select at least one indicator to continue.")
+    st.info("💡 Please select at least one soil health indicator above to begin your assessment.")
     st.stop()
     
 st.session_state["target_indicators"] = target_indicators

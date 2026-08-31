@@ -4387,7 +4387,7 @@ with chk_c3:
         if smaf_active: target_indicators.append("Beta-glucosidase")
         
 if len(target_indicators) == 0:
-    st.warning("⚠️ Please select the indicators you want to score.")
+    st.warning("⚠️ Please select all the indicators you want to score.")
     st.stop()
     
 st.session_state["target_indicators"] = target_indicators

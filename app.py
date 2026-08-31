@@ -4335,16 +4335,16 @@ if "Global_SMAF" not in REGIONS:
 active_cfg = REGIONS[active_region_name]
 
 # ── DYNAMIC INDICATOR FILTER ──
+# ── DYNAMIC INDICATOR FILTER ──
 st.markdown("### 🧪 Target Soil Health Indicators")
 chk_c1, chk_c2, chk_c3 = st.columns(3)
 target_indicators = []
 
-# Helper variable: True if we need to load SMAF indicators
-smaf_active = selected_framework in ["SMAF Only", "SHAPE + SMAF (Hybrid)"]
+# ✨ THE FIX: Updated string names to match your clean dropdown labels
+smaf_active = selected_framework in ["SMAF", "SHAPE + SMAF (Hybrid)"]
 
 with chk_c1:
     st.markdown("**🪨 Physical Indicators**")
-    # Disables and unchecks the boxes automatically if SHAPE Only is selected!
     if st.checkbox("Bulk Density", value=smaf_active, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("Bulk Density")
     if st.checkbox("Macroaggregate Stability", value=smaf_active, disabled=not smaf_active): 
@@ -4370,11 +4370,11 @@ with chk_c2:
 with chk_c3:
     st.markdown("**🦠 Biological Indicators**")
     
-    # The SOC logic gatekeeper
+    # ✨ THE FIX: Updated string names for the SOC routing
     if st.checkbox("Soil Organic Carbon", value=True): 
-        if selected_framework == "SHAPE Only":
+        if selected_framework == "SHAPE":
             target_indicators.append("Soil Organic Carbon") # Routes to SHAPE math
-        elif selected_framework == "SMAF Only":
+        elif selected_framework == "SMAF":
             target_indicators.append("SMAF Soil Organic Carbon") # Routes to SMAF math
         else: # Hybrid Mode
             target_indicators.append("Soil Organic Carbon") # Uses SHAPE for SOC override

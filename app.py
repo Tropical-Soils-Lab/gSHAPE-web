@@ -4336,65 +4336,58 @@ active_cfg = REGIONS[active_region_name]
 
 # ── DYNAMIC INDICATOR FILTER ──
 # ── DYNAMIC INDICATOR FILTER ──
-# ── DYNAMIC INDICATOR FILTER ──
-# ── DYNAMIC INDICATOR FILTER ──
-col_head, col_btn = st.columns([3, 1])
-with col_head:
-    st.markdown("### 🧪 Target Soil Health Indicators")
-with col_btn:
-    # The clear command will now successfully destroy all the keys below!
-    st.button("🔄 Clear All Selections", on_click=lambda: st.session_state.clear(), use_container_width=True)
-
+st.markdown("### 🧪 Target Soil Health Indicators")
 chk_c1, chk_c2, chk_c3 = st.columns(3)
 target_indicators = []
 
+# ✨ THE FIX: Updated string names to match your clean dropdown labels
 smaf_active = selected_framework in ["SMAF", "SHAPE + SMAF (Hybrid)"]
 
 with chk_c1:
     st.markdown("**🪨 Physical Indicators**")
-    # Notice the unique 'key' added to every checkbox
-    if st.checkbox("Bulk Density", key="chk_bd", disabled=not smaf_active): 
-        target_indicators.append("Bulk Density")
-    if st.checkbox("Macroaggregate Stability", key="chk_agg", disabled=not smaf_active): 
-        target_indicators.append("Macroaggregate Stability")
-    if st.checkbox("Available Water Capacity", key="chk_awc", disabled=not smaf_active): 
-        target_indicators.append("Available Water Capacity")
-    if st.checkbox("Water-Filled Pore Space", key="chk_wfps", disabled=not smaf_active): 
-        target_indicators.append("Water-Filled Pore Space")
+    if st.checkbox("Bulk Density", value=smaf_active, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("Bulk Density")
+    if st.checkbox("Macroaggregate Stability", value=smaf_active, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("Macroaggregate Stability")
+    if st.checkbox("Available Water Capacity", value=False, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("Available Water Capacity")
+    if st.checkbox("Water-Filled Pore Space", value=False, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("Water-Filled Pore Space")
 
 with chk_c2:
     st.markdown("**🧪 Chemical Indicators**")
-    if st.checkbox("pH", key="chk_ph", disabled=not smaf_active): 
-        target_indicators.append("pH")
-    if st.checkbox("Soil Phosphorus", key="chk_p", disabled=not smaf_active): 
-        target_indicators.append("Soil Phosphorus")
-    if st.checkbox("Extractable Potassium", key="chk_k", disabled=not smaf_active): 
-        target_indicators.append("Extractable Potassium")
-    if st.checkbox("Electrical Conductivity", key="chk_ec", disabled=not smaf_active): 
-        target_indicators.append("Electrical Conductivity")
-    if st.checkbox("Sodium Adsorption Ratio", key="chk_sar", disabled=not smaf_active): 
-        target_indicators.append("Sodium Adsorption Ratio")
+    if st.checkbox("pH", value=smaf_active, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("pH")
+    if st.checkbox("Soil Phosphorus", value=smaf_active, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("Soil Phosphorus")
+    if st.checkbox("Extractable Potassium", value=False, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("Extractable Potassium")
+    if st.checkbox("Electrical Conductivity", value=smaf_active, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("Electrical Conductivity")
+    if st.checkbox("Sodium Adsorption Ratio", value=False, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("Sodium Adsorption Ratio")
 
 with chk_c3:
     st.markdown("**🦠 Biological Indicators**")
     
-    if st.checkbox("Soil Organic Carbon", key="chk_soc"): 
+    # ✨ THE FIX: Updated string names for the SOC routing
+    if st.checkbox("Soil Organic Carbon", value=True): 
         if selected_framework == "SHAPE":
-            target_indicators.append("Soil Organic Carbon") 
+            target_indicators.append("Soil Organic Carbon") # Routes to SHAPE math
         elif selected_framework == "SMAF":
-            target_indicators.append("SMAF Soil Organic Carbon") 
-        else: 
-            target_indicators.append("Soil Organic Carbon") 
+            target_indicators.append("SMAF Soil Organic Carbon") # Routes to SMAF math
+        else: # Hybrid Mode
+            target_indicators.append("Soil Organic Carbon") # Uses SHAPE for SOC override
             
-    if st.checkbox("Potentially Mineralizable Nitrogen", key="chk_pmn", disabled=not smaf_active): 
-        target_indicators.append("Potentially Mineralizable Nitrogen")
-    if st.checkbox("Microbial Biomass Carbon", key="chk_mbc", disabled=not smaf_active): 
-        target_indicators.append("Microbial Biomass Carbon")
-    if st.checkbox("Beta-glucosidase", key="chk_bg", disabled=not smaf_active): 
-        target_indicators.append("Beta-glucosidase")
+    if st.checkbox("Potentially Mineralizable Nitrogen", value=False, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("Potentially Mineralizable Nitrogen")
+    if st.checkbox("Microbial Biomass Carbon", value=False, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("Microbial Biomass Carbon")
+    if st.checkbox("Beta-glucosidase", value=False, disabled=not smaf_active): 
+        if smaf_active: target_indicators.append("Beta-glucosidase")
         
 if len(target_indicators) == 0:
-    st.info("💡 Please select at least one soil health indicator above to begin your assessment.")
+    st.warning("⚠️ Please select at least one indicator to continue.")
     st.stop()
     
 st.session_state["target_indicators"] = target_indicators

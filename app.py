@@ -4487,7 +4487,7 @@ def render_region(region_name, cfg):
 # ════════════════════════════════════════════════════════════════════
 # 9. GLOBAL ROUTING ENGINE (Replaces Region Tabs)
 # ════════════════════════════════════════════════════════════════════
-st.markdown("### 🌍 Global Location Setup")
+st.markdown("###Global Location Setup")
 
 loc_c1, loc_c2 = st.columns(2)
 with loc_c1:
@@ -4537,7 +4537,7 @@ active_cfg = REGIONS[active_region_name]
 
 # ── DYNAMIC INDICATOR FILTER ──
 # ── DYNAMIC INDICATOR FILTER ──
-st.markdown("### 🧪 Target Soil Health Indicators")
+st.markdown("###Target Soil Health Indicators")
 chk_c1, chk_c2, chk_c3 = st.columns(3)
 target_indicators = []
 
@@ -4545,7 +4545,7 @@ target_indicators = []
 smaf_active = selected_framework in ["SMAF", "SHAPE + SMAF (Hybrid)"]
 
 with chk_c1:
-    st.markdown("**🪨 Physical Indicators**")
+    st.markdown("**Physical Indicators**")
     if st.checkbox("Bulk Density", value=smaf_active, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("Bulk Density")
     if st.checkbox("Macroaggregate Stability", value=smaf_active, disabled=not smaf_active): 
@@ -4556,7 +4556,7 @@ with chk_c1:
         if smaf_active: target_indicators.append("Water-Filled Pore Space")
 
 with chk_c2:
-    st.markdown("**🧪 Chemical Indicators**")
+    st.markdown("**Chemical Indicators**")
     if st.checkbox("pH", value=smaf_active, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("pH")
     if st.checkbox("Soil Phosphorus", value=smaf_active, disabled=not smaf_active): 
@@ -4569,7 +4569,7 @@ with chk_c2:
         if smaf_active: target_indicators.append("Sodium Adsorption Ratio")
 
 with chk_c3:
-    st.markdown("**🦠 Biological Indicators**")
+    st.markdown("**Biological Indicators**")
     
     # ✨ THE FIX: Updated string names for the SOC routing
     if st.checkbox("Soil Organic Carbon", value=True): 

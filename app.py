@@ -4400,6 +4400,21 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
         # 5. Post-Processing & Aggregation
         batch = batch.copy()
         
+        # --- NEW: Define category groupings ---
+        phys_inds = ["Bulk Density", "Macroaggregate Stability", "Available Water Capacity", "Water-Filled Pore Space"]
+        chem_inds = ["pH", "Soil Phosphorus", "Extractable Potassium", "Electrical Conductivity", "Sodium Adsorption Ratio"]
+        bio_inds = ["Soil Organic Carbon", "SMAF Soil Organic Carbon", "Potentially Mineralizable Nitrogen", "Microbial Biomass Carbon", "Beta-glucosidase"]
+        
+        # Find which score columns are actually active in this batch
+        phys_cols = [f"{i} Score" for i in phys_inds if f"{i} Score" in batch.columns]
+        chem_cols = [f"{i} Score" for i in chem_inds if f"{i} Score" in batch.columns]
+        bio_cols = [f"{i} Score" for i in bio_inds if f"{i} Score" in batch.columns]
+        
+        # Calculate category-specific SQIs
+        if phys_cols: batch["SQI_Physical"] = batch[phys_cols].mean(axis=1).round(1)
+        if chem_cols: batch["SQI_Chemical"] = batch[chem_cols].mean(axis=1).round(1)
+        if bio_cols: batch["SQI_Biological"] = batch[bio_cols].mean(axis=1).round(1)
+        
         # Calculate Overall SQI across all active indicators for the row
         batch["Overall_SQI"] = batch[score_columns].mean(axis=1).round(1)
         

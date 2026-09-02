@@ -2742,7 +2742,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
         color_p = score_color(score_p)
         label_p = score_label(score_p)
 
-       with col_l:
+        with col_l:
             fig_gauge = create_standard_gauge(score_p, label_p, f"SMAF Index · {p_val} mg/kg P")
             st.plotly_chart(fig_gauge, use_container_width=True, key=f"{k}_p_gauge")
 

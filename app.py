@@ -4098,32 +4098,91 @@ def render_single_sample(region_name, cfg, df, df_hist):
 def render_batch_scoring(region_name, cfg, df, df_hist):
     k = cfg["key"]
     has_precip = "precip" in cfg["predictors"]
+    target_indicators = st.session_state.get("target_indicators", [])
+    selected_framework = st.session_state.get("selected_framework", "SMAF")
 
     st.markdown("#### Upload a CSV to score multiple samples at once")
+    st.markdown("""
+    <div class="info-box">
+    <b>💡 Smart Override System:</b> Your CSV template includes columns for site conditions (Crop, Texture, etc.). If you fill them out, the app will score that specific row using the CSV data. If you leave a cell blank, the app will fall back to the <b>Site Inputs</b> currently selected in the UI.
+    </div>
+    """, unsafe_allow_html=True)
 
-    template_cols = {
-        "sample_id": ["Site_A", "Site_B", "Site_C"],
-        "oc": [1.8, 2.5, 4.1],
-        "peer_group_taxon": [parse_code(cfg["taxon_display"][0]), parse_code(cfg["taxon_display"][1]), parse_code(cfg["taxon_display"][2])],
-        "peer_group_texture": list(set(cfg["texture_map"].values()))[:3] if len(set(cfg["texture_map"].values())) >= 3 else list(set(cfg["texture_map"].values())),
-        "PRISM_tmea": [cfg["temp_default"]] * 3,
+    # 1. Map Indicators to Clean CSV Column Names
+    csv_col_map = {
+        "Soil Organic Carbon": "soc_pct",
+        "SMAF Soil Organic Carbon": "soc_pct",
+        "pH": "ph_val",
+        "Soil Phosphorus": "p_mg_kg",
+        "Extractable Potassium": "k_mg_kg",
+        "Electrical Conductivity": "ec_ds_m",
+        "Sodium Adsorption Ratio": "sar_val",
+        "Bulk Density": "bd_g_cm3",
+        "Macroaggregate Stability": "agg_pct",
+        "Available Water Capacity": "awc_g_g",
+        "Water-Filled Pore Space": "wfps_frac",
+        "Potentially Mineralizable Nitrogen": "pmn_mg_kg",
+        "Microbial Biomass Carbon": "mbc_mg_kg",
+        "Beta-glucosidase": "bg_mg_kg_hr"
     }
-    if has_precip:
-        template_cols["PRISM_ppt"] = [cfg["precip_default"]] * 3
+
+    # 2. Dynamically Build the CSV Template
+    template_cols = {"sample_id": ["Site_A", "Site_B", "Site_C"]}
+    
+    # Add Base Location Data (Restored from your old code)
     template_cols["lat"] = [cfg["default_latlon"][0]] * 3
     template_cols["lon"] = [cfg["default_latlon"][1]] * 3
+    
+    # SHAPE Spatial Parameters
+    if "Soil Organic Carbon" in target_indicators and selected_framework in ["SHAPE", "SHAPE + SMAF (Hybrid)"]:
+        template_cols["peer_group_taxon"] = [parse_code(cfg["taxon_display"][0])] * 3
+        template_cols["peer_group_texture"] = list(set(cfg["texture_map"].values()))[:3] if len(set(cfg["texture_map"].values())) >= 3 else ["T2"]*3
+        template_cols["PRISM_tmea"] = [cfg["temp_default"]] * 3
+        if has_precip: template_cols["PRISM_ppt"] = [cfg["precip_default"]] * 3
+
+    # Dynamic SMAF Metadata Overrides
+    if any(ind in target_indicators for ind in ["Bulk Density", "Macroaggregate Stability", "Available Water Capacity", "Water-Filled Pore Space", "Soil Phosphorus", "Electrical Conductivity", "Sodium Adsorption Ratio", "Potentially Mineralizable Nitrogen", "Microbial Biomass Carbon", "Beta-glucosidase", "Extractable Potassium", "SMAF Soil Organic Carbon"]):
+        template_cols["Texture"] = ["Sandy Loam (>8% clay) / Sandy Clay Loam / Loam"] * 3
+    if any(ind in target_indicators for ind in ["Macroaggregate Stability", "Available Water Capacity", "Potentially Mineralizable Nitrogen", "Microbial Biomass Carbon", "Beta-glucosidase", "SMAF Soil Organic Carbon"]):
+        template_cols["OM_Class"] = ["Class 2 (Med-High OM)"] * 3
+    if any(ind in target_indicators for ind in ["pH", "Soil Phosphorus", "Electrical Conductivity"]):
+        template_cols["Crop"] = ["Soybean"] * 3
+    if "Soil Phosphorus" in target_indicators:
+        template_cols["P_Method"] = ["Mehlich-3"] * 3
+        template_cols["Weathering"] = ["Slightly Weathered"] * 3
+    if "Electrical Conductivity" in target_indicators or "Sodium Adsorption Ratio" in target_indicators:
+        template_cols["EC_Method"] = ["Saturated Paste (ECsat)"] * 3
+    if any(ind in target_indicators for ind in ["Potentially Mineralizable Nitrogen", "Beta-glucosidase", "SMAF Soil Organic Carbon"]):
+        template_cols["Climate_Class"] = ["Class 3 (Cool/Wet)"] * 3
+
+    # Add Raw Lab Value columns
+    for ind in target_indicators:
+        col_name = csv_col_map.get(ind)
+        if col_name and col_name not in template_cols:
+            template_cols[col_name] = [0.0, 0.0, 0.0]
+
     template = pd.DataFrame(template_cols)
 
+    # Render Template and Demo Buttons (Restored from your old code)
     bcol1, bcol2 = st.columns(2)
     with bcol1:
-        st.download_button("⬇️ Download CSV Template", data=template.to_csv(index=False).encode("utf-8"),
-                           file_name=f"SHAPE_{cfg['key']}_batch_template.csv", mime="text/csv",
-                           width='stretch', key=f"{k}_template_btn")
+        st.download_button(
+            "⬇️ Download Custom CSV Template", 
+            data=template.to_csv(index=False).encode("utf-8"),
+            file_name=f"gSHAPE_batch_template.csv", 
+            mime="text/csv",
+            use_container_width=True, 
+            key=f"{k}_template_btn"
+        )
     with bcol2:
-        if st.button("✨ Try Demo Data", width='stretch', key=f"{k}_demo_btn"):
-            st.session_state[f"{k}_batch_df"] = build_demo_batch(region_name, cfg)
+        if st.button("✨ Try Demo Data", use_container_width=True, key=f"{k}_demo_btn"):
+            if "build_demo_batch" in globals():
+                st.session_state[f"{k}_batch_df"] = build_demo_batch(region_name, cfg)
+            else:
+                st.warning("Demo data generation is currently restricted to SHAPE SOC profiles.")
 
-    uploaded = st.file_uploader("Upload your CSV", type="csv", key=f"{k}_uploader")
+    # 3. Handle File Upload
+    uploaded = st.file_uploader("Upload your populated CSV", type="csv", key=f"{k}_uploader")
     if uploaded is not None:
         try:
             up_df = pd.read_csv(uploaded)
@@ -4134,64 +4193,180 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
 
     batch = st.session_state.get(f"{k}_batch_df")
 
+    # 4. Processing the Batch
     if batch is not None:
-        required = {"sample_id", "oc", "peer_group_taxon", "peer_group_texture", "PRISM_tmea"}
-        missing_cols = required - set(batch.columns)
-        if missing_cols:
-            st.error(f"Missing columns: {missing_cols}")
-            return
+        # Grab UI Global Defaults (The Fallbacks)
+        ui_texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
+        ui_om_id = SMAF_OM_MAP.get(st.session_state.get(f"{k}_sm_om_class", ""), 2)
+        ui_climate_id = SMAF_CLIMATE_MAP.get(st.session_state.get(f"{k}_sm_climate_class", ""), 3)
+        ui_fe_id = SMAF_FE_MAP.get(st.session_state.get(f"{k}_sm_fe_class", ""), 2)
+        ui_crop_id = SMAF_DATA.get("crop_ui_map", {}).get(st.session_state.get(f"{k}_sm_crop", "").lower(), 0)
+        ui_method_id = SMAF_METHOD_MAP.get(st.session_state.get(f"{k}_sm_method", ""), 2)
+        ui_weather_id = SMAF_WEATHERING_MAP.get(st.session_state.get(f"{k}_sm_weather", ""), 3)
+        ui_slope_id = SMAF_SLOPE_MAP.get(st.session_state.get(f"{k}_sm_slope", ""), 1)
+        ui_ec_method_id = 1 if "Saturated Paste" in st.session_state.get(f"{k}_ec_method", "") else 2
+        
+        season_name = st.session_state.get(f"{k}_sm_season", "Spring")
+        season_num = {"Spring": 1, "Summer": 2, "Fall": 3, "Winter": 4}.get(season_name, 1)
+        
+        ui_awc_region = st.session_state.get(f"{k}_awc_region", 2)
+        mineral_str = st.session_state.get(f"{k}_bd_min", "— Select —")
+        ui_mineralogy_id = SMAF_MINERALOGY_MAP.get(mineral_str, 0) if mineral_str != "— Select —" else 0
 
-        scores, labels, tgt_ocs = [], [], []
-        for _, r in batch.iterrows():
-            tax_b = str(r["peer_group_taxon"]).strip()
-            tex_b = str(r["peer_group_texture"]).strip()
-            oc_b  = float(r["oc"])
-            tmp_b = float(r["PRISM_tmea"])
-            precip_b = float(r["PRISM_ppt"]) if (has_precip and "PRISM_ppt" in r) else None
+        # Initialize tracking arrays for SHAPE SOC targets (Restored)
+        tgt_ocs = []
+        score_columns = []
 
-            is_hist = cfg["has_histosol"] and tax_b == "S1" and tex_b == "T5"
-            if is_hist and df_hist is not None:
-                lp_b = float(df_hist["mean_lp"].iloc[0])
-                sig_b = float(np.exp(df_hist["mean_sigma"].iloc[0]))
+        # Initialize result columns in the dataframe
+        for ind in target_indicators:
+            batch[f"{ind} Score"] = np.nan
+            score_columns.append(f"{ind} Score")
+
+        # Loop through rows and score!
+        for index, r in batch.iterrows():
+            
+            # Extract row metadata if it exists, otherwise use the UI fallback
+            r_tex = str(r.get("Texture", "")).strip()
+            row_texture_id = SMAF_TEXTURE_MAP.get(r_tex, ui_texture_id) if r_tex and r_tex != "nan" else ui_texture_id
+            
+            r_om = str(r.get("OM_Class", "")).strip()
+            row_om_id = SMAF_OM_MAP.get(r_om, ui_om_id) if r_om and r_om != "nan" else ui_om_id
+
+            r_crop = str(r.get("Crop", "")).strip().lower()
+            row_crop_id = SMAF_DATA.get("crop_ui_map", {}).get(r_crop, ui_crop_id) if r_crop and r_crop != "nan" else ui_crop_id
+
+            r_clim = str(r.get("Climate_Class", "")).strip()
+            row_climate_id = SMAF_CLIMATE_MAP.get(r_clim, ui_climate_id) if r_clim and r_clim != "nan" else ui_climate_id
+            row_season_climate = 1.0 if season_num == 1 else float(f"{season_num}.{row_climate_id}")
+
+            r_pmeth = str(r.get("P_Method", "")).strip()
+            row_method_id = SMAF_METHOD_MAP.get(r_pmeth, ui_method_id) if r_pmeth and r_pmeth != "nan" else ui_method_id
+            
+            r_weath = str(r.get("Weathering", "")).strip()
+            row_weather_id = SMAF_WEATHERING_MAP.get(r_weath, ui_weather_id) if r_weath and r_weath != "nan" else ui_weather_id
+
+            r_ecmeth = str(r.get("EC_Method", "")).strip()
+            row_ec_method_id = 1 if "Saturated Paste" in r_ecmeth else (2 if "1:1" in r_ecmeth else ui_ec_method_id)
+
+            # --- EXECUTE SCORING MATH ---
+            
+            # SHAPE SOC (With restored 90th percentile tracking)
+            if "Soil Organic Carbon" in target_indicators and selected_framework in ["SHAPE", "SHAPE + SMAF (Hybrid)"]:
+                if all(col in r for col in ["oc", "peer_group_taxon", "peer_group_texture", "PRISM_tmea"]) or all(col in r for col in ["soc_pct", "peer_group_taxon", "peer_group_texture", "PRISM_tmea"]):
+                    oc_val = safe_float(r.get("soc_pct", r.get("oc")))
+                    row_b = get_params_any(cfg, df, str(r["peer_group_taxon"]).strip(), str(r["peer_group_texture"]).strip(), float(r["PRISM_tmea"]), float(r.get("PRISM_ppt", 0)) if has_precip else None)
+                    if row_b is not None:
+                        lp_b = float(row_b["mean_lp"])
+                        sig_b = float(np.exp(row_b["mean_sigma"]))
+                        s = compute_score(oc_val, lp_b, sig_b)
+                        batch.at[index, "Soil Organic Carbon Score"] = round(s, 1)
+                        tgt_ocs.append(round(percentile_to_oc(90, lp_b, sig_b), 3))
+                    else:
+                        tgt_ocs.append(np.nan)
+                else:
+                    tgt_ocs.append(np.nan)
             else:
-                row_b = get_params_any(cfg, df, tax_b, tex_b, tmp_b, precip_b)
-                if row_b is None:
-                    scores.append(np.nan); labels.append("No data"); tgt_ocs.append(np.nan)
-                    continue
-                lp_b = float(row_b["mean_lp"])
-                sig_b = float(np.exp(row_b["mean_sigma"]))
+                tgt_ocs.append(np.nan)
 
-            s = compute_score(oc_b, lp_b, sig_b)
-            scores.append(round(s, 2))
-            labels.append(score_label(s))
-            tgt_ocs.append(round(percentile_to_oc(90, lp_b, sig_b), 3))
+            # SMAF SOC 
+            if "SMAF Soil Organic Carbon" in target_indicators and "soc_pct" in r and pd.notna(r["soc_pct"]):
+                batch.at[index, "SMAF Soil Organic Carbon Score"] = round(run_smaf_soc_score(float(r["soc_pct"]), row_om_id, row_texture_id, row_climate_id, SMAF_DATA), 1)
 
+            # pH 
+            if "pH" in target_indicators and "ph_val" in r and pd.notna(r["ph_val"]):
+                batch.at[index, "pH Score"] = round(run_smaf_ph_score(float(r["ph_val"]), row_crop_id, SMAF_DATA), 1)
+
+            # Phosphorus 
+            if "Soil Phosphorus" in target_indicators and "p_mg_kg" in r and pd.notna(r["p_mg_kg"]):
+                oc_val = safe_float(r.get("soc_pct", 2.0))
+                batch.at[index, "Soil Phosphorus Score"] = round(run_smaf_p_score(float(r["p_mg_kg"]), row_crop_id, row_method_id, row_weather_id, row_texture_id, ui_slope_id, oc_val), 1)
+
+            # Extractable Potassium 
+            if "Extractable Potassium" in target_indicators and "k_mg_kg" in r and pd.notna(r["k_mg_kg"]):
+                batch.at[index, "Extractable Potassium Score"] = round(run_smaf_exk_score(float(r["k_mg_kg"]), row_texture_id, SMAF_DATA), 1)
+
+            # Electrical Conductivity 
+            if "Electrical Conductivity" in target_indicators and "ec_ds_m" in r and pd.notna(r["ec_ds_m"]):
+                batch.at[index, "Electrical Conductivity Score"] = round(run_smaf_ec_score(float(r["ec_ds_m"]), row_crop_id, row_ec_method_id, row_texture_id, SMAF_DATA), 1)
+
+            # Sodium Adsorption Ratio 
+            if "Sodium Adsorption Ratio" in target_indicators and "sar_val" in r and "ec_ds_m" in r and pd.notna(r["sar_val"]) and pd.notna(r["ec_ds_m"]):
+                batch.at[index, "Sodium Adsorption Ratio Score"] = round(run_smaf_sar_score(float(r["sar_val"]), float(r["ec_ds_m"]), row_ec_method_id, row_texture_id, SMAF_DATA), 1)
+
+            # Bulk Density 
+            if "Bulk Density" in target_indicators and "bd_g_cm3" in r and pd.notna(r["bd_g_cm3"]):
+                batch.at[index, "Bulk Density Score"] = round(run_smaf_bd_score(float(r["bd_g_cm3"]), row_texture_id, ui_mineralogy_id), 1)
+
+            # Macroaggregate Stability 
+            if "Macroaggregate Stability" in target_indicators and "agg_pct" in r and pd.notna(r["agg_pct"]):
+                batch.at[index, "Macroaggregate Stability Score"] = round(run_smaf_agg_score(float(r["agg_pct"]), row_om_id, row_texture_id, ui_fe_id, SMAF_DATA), 1)
+
+            # Available Water Capacity 
+            if "Available Water Capacity" in target_indicators and "awc_g_g" in r and pd.notna(r["awc_g_g"]):
+                batch.at[index, "Available Water Capacity Score"] = round(run_smaf_awc_score(float(r["awc_g_g"]), ui_awc_region, row_texture_id, row_om_id, SMAF_DATA), 1)
+
+            # Water-Filled Pore Space 
+            if "Water-Filled Pore Space" in target_indicators and "wfps_frac" in r and pd.notna(r["wfps_frac"]):
+                wfps_res = run_smaf_wfps_score(float(r["wfps_frac"]), row_texture_id, SMAF_DATA)
+                batch.at[index, "Water-Filled Pore Space Score"] = round(wfps_res["combined"], 1)
+
+            # PMN 
+            if "Potentially Mineralizable Nitrogen" in target_indicators and "pmn_mg_kg" in r and pd.notna(r["pmn_mg_kg"]):
+                batch.at[index, "Potentially Mineralizable Nitrogen Score"] = round(run_smaf_pmn_score(float(r["pmn_mg_kg"]), row_om_id, row_texture_id, row_climate_id, SMAF_DATA), 1)
+
+            # Microbial Biomass Carbon 
+            if "Microbial Biomass Carbon" in target_indicators and "mbc_mg_kg" in r and pd.notna(r["mbc_mg_kg"]):
+                batch.at[index, "Microbial Biomass Carbon Score"] = round(run_smaf_mbc_score(float(r["mbc_mg_kg"]), row_om_id, row_texture_id, row_season_climate, SMAF_DATA), 1)
+
+            # Beta-glucosidase 
+            if "Beta-glucosidase" in target_indicators and "bg_mg_kg_hr" in r and pd.notna(r["bg_mg_kg_hr"]):
+                batch.at[index, "Beta-glucosidase Score"] = round(run_smaf_bg_score(float(r["bg_mg_kg_hr"]), row_om_id, row_texture_id, row_climate_id, SMAF_DATA), 1)
+
+        # 5. Post-Processing & Aggregation
         batch = batch.copy()
-        batch["SHAPE_Score"] = scores
-        batch["Zone"] = labels
-        batch["SOC_target_90th"] = tgt_ocs
-        batch["Gap_to_90th"] = (batch["SOC_target_90th"] - batch["oc"]).round(3)
+        
+        # Calculate Overall SQI across all active indicators for the row
+        batch["Overall_SQI"] = batch[score_columns].mean(axis=1).round(1)
+        
+        # Generate categorical zones based on Overall SQI
+        batch["Zone"] = batch["Overall_SQI"].apply(lambda s: score_label(s) if pd.notna(s) else "No data")
+        
+        # Add SHAPE targets if they were calculated
+        if "Soil Organic Carbon" in target_indicators and selected_framework in ["SHAPE", "SHAPE + SMAF (Hybrid)"]:
+            batch["SOC_target_90th"] = tgt_ocs
+            soc_col = "soc_pct" if "soc_pct" in batch.columns else "oc"
+            if soc_col in batch.columns:
+                batch["Gap_to_90th"] = (batch["SOC_target_90th"] - batch[soc_col]).round(3)
 
-        valid = batch["SHAPE_Score"].dropna()
+        # 6. Render Restored Metrics
+        valid = batch["Overall_SQI"].dropna()
         mc1, mc2, mc3, mc4 = st.columns(4)
         mc1.metric("Samples scored", len(valid))
-        mc2.metric("Mean score", f"{valid.mean():.1f}/100" if len(valid) else "—")
+        mc2.metric("Mean SQI", f"{valid.mean():.1f}/100" if len(valid) else "—")
         mc3.metric("High / V. High", f"{(valid >= 60).sum()} ({100*(valid>=60).mean():.0f}%)" if len(valid) else "—")
         mc4.metric("Low / V. Low", f"{(valid < 40).sum()} ({100*(valid<40).mean():.0f}%)" if len(valid) else "—")
 
         st.divider()
+
+        # 7. Render Restored Histogram
         fig_dist = go.Figure()
         fig_dist.add_trace(go.Histogram(x=valid, nbinsx=20, marker_color="#1a9641", opacity=0.75))
         for xv, lbl, clr in [(20, "V.Low|Low", "#f46d43"), (40, "Low|Med", "#ffc107"), (60, "Med|High", "#77c35c"), (80, "High|V.High", "#1a9641")]:
             fig_dist.add_vline(x=xv, line_dash="dash", line_color=clr, annotation_text=lbl, annotation_position="top right")
-        fig_dist.update_layout(xaxis_title="SHAPE Score", yaxis_title="Count",
-                               paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                               height=280, margin=dict(l=10, r=10, t=20, b=10), showlegend=False)
+        fig_dist.update_layout(
+            xaxis_title="Overall Soil Quality Index (SQI)", 
+            yaxis_title="Count",
+            paper_bgcolor="rgba(0,0,0,0)", 
+            plot_bgcolor="rgba(0,0,0,0)",
+            height=280, margin=dict(l=10, r=10, t=20, b=10), showlegend=False
+        )
         st.plotly_chart(fig_dist, width='stretch', key=f"{k}_dist_chart")
 
-        st.markdown("#### Scored Results")
+        st.markdown("#### 🧪 Scored Results")
+        
+        # 8. Render Restored Colored Dataframe
         def highlight_zone(row):
-            s = row.get("SHAPE_Score", np.nan)
+            s = row.get("Overall_SQI", np.nan)
             if pd.isna(s): return [""] * len(row)
             if s >= 80: bg = "background-color: rgba(26,150,65,0.25)"
             elif s >= 60: bg = "background-color: rgba(119,195,92,0.25)"
@@ -4200,38 +4375,24 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             else: bg = "background-color: rgba(215,48,39,0.25)"
             return [bg] * len(row)
             
-        display_cols = ["sample_id", "oc", "peer_group_taxon", "peer_group_texture", "PRISM_tmea"]
-        if has_precip and "PRISM_ppt" in batch.columns:
-            display_cols.append("PRISM_ppt")
-        display_cols += ["SHAPE_Score", "Zone", "SOC_target_90th", "Gap_to_90th"]
-        display_cols = [c for c in display_cols if c in batch.columns]
-        st.dataframe(batch[display_cols].style.apply(highlight_zone, axis=1),
-                    width='stretch', hide_index=True)
+        st.dataframe(batch.style.apply(highlight_zone, axis=1), width='stretch', hide_index=True)
 
+        # 9. Render Restored Map
         if "lat" in batch.columns and "lon" in batch.columns:
             map_data = batch[["lat", "lon"]].dropna()
             if not map_data.empty:
-                st.markdown("#### Site Map")
+                st.markdown("#### 📍 Site Map")
                 st.map(map_data, zoom=4)
 
         st.divider()
-        st.download_button("⬇️ Download Scored Results as CSV", data=batch.to_csv(index=False).encode("utf-8"),
-                           file_name=f"SHAPE_{cfg['key']}_batch_results.csv", mime="text/csv",
-                           width='stretch', key=f"{k}_results_dl")
-    else:
-        cols_needed = "sample_id, oc, peer_group_taxon, peer_group_texture, PRISM_tmea"
-        if has_precip:
-            cols_needed += ", PRISM_ppt"
-        st.markdown(f"""
-        <div class="info-box">
-        Upload a CSV with columns: <code>{cols_needed}</code>.
-        Optionally include <code>lat</code> and <code>lon</code> for map display.
-        Or click <b>Try Demo Data</b> above to see the full batch workflow with synthetic samples
-        covering every peer group and score zone for {region_name}.
-        </div>
-        """, unsafe_allow_html=True)
-
-
+        st.download_button(
+            "⬇️ Download Scored Results as CSV", 
+            data=batch.to_csv(index=False).encode("utf-8"),
+            file_name=f"gSHAPE_batch_results.csv", 
+            mime="text/csv",
+            use_container_width=True, 
+            key=f"{k}_results_dl"
+        )
 def render_how_to_use(region_name, cfg):
     has_precip = "precip" in cfg["predictors"]
     col_m1, col_m2 = st.columns([1, 1])

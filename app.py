@@ -4504,7 +4504,7 @@ if selected_country == "Brazil": active_region_name = "Brazil"
 elif selected_country in SSA_COUNTRIES: active_region_name = "Sub-Saharan Africa"
 elif selected_country == "United States" and selected_state == "Florida": active_region_name = "Florida"
 
-st.markdown("### ⚙️ Scoring Framework")
+st.markdown("### Scoring Framework")
 framework_options = ["SMAF"]
 if active_region_name != "Global_SMAF":
     # ✨ Add all three modes here!

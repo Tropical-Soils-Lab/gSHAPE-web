@@ -4126,10 +4126,8 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
         "Beta-glucosidase": "bg_mg_kg_hr"
     }
 
-    # 2. Dynamically Build the CSV Template
+    # 2. Dynamically Build the CSV Template with Metadata Columns
     template_cols = {"sample_id": ["Site_A", "Site_B", "Site_C"]}
-    
-    # Add Base Location Data (Restored from your old code)
     template_cols["lat"] = [cfg["default_latlon"][0]] * 3
     template_cols["lon"] = [cfg["default_latlon"][1]] * 3
     
@@ -4140,7 +4138,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
         template_cols["PRISM_tmea"] = [cfg["temp_default"]] * 3
         if has_precip: template_cols["PRISM_ppt"] = [cfg["precip_default"]] * 3
 
-    # Dynamic SMAF Metadata Overrides
+    # Dynamic SMAF Metadata Overrides (Only added if relevant indicators are checked)
     if any(ind in target_indicators for ind in ["Bulk Density", "Macroaggregate Stability", "Available Water Capacity", "Water-Filled Pore Space", "Soil Phosphorus", "Electrical Conductivity", "Sodium Adsorption Ratio", "Potentially Mineralizable Nitrogen", "Microbial Biomass Carbon", "Beta-glucosidase", "Extractable Potassium", "SMAF Soil Organic Carbon"]):
         template_cols["Texture"] = ["Sandy Loam (>8% clay) / Sandy Clay Loam / Loam"] * 3
     if any(ind in target_indicators for ind in ["Macroaggregate Stability", "Available Water Capacity", "Potentially Mineralizable Nitrogen", "Microbial Biomass Carbon", "Beta-glucosidase", "SMAF Soil Organic Carbon"]):
@@ -4163,9 +4161,9 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
 
     template = pd.DataFrame(template_cols)
 
-    # Render Template and Demo Buttons (Restored from your old code)
-    bcol1, bcol2 = st.columns(2)
-    with bcol1:
+    # Render Download Button & Data Dictionary
+    c_dl, c_dict = st.columns([1, 1])
+    with c_dl:
         st.download_button(
             "⬇️ Download Custom CSV Template", 
             data=template.to_csv(index=False).encode("utf-8"),
@@ -4174,12 +4172,10 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             use_container_width=True, 
             key=f"{k}_template_btn"
         )
-    with bcol2:
+        
+        # Inject realistic fake data for whatever indicators happen to be active!
         if st.button("✨ Try Demo Data", use_container_width=True, key=f"{k}_demo_btn"):
-            # Create a copy of the dynamic template we just built
             demo_df = pd.DataFrame(template_cols)
-            
-            # Inject realistic fake data for whatever indicators happen to be active!
             if "soc_pct" in demo_df.columns: demo_df["soc_pct"] = [1.2, 2.5, 4.8]
             if "ph_val" in demo_df.columns: demo_df["ph_val"] = [5.2, 6.5, 7.8]
             if "p_mg_kg" in demo_df.columns: demo_df["p_mg_kg"] = [10.0, 35.0, 150.0]
@@ -4193,9 +4189,33 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             if "pmn_mg_kg" in demo_df.columns: demo_df["pmn_mg_kg"] = [8.0, 25.0, 60.0]
             if "mbc_mg_kg" in demo_df.columns: demo_df["mbc_mg_kg"] = [120.0, 350.0, 850.0]
             if "bg_mg_kg_hr" in demo_df.columns: demo_df["bg_mg_kg_hr"] = [80.0, 220.0, 550.0]
-            
-            # Save the populated demo dataframe to session state
             st.session_state[f"{k}_batch_df"] = demo_df
+
+    with c_dict:
+        with st.expander("📖 View CSV Data Dictionary (Copy & Paste Reference)"):
+            st.markdown("To use the **Smart Override**, your CSV cells must exactly match these phrases. Click the copy icon in the top right of any block to paste these into your spreadsheet as a reference!")
+            
+            if "Texture" in template.columns:
+                st.markdown("**Texture:**")
+                st.code('\n'.join(list(SMAF_TEXTURE_MAP.keys())), language="text")
+            if "OM_Class" in template.columns:
+                st.markdown("**OM_Class:**")
+                st.code('\n'.join(list(SMAF_OM_MAP.keys())), language="text")
+            if "Climate_Class" in template.columns:
+                st.markdown("**Climate_Class:**")
+                st.code('\n'.join(list(SMAF_CLIMATE_MAP.keys())), language="text")
+            if "P_Method" in template.columns:
+                st.markdown("**P_Method:**")
+                st.code('\n'.join(list(SMAF_METHOD_MAP.keys())), language="text")
+            if "Weathering" in template.columns:
+                st.markdown("**Weathering:**")
+                st.code('\n'.join(list(SMAF_WEATHERING_MAP.keys())), language="text")
+            if "EC_Method" in template.columns:
+                st.markdown("**EC_Method:**")
+                st.code("Saturated Paste (ECsat)\n1:1 Soil:Water", language="text")
+            if "Crop" in template.columns:
+                st.markdown(f"**Crop ({len(MASTER_CROP_OPTIONS)} supported):**")
+                st.code(', '.join(MASTER_CROP_OPTIONS), language="text")
 
     # 3. Handle File Upload
     uploaded = st.file_uploader("Upload your populated CSV", type="csv", key=f"{k}_uploader")
@@ -4229,7 +4249,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
         mineral_str = st.session_state.get(f"{k}_bd_min", "— Select —")
         ui_mineralogy_id = SMAF_MINERALOGY_MAP.get(mineral_str, 0) if mineral_str != "— Select —" else 0
 
-        # Initialize tracking arrays for SHAPE SOC targets (Restored)
+        # Initialize tracking arrays for SHAPE SOC targets
         tgt_ocs = []
         score_columns = []
 
@@ -4266,7 +4286,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
 
             # --- EXECUTE SCORING MATH ---
             
-            # SHAPE SOC (With restored 90th percentile tracking)
+            # SHAPE SOC 
             if "Soil Organic Carbon" in target_indicators and selected_framework in ["SHAPE", "SHAPE + SMAF (Hybrid)"]:
                 if all(col in r for col in ["oc", "peer_group_taxon", "peer_group_texture", "PRISM_tmea"]) or all(col in r for col in ["soc_pct", "peer_group_taxon", "peer_group_texture", "PRISM_tmea"]):
                     oc_val = safe_float(r.get("soc_pct", r.get("oc")))

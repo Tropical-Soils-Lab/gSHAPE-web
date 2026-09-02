@@ -3690,7 +3690,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             
             fig_smaf_soc.update_layout(
                 xaxis_title="Total Organic Carbon (%)", 
-                yaxis_title="SHAPE Score",
+                yaxis_title="Score",
                 yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0, 5.0]),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02),
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 

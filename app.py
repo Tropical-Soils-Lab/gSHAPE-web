@@ -4487,7 +4487,7 @@ def render_region(region_name, cfg):
 # ════════════════════════════════════════════════════════════════════
 # 9. GLOBAL ROUTING ENGINE (Replaces Region Tabs)
 # ════════════════════════════════════════════════════════════════════
-st.markdown("###Global Location Setup")
+st.markdown("### Global Location Setup")
 
 loc_c1, loc_c2 = st.columns(2)
 with loc_c1:
@@ -4537,7 +4537,7 @@ active_cfg = REGIONS[active_region_name]
 
 # ── DYNAMIC INDICATOR FILTER ──
 # ── DYNAMIC INDICATOR FILTER ──
-st.markdown("###Target Soil Health Indicators")
+st.markdown("### Target Soil Health Indicators")
 chk_c1, chk_c2, chk_c3 = st.columns(3)
 target_indicators = []
 

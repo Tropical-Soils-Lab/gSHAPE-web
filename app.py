@@ -2248,7 +2248,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
     if missing_labs:
         st.info(f"🧪 **Pending Lab Results:** Please enter values for **{', '.join(missing_labs)}** to calculate your scores.")
-        st.stop()
+        return  # ✨ Changed from st.stop() to return!
     # Auto-assign AWC Region: Humid (2) if MAP >= 600mm, Arid (1) if MAP < 600mm
     is_wet_for_awc = target_precip >= 600.0 if target_precip is not None else True
     st.session_state[f"{k}_awc_region"] = 2 if is_wet_for_awc else 1

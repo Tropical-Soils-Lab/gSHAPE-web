@@ -4174,12 +4174,28 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             use_container_width=True, 
             key=f"{k}_template_btn"
         )
-    with bcol2:
+  with bcol2:
         if st.button("✨ Try Demo Data", use_container_width=True, key=f"{k}_demo_btn"):
-            if "build_demo_batch" in globals():
-                st.session_state[f"{k}_batch_df"] = build_demo_batch(region_name, cfg)
-            else:
-                st.warning("Demo data generation is currently restricted to SHAPE SOC profiles.")
+            # Create a copy of the dynamic template we just built
+            demo_df = pd.DataFrame(template_cols)
+            
+            # Inject realistic fake data for whatever indicators happen to be active!
+            if "soc_pct" in demo_df.columns: demo_df["soc_pct"] = [1.2, 2.5, 4.8]
+            if "ph_val" in demo_df.columns: demo_df["ph_val"] = [5.2, 6.5, 7.8]
+            if "p_mg_kg" in demo_df.columns: demo_df["p_mg_kg"] = [10.0, 35.0, 150.0]
+            if "k_mg_kg" in demo_df.columns: demo_df["k_mg_kg"] = [60.0, 140.0, 300.0]
+            if "ec_ds_m" in demo_df.columns: demo_df["ec_ds_m"] = [0.5, 1.8, 4.2]
+            if "sar_val" in demo_df.columns: demo_df["sar_val"] = [0.8, 3.5, 9.0]
+            if "bd_g_cm3" in demo_df.columns: demo_df["bd_g_cm3"] = [1.70, 1.45, 1.10]
+            if "agg_pct" in demo_df.columns: demo_df["agg_pct"] = [15.0, 45.0, 85.0]
+            if "awc_g_g" in demo_df.columns: demo_df["awc_g_g"] = [0.05, 0.15, 0.25]
+            if "wfps_frac" in demo_df.columns: demo_df["wfps_frac"] = [0.20, 0.60, 0.90]
+            if "pmn_mg_kg" in demo_df.columns: demo_df["pmn_mg_kg"] = [8.0, 25.0, 60.0]
+            if "mbc_mg_kg" in demo_df.columns: demo_df["mbc_mg_kg"] = [120.0, 350.0, 850.0]
+            if "bg_mg_kg_hr" in demo_df.columns: demo_df["bg_mg_kg_hr"] = [80.0, 220.0, 550.0]
+            
+            # Save the populated demo dataframe to session state
+            st.session_state[f"{k}_batch_df"] = demo_df
 
     # 3. Handle File Upload
     uploaded = st.file_uploader("Upload your populated CSV", type="csv", key=f"{k}_uploader")
@@ -4457,8 +4473,10 @@ def render_region(region_name, cfg):
 
     # 3. Render Batch View
     with tab_batch:
-        current_selection = st.session_state.get(f"{cfg['key']}_indicator_shared", "Soil Organic Carbon")
-        st.markdown(f"**Selected Indicator:** `{current_selection}`")
+        # Dynamically list ALL selected indicators
+        active_inds = st.session_state.get("target_indicators", [])
+        if active_inds:
+            st.markdown(f"**Active Indicators:** `{', '.join(active_inds)}`")
         
         render_batch_scoring(region_name, cfg, mineral_df, hist_df)
 

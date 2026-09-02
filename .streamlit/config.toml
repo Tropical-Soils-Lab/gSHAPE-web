@@ -1,0 +1,18 @@
+[theme]
+# Force the app into light mode globally
+base="light"
+
+# Match your gSHAPE green for checkboxes and sliders
+primaryColor="#1a9641" 
+
+# The vintage off-white background
+backgroundColor="#F9F9F6" 
+
+# A slightly darker shade for the expanders and sidebar to give depth
+secondaryBackgroundColor="#EFEFEA" 
+
+# Soft dark text for high contrast without being harsh black
+textColor="#2B2B2B" 
+
+# Clean, editorial typography
+font="sans serif"

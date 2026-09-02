@@ -6,63 +6,13 @@ from scipy.interpolate import PchipInterpolator
 import plotly.graph_objects as go
 import requests
 from pathlib import Path
+
 from soc_recommendations import load_soc_rules, get_management_questions, get_selected_answers, get_soc_recommendation, get_cropping_systems
+
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
-
-def create_standard_gauge(score, label_text, subtitle_text):
-    """Generates a clean, borderless Plotly gauge matching the pH style."""
-    
-    if score < 20:
-        active_color = "#d73027"  # Very Low (Red)
-    elif score < 40:
-        active_color = "#f46d43"  # Low (Coral)
-    elif score < 60:
-        active_color = "#ffc107"  # Medium (Yellow)
-    elif score < 80:
-        active_color = "#77c35c"  # High (Light Green)
-    else:
-        active_color = "#1a9641"  # Very High (Dark Green)
-
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=score,
-        title={
-            'text': f"<b>{label_text}</b><br><span style='font-size:0.8em;color:gray'>{subtitle_text}</span>",
-            'font': {'size': 22}
-        },
-        number={
-            'valueformat': ".0f",
-            'suffix': "/100",
-            'font': {'color': active_color, 'size': 48}
-        },
-        gauge={
-            'axis': {'range': [0, 100], 'tickvals': [0, 20, 40, 60, 80, 100], 'tickwidth': 1},
-            'bar': {'color': active_color, 'thickness': 0.3},
-            'bgcolor': "white",
-            'borderwidth': 0, 
-            'steps': [
-                {'range': [0, 20], 'color': "#d73027"},
-                {'range': [20, 40], 'color': "#f46d43"},
-                {'range': [40, 60], 'color': "#ffc107"},
-                {'range': [60, 80], 'color': "#77c35c"},
-                {'range': [80, 100], 'color': "#1a9641"}
-            ]
-        }
-    ))
-    
-    fig.update_layout(
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font={'color': "#2B2B2B"},
-        margin=dict(l=20, r=20, t=50, b=20),
-        height=320
-    )
-    
-    return fig
-# -------------------------------------------
+# ... (your other imports) ...
 
 # 1. Master Page Configuration 
 # (This MUST be the very first Streamlit command in your script)
@@ -943,8 +893,6 @@ SMAF_CLIMATE_MAP = {
     "Class 3 (Cool/Wet)": 3,
     "Class 4 (Cool/Dry)": 4
 }
-
-
 # ════════════════════════════════════════════════════════════════════
 # 5. HELPER FUNCTIONS
 # ════════════════════════════════════════════════════════════════════
@@ -2743,7 +2691,25 @@ def render_single_sample(region_name, cfg, df, df_hist):
         label_p = score_label(score_p)
 
         with col_l:
-            fig_gauge = create_standard_gauge(score_p, label_p, f"SMAF Index · {p_val} mg/kg P")
+            gauge_title = f"<b style='font-size:17px'>{label_p}</b><br><span style='font-size:11px;color:gray'>SMAF Index · {p_val} mg/kg P</span>"
+            fig_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_p)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": color_p}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray"},
+                    "bar": {"color": color_p, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)",
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
+                    ]
+                }
+            ))
+            fig_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
             st.plotly_chart(fig_gauge, use_container_width=True, key=f"{k}_p_gauge")
 
             st.divider()
@@ -2819,7 +2785,25 @@ def render_single_sample(region_name, cfg, df, df_hist):
         label_bd = score_label(score_bd)
         
         with col_l:
-            fig_gauge = create_standard_gauge(score_bd, label_bd, f"BD {bd_val} g/cm³")
+            gauge_title = f"<b style='font-size:17px'>{label_bd}</b><br><span style='font-size:11px;color:gray'>BD {bd_val} g/cm³</span>"
+            fig_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_bd)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": color_bd}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray"},
+                    "bar": {"color": color_bd, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)",
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
+                    ]
+                }
+            ))
+            fig_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
             st.plotly_chart(fig_gauge, use_container_width=True, key=f"{k}_bd_gauge")
 
         with col_r:
@@ -2883,9 +2867,28 @@ def render_single_sample(region_name, cfg, df, df_hist):
         col_l, col_r = st.columns([1, 2])
         
         with col_l:
-            fig_ec_gauge = create_standard_gauge(score_ec, ec_label, f"{crop_name} - EC {ec_val}")
+            gauge_title = f"<b style='font-size:17px'>{ec_label}</b><br><span style='font-size:11px;color:gray'>{crop_name} - EC {ec_val}</span>"
+            fig_ec_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_ec)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": ec_color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": ec_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
+                    ],
+                    "threshold": {"line": {"color": ec_color, "width": 5}, "thickness": 0.8, "value": score_ec}
+                }
+            ))
+            fig_ec_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
             st.plotly_chart(fig_ec_gauge, use_container_width=True, key=f"{k}_ec_gauge_plot")
-                    
+            
             # Variance/Threshold Info
             threshold_val = smaf_ec_threshold(crop_id, ec_method_id, texture_id, SMAF_DATA)
             st.markdown("##### EC Threshold")
@@ -2969,7 +2972,26 @@ def render_single_sample(region_name, cfg, df, df_hist):
         col_l, col_r = st.columns([1, 2])
         
         with col_l:
-            fig_agg_gauge = create_standard_gauge(score_agg, agg_label, f"Agg. Stability {agg_val}%")
+            gauge_title = f"<b style='font-size:17px'>{agg_label}</b><br><span style='font-size:11px;color:gray'>Agg. Stability {agg_val}%</span>"
+            fig_agg_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_agg)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": agg_color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": agg_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
+                    ],
+                    "threshold": {"line": {"color": agg_color, "width": 5}, "thickness": 0.8, "value": score_agg}
+                }
+            ))
+            fig_agg_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
             st.plotly_chart(fig_agg_gauge, use_container_width=True, key=f"{k}_agg_gauge_plot")
             
         with col_r:
@@ -3039,7 +3061,26 @@ def render_single_sample(region_name, cfg, df, df_hist):
         col_l, col_r = st.columns([1, 2])
         
         with col_l:
-            fig_sar_gauge = create_standard_gauge(score_sar, sar_label, f"Measured SAR {sar_val}")
+            gauge_title = f"<b style='font-size:17px'>{sar_label}</b><br><span style='font-size:11px;color:gray'>Measured SAR {sar_val}</span>"
+            fig_sar_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_sar)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": sar_color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": sar_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
+                    ],
+                    "threshold": {"line": {"color": sar_color, "width": 5}, "thickness": 0.8, "value": score_sar}
+                }
+            ))
+            fig_sar_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
             st.plotly_chart(fig_sar_gauge, use_container_width=True, key=f"{k}_sar_gauge_plot")
             
         with col_r:
@@ -3111,7 +3152,26 @@ def render_single_sample(region_name, cfg, df, df_hist):
         col_l, col_r = st.columns([1, 2])
         
         with col_l:
-            fig_pmn_gauge = create_standard_gauge(score_pmn, pmn_label, f"Measured PMN {pmn_val} mg/kg")
+            gauge_title = f"<b style='font-size:17px'>{pmn_label}</b><br><span style='font-size:11px;color:gray'>Measured PMN {pmn_val} mg/kg</span>"
+            fig_pmn_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_pmn)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": pmn_color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": pmn_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
+                    ],
+                    "threshold": {"line": {"color": pmn_color, "width": 5}, "thickness": 0.8, "value": score_pmn}
+                }
+            ))
+            fig_pmn_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
             st.plotly_chart(fig_pmn_gauge, use_container_width=True, key=f"{k}_pmn_gauge_plot")
             
         with col_r:
@@ -3187,7 +3247,26 @@ def render_single_sample(region_name, cfg, df, df_hist):
         col_l, col_r = st.columns([1, 2])
         
         with col_l:
-            fig_awc_gauge = create_standard_gauge(score_awc, awc_label, f"Measured AWC {awc_val:.2f} g/g")
+            gauge_title = f"<b style='font-size:17px'>{awc_label}</b><br><span style='font-size:11px;color:gray'>Measured AWC {awc_val:.2f} g/g</span>"
+            fig_awc_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_awc)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": awc_color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": awc_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
+                    ],
+                    "threshold": {"line": {"color": awc_color, "width": 5}, "thickness": 0.8, "value": score_awc}
+                }
+            ))
+            fig_awc_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
             st.plotly_chart(fig_awc_gauge, use_container_width=True, key=f"{k}_awc_gauge_plot")
             
         with col_r:
@@ -3261,7 +3340,26 @@ def render_single_sample(region_name, cfg, df, df_hist):
         col_l, col_r = st.columns([1, 2])
         
         with col_l:
-            fig_wfps_gauge = create_standard_gauge(score_wfps, wfps_label, f"Calculated WFPS: {wfps_frac:.1%}")
+            gauge_title = f"<b style='font-size:17px'>{wfps_label}</b><br><span style='font-size:11px;color:gray'>Calculated WFPS: {wfps_frac:.1%}</span>"
+            fig_wfps_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_wfps)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": wfps_color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": wfps_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
+                    ],
+                    "threshold": {"line": {"color": wfps_color, "width": 5}, "thickness": 0.8, "value": score_wfps}
+                }
+            ))
+            fig_wfps_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
             st.plotly_chart(fig_wfps_gauge, use_container_width=True, key=f"{k}_wfps_gauge_plot")
             
         with col_r:
@@ -3347,7 +3445,26 @@ def render_single_sample(region_name, cfg, df, df_hist):
         col_l, col_r = st.columns([1, 2])
         
         with col_l:
-            fig_mbc_gauge = create_standard_gauge(score_mbc, mbc_label, f"Measured MBC: {mbc_val} mg/kg")
+            gauge_title = f"<b style='font-size:17px; color:#333;'>{mbc_label}</b><br><span style='font-size:11px; color:#555;'>Measured MBC: {mbc_val} mg/kg</span>"
+            fig_mbc_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_mbc)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": mbc_color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#555", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": mbc_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.85)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.85)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.85)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.85)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.85)"}
+                    ],
+                    "threshold": {"line": {"color": mbc_color, "width": 5}, "thickness": 0.8, "value": score_mbc}
+                }
+            ))
+            fig_mbc_gauge.update_layout(font=dict(color="#333"), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
             st.plotly_chart(fig_mbc_gauge, use_container_width=True, key=f"{k}_mbc_gauge_plot")
             
         with col_r:
@@ -3422,7 +3539,26 @@ def render_single_sample(region_name, cfg, df, df_hist):
         col_l, col_r = st.columns([1, 2])
         
         with col_l:
-            fig_bg_gauge = create_standard_gauge(score_bg, bg_label, f"Measured BG: {bg_val} mg/kg/hr")
+            gauge_title = f"<b style='font-size:17px; color:#333;'>{bg_label}</b><br><span style='font-size:11px; color:#555;'>Measured BG: {bg_val} mg/kg/hr</span>"
+            fig_bg_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_bg)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": bg_color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#555", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": bg_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.85)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.85)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.85)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.85)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.85)"}
+                    ],
+                    "threshold": {"line": {"color": bg_color, "width": 5}, "thickness": 0.8, "value": score_bg}
+                }
+            ))
+            fig_bg_gauge.update_layout(font=dict(color="#333"), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
             st.plotly_chart(fig_bg_gauge, use_container_width=True, key=f"{k}_bg_gauge_plot")
             
         with col_r:
@@ -3492,9 +3628,28 @@ def render_single_sample(region_name, cfg, df, df_hist):
         col_l, col_r = st.columns([1, 2])
         
         with col_l:
-            fig_smaf_soc_gauge = create_standard_gauge(score_smaf_soc, smaf_soc_label, f"Measured SOC: {oc_val}% (SMAF Logistic)")
+            gauge_title = f"<b style='font-size:17px; color:#333;'>{smaf_soc_label}</b><br><span style='font-size:11px; color:#555;'>Measured SOC: {oc_val}% (SMAF Logistic)</span>"
+            fig_smaf_soc_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_smaf_soc)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": smaf_soc_color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#555", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": smaf_soc_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.85)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.85)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.85)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.85)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.85)"}
+                    ],
+                    "threshold": {"line": {"color": smaf_soc_color, "width": 5}, "thickness": 0.8, "value": score_smaf_soc}
+                }
+            ))
+            fig_smaf_soc_gauge.update_layout(font=dict(color="#333"), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
             st.plotly_chart(fig_smaf_soc_gauge, use_container_width=True, key=f"{k}_smaf_soc_gauge_plot")
-                        
+            
             st.divider()
             st.markdown("**📥 Export result**")
             result_df = pd.DataFrame([{
@@ -3562,7 +3717,26 @@ def render_single_sample(region_name, cfg, df, df_hist):
         col_l, col_r = st.columns([1, 2])
         
         with col_l:
-            fig_exk_gauge = create_standard_gauge(score_exk, exk_label, f"Measured K: {k_val} mg/kg")
+            gauge_title = f"<b style='font-size:17px; color:#333;'>{exk_label}</b><br><span style='font-size:11px; color:#555;'>Measured K: {k_val} mg/kg</span>"
+            fig_exk_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_exk)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": exk_color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#555", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": exk_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.85)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.85)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.85)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.85)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.85)"}
+                    ],
+                    "threshold": {"line": {"color": exk_color, "width": 5}, "thickness": 0.8, "value": score_exk}
+                }
+            ))
+            fig_exk_gauge.update_layout(font=dict(color="#333"), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
             st.plotly_chart(fig_exk_gauge, use_container_width=True, key=f"{k}_exk_gauge_plot")
             
         with col_r:
@@ -3626,11 +3800,27 @@ def render_single_sample(region_name, cfg, df, df_hist):
         col_l, col_r = st.columns([1, 2])
         
         with col_l:
-            fig_ph_gauge = create_standard_gauge(score_ph, ph_label, f"Measured pH: {ph_val} (2:1 Water)")
+            gauge_title = f"<b style='font-size:17px; color:#333;'>{ph_label}</b><br><span style='font-size:11px; color:#555;'>Measured pH: {ph_val} (2:1 Water)</span>"
+            fig_ph_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_ph)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": ph_color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#555"},
+                    "bar": {"color": ph_color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.85)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.85)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.85)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.85)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.85)"}
+                    ],
+                    "threshold": {"line": {"color": ph_color, "width": 5}, "thickness": 0.8, "value": score_ph}
+                }
+            ))
+            fig_ph_gauge.update_layout(font=dict(color="#333"), paper_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
             st.plotly_chart(fig_ph_gauge, use_container_width=True, key=f"{k}_ph_gauge")
-            
-            st.divider()
-            # ... keep the export button code below here ...
             
             st.divider()
             st.markdown("**📥 Export result**")
@@ -3697,9 +3887,30 @@ def render_single_sample(region_name, cfg, df, df_hist):
             climate_str = f"{target_temp:.1f}°C"
             if has_precip and target_precip is not None:
                 climate_str += f" · {target_precip:.0f}mm"
-            
-            subtitle = f"{strip_code(selected_sub)} · {strip_code(selected_tex)}<br>{climate_str} · SOC {oc_val}%"
-            fig_gauge = create_standard_gauge(score, label, subtitle)
+            gauge_title = (f"<b style='font-size:17px'>{label}</b><br>"
+                           f"<span style='font-size:11px;color:gray'>{strip_code(selected_sub)} · {strip_code(selected_tex)} · {climate_str} · SOC {oc_val}%</span>")
+            fig_gauge = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=int(round(score)),
+                domain={"x": [0, 1], "y": [0, 1]},
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": color}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray", "tickvals": [0, 20, 40, 60, 80, 100]},
+                    "bar": {"color": color, "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
+                        {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
+                        {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
+                        {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
+                        {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
+                    ],
+                    "threshold": {"line": {"color": color, "width": 5}, "thickness": 0.8, "value": score}
+                }
+            ))
+            fig_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                                height=260, margin=dict(l=40, r=40, t=80, b=10))
             st.plotly_chart(fig_gauge, use_container_width=True, key=f"{k}_gauge_chart")
             
             st.divider()

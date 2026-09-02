@@ -23,7 +23,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. Custom CSS for an Editorial Webpage Aesthetic
+# 2. Custom CSS for Spacing and Layout
 st.markdown("""
     <style>
         /* Hide the Streamlit header, menu, and footer */
@@ -35,22 +35,12 @@ st.markdown("""
         .block-container {
             padding-top: 2rem !important;
             padding-bottom: 2rem !important;
-            max-width: 1200px; /* Gives the page a clean, centered margin */
-        }
-        
-        /* Apply a warm, vintage off-white background and soft dark text */
-        .stApp {
-            background-color: #F9F9F6;
-            color: #2B2B2B;
-        }
-        
-        /* Clean up the look of the expanders to match the editorial vibe */
-        .streamlit-expanderHeader {
-            font-weight: 600;
-            background-color: transparent !important;
+            max-width: 1200px;
         }
     </style>
 """, unsafe_allow_html=True)
+
+
 
 # ── GLOBAL GEOGRAPHY & ROUTING DATA ──
 SSA_COUNTRIES = [

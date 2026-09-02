@@ -1658,15 +1658,23 @@ def run_smaf_soc_score(toc, om_class, texture, climate, smaf_data, clamp=True):
     c1 = smaf_data.get("soc_om", {}).get(om_class, 1.0)
     c2 = smaf_data.get("soc_texture", {}).get(texture, 1.0)
     c3 = smaf_data.get("soc_climate", {}).get(climate, 1.0)
-    c = (c1 * c2) + (c1 * c2 * c3)
+    
+    # ✨ THE FIX: SOC 'c' modifier is strictly multiplicative!
+    # The previous code accidentally used the additive PMN formula: c = (c1*c2) + (c1*c2*c3)
+    c = float(c1) * float(c2) * float(c3)
     
     try:
-        y = K.get("a", 1.0) / (1.0 + K.get("b", 1.0) * math.exp(-c * toc))
-    except OverflowError:
+        # Cast to float to prevent any string-type crashes from Pandas
+        a = float(K.get("a", 1.0))
+        # Safely defaults to 40.478 if blank in your Excel (just like MBC)
+        b = float(K.get("b", 40.478)) 
+        
+        y = a / (1.0 + b * math.exp(-c * toc))
+    except (OverflowError, TypeError, ValueError):
         y = 0.0
         
     if clamp:
-        y = max(K.get("score_min", 0.0), min(K.get("score_max", 1.0), y))
+        y = max(float(K.get("score_min", 0.0)), min(float(K.get("score_max", 1.0)), y))
         
     return y * 100.0
 

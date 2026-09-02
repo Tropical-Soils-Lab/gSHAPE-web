@@ -4174,7 +4174,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             use_container_width=True, 
             key=f"{k}_template_btn"
         )
-  with bcol2:
+    with bcol2:
         if st.button("✨ Try Demo Data", use_container_width=True, key=f"{k}_demo_btn"):
             # Create a copy of the dynamic template we just built
             demo_df = pd.DataFrame(template_cols)

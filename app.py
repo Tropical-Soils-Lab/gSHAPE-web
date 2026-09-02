@@ -9,6 +9,49 @@ from pathlib import Path
 
 from soc_recommendations import load_soc_rules, get_management_questions, get_selected_answers, get_soc_recommendation, get_cropping_systems
 
+import streamlit as st
+import pandas as pd
+import numpy as np
+# ... (your other imports) ...
+
+# 1. Master Page Configuration 
+# (This MUST be the very first Streamlit command in your script)
+st.set_page_config(
+    page_title="gSHAPE | Soil Health Scoring",
+    page_icon="🌱",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# 2. Custom CSS for an Editorial Webpage Aesthetic
+st.markdown("""
+    <style>
+        /* Hide the Streamlit header, menu, and footer */
+        header {visibility: hidden;}
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        
+        /* Pull the main content up to remove the massive top padding */
+        .block-container {
+            padding-top: 2rem !important;
+            padding-bottom: 2rem !important;
+            max-width: 1200px; /* Gives the page a clean, centered margin */
+        }
+        
+        /* Apply a warm, vintage off-white background and soft dark text */
+        .stApp {
+            background-color: #F9F9F6;
+            color: #2B2B2B;
+        }
+        
+        /* Clean up the look of the expanders to match the editorial vibe */
+        .streamlit-expanderHeader {
+            font-weight: 600;
+            background-color: transparent !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 # ── GLOBAL GEOGRAPHY & ROUTING DATA ──
 SSA_COUNTRIES = [
     "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cameroon", "Cape Verde", 

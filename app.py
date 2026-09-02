@@ -35,11 +35,9 @@ st.markdown("""
         .block-container {
             padding-top: 2rem !important;
             padding-bottom: 2rem !important;
-            max-width: 1200px;
         }
     </style>
 """, unsafe_allow_html=True)
-
 
 
 # ── GLOBAL GEOGRAPHY & ROUTING DATA ──

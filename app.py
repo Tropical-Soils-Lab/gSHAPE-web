@@ -109,6 +109,35 @@ st.markdown("""
             padding-bottom: 4px;
             display: inline-block;
         }
+        /* ✨ 5. PREMIUM TAB STYLING (Single Sample, Batch Scoring) */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 12px; /* Adds space between the tabs */
+            border-bottom: 2px solid #e8e8e8; /* Anchors the tabs to a baseline */
+        }
+        
+        .stTabs [data-baseweb="tab"] {
+            font-size: 1.15rem !important; /* Makes the text significantly bigger */
+            font-weight: 600 !important;
+            padding: 14px 28px !important;
+            border-radius: 10px 10px 0px 0px !important; /* Rounds the top corners like a physical folder */
+            color: #737373 !important;
+            background-color: #f0f0f0 !important; /* Soft gray panel for inactive tabs */
+            border-bottom: none !important;
+            transition: all 0.2s ease;
+        }
+        
+        /* Subtle darkening when a user hovers over an inactive tab */
+        .stTabs [data-baseweb="tab"]:hover {
+            color: #2b2b2b !important;
+            background-color: #e6e6e6 !important;
+        }
+        
+        /* ✨ THE ACTIVE PANEL HIGHLIGHT */
+        .stTabs [data-baseweb="tab"][aria-selected="true"] {
+            background-color: rgba(26, 150, 65, 0.12) !important; /* Soft gSHAPE Green Panel */
+            color: #1a9641 !important; /* Vibrant Green Text */
+            border-bottom: 3px solid #1a9641 !important; /* Strong green anchor line */
+        }
     </style>
 """, unsafe_allow_html=True)
 

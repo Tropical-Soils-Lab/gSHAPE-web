@@ -2399,7 +2399,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             lp_mean, lp_lcl, lp_ucl, sigma_val, plot_max = 0.0, 0.0, 0.0, 1.0, 15.0
 
 # ── COMPREHENSIVE SOIL HEALTH SUMMARY (DYNAMICALLY FILTERED) ──
-    st.markdown("### 📊 Comprehensive Soil Health Overview")
+    st.markdown("### Comprehensive Soil Health Overview")
     
     target_indicators = st.session_state.get("target_indicators", [])
     
@@ -2678,7 +2678,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
     # =========================================================================
     # ✨ ✨ NATIVE STREAMLIT SOIL HEALTH CONSTRAINTS DIAGNOSTIC ✨ ✨
     # =========================================================================
-    st.markdown("### 📋 Soil Health Constraint Diagnostic")
+    st.markdown("###  Soil Health Constraint Diagnostic")
     st.markdown("Address these critical functional constraints to unlock full soil and crop potential:")
     
     # 1. Define the constraints dictionary directly inside the app
@@ -4192,7 +4192,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
                                "and depends on management, soil type, and climate. Consult a certified carbon "
                                "project developer before trading.")
     st.divider()
-    st.markdown("#### 📚 Resources")
+    st.markdown("#### Resources")
     rc1, rc2, rc3 = st.columns(3)
     with rc1:
         st.link_button("UF IFAS — Cover Crops for Soil Health",

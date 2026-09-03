@@ -7,12 +7,8 @@ import plotly.graph_objects as go
 import requests
 from pathlib import Path
 
+# Assuming these are your custom local modules
 from soc_recommendations import load_soc_rules, get_management_questions, get_selected_answers, get_soc_recommendation, get_cropping_systems
-
-import streamlit as st
-import pandas as pd
-import numpy as np
-# ... (your other imports) ...
 
 # 1. Master Page Configuration 
 # (This MUST be the very first Streamlit command in your script)
@@ -140,6 +136,9 @@ st.markdown("""
         }
     </style>
 """, unsafe_allow_html=True)
+
+# Note: to use the custom badges in your app, use markdown like this:
+# st.markdown('<div class="pillar-badge-phys">Physical Pillar</div>', unsafe_allow_html=True)
 
 # ── GLOBAL GEOGRAPHY & ROUTING DATA ──
 SSA_COUNTRIES = [

@@ -23,7 +23,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. Custom CSS for Spacing and Layout
+# 2. Custom CSS for Spacing, Layout, and Premium SaaS Styling
 st.markdown("""
     <style>
         /* Hide the Streamlit header, menu, and footer */
@@ -31,14 +31,86 @@ st.markdown("""
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         
-        /* Pull the main content up to remove the massive top padding */
+        /* Pull the main content up */
         .block-container {
             padding-top: 2rem !important;
             padding-bottom: 2rem !important;
         }
+
+        /* ✨ 1. ELEVATE EXPANDERS INTO PREMIUM CARDS */
+        div[data-testid="stExpander"] {
+            background-color: #ffffff;
+            border: 1px solid #e8e8e8;
+            border-radius: 12px !important;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.04);
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+            transition: box-shadow 0.2s ease-in-out;
+        }
+        div[data-testid="stExpander"]:hover {
+            box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+        }
+        
+        /* ✨ 2. COLORIZE EXPANDER HEADERS */
+        div[data-testid="stExpander"] details summary {
+            background-color: #fbfbfc;
+            border-bottom: 1px solid #f0f0f0;
+            padding: 0.5rem 1rem;
+        }
+        div[data-testid="stExpander"] details summary p {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #1a9641; /* gSHAPE Green */
+            letter-spacing: 0.5px;
+        }
+
+        /* ✨ 3. SOFTEN & STYLE INPUT FIELDS */
+        div[data-baseweb="select"] > div, 
+        div[data-baseweb="input"] > div {
+            background-color: #fcfcfb !important;
+            border-radius: 8px !important;
+            border: 1px solid #e0e0e0 !important;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.02) !important;
+            transition: all 0.2s ease;
+        }
+        
+        /* Focus state for inputs (Glow effect) */
+        div[data-baseweb="select"] > div:focus-within, 
+        div[data-baseweb="input"] > div:focus-within {
+            border-color: #1a9641 !important;
+            box-shadow: 0 0 0 1px #1a9641 !important;
+        }
+
+        /* ✨ 4. PILLAR BADGES FOR UI HEADERS */
+        .pillar-badge-phys { 
+            color: #d95f02; /* Terra Cotta */
+            font-weight: 700; 
+            margin-bottom: 12px; 
+            font-size: 16px; 
+            border-bottom: 2px solid rgba(217, 95, 2, 0.2);
+            padding-bottom: 4px;
+            display: inline-block;
+        }
+        .pillar-badge-chem { 
+            color: #7570b3; /* Deep Blue/Purple */
+            font-weight: 700; 
+            margin-bottom: 12px; 
+            font-size: 16px; 
+            border-bottom: 2px solid rgba(117, 112, 179, 0.2);
+            padding-bottom: 4px;
+            display: inline-block;
+        }
+        .pillar-badge-bio  { 
+            color: #1a9641; /* gSHAPE Green */
+            font-weight: 700; 
+            margin-bottom: 12px; 
+            font-size: 16px; 
+            border-bottom: 2px solid rgba(26, 150, 65, 0.2);
+            padding-bottom: 4px;
+            display: inline-block;
+        }
     </style>
 """, unsafe_allow_html=True)
-
 
 # ── GLOBAL GEOGRAPHY & ROUTING DATA ──
 SSA_COUNTRIES = [
@@ -4619,7 +4691,7 @@ target_indicators = []
 smaf_active = selected_framework in ["SMAF", "SHAPE + SMAF (Hybrid)"]
 
 with chk_c1:
-    st.markdown("**Physical Indicators**")
+    st.markdown("<div class='pillar-badge-phys'> Physical Indicators</div>", unsafe_allow_html=True)
     if st.checkbox("Bulk Density", value=smaf_active, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("Bulk Density")
     if st.checkbox("Macroaggregate Stability", value=smaf_active, disabled=not smaf_active): 
@@ -4630,7 +4702,7 @@ with chk_c1:
         if smaf_active: target_indicators.append("Water-Filled Pore Space")
 
 with chk_c2:
-    st.markdown("**Chemical Indicators**")
+    st.markdown("<div class='pillar-badge-chem'> Chemical Indicators</div>", unsafe_allow_html=True)
     if st.checkbox("pH", value=smaf_active, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("pH")
     if st.checkbox("Soil Phosphorus", value=smaf_active, disabled=not smaf_active): 
@@ -4643,7 +4715,7 @@ with chk_c2:
         if smaf_active: target_indicators.append("Sodium Adsorption Ratio")
 
 with chk_c3:
-    st.markdown("**Biological Indicators**")
+    st.markdown("<div class='pillar-badge-bio'> Biological Indicators</div>", unsafe_allow_html=True)
     
     # ✨ THE FIX: Updated string names for the SOC routing
     if st.checkbox("Soil Organic Carbon", value=True): 

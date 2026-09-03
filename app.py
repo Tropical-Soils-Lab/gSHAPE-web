@@ -4779,7 +4779,7 @@ has_general_smaf = any(ind in target_indicators for ind in [
 has_wfps = "Water-Filled Pore Space" in target_indicators
 has_beta_g = "Beta-glucosidase" in target_indicators
 has_k = "Extractable Potassium" in target_indicators  # Future-proofing 
-has_shape_soc = "Soil Organic Carbon" in target_indicators and selected_framework == "SHAPE + SMAF"
+has_shape_soc = "Soil Organic Carbon" in target_indicators and selected_framework in ["SHAPE", "SHAPE + SMAF (Hybrid)"]
 
 # 3. SHAPE SOC Citations
 if has_shape_soc:

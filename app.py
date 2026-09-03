@@ -2532,7 +2532,13 @@ def render_single_sample(region_name, cfg, df, df_hist):
     summary_colors.append(score_color(score_overall))
 
     summary_text = [f"{s}/100  |  {score_label(s)}" for s in summary_scores]
+    
+    # Determine where the text goes based on the bar length
     text_positions = ["inside" if s >= 25 else "outside" for s in summary_scores]
+    
+    # ✨ THE FIX: Dynamically change the text color! 
+    # White if inside the colored bar, Dark Gray if outside on the background.
+    text_colors = ["white" if s >= 25 else "#2B2B2B" for s in summary_scores]
 
     fig_summary = go.Figure(go.Bar(
         x=summary_scores,
@@ -2542,11 +2548,11 @@ def render_single_sample(region_name, cfg, df, df_hist):
         text=summary_text,
         textposition=text_positions,
         insidetextanchor='middle',
-        textfont=dict(color='white', size=15, family="Arial Black")
+        textfont=dict(color=text_colors, size=15, family="Arial Black")
     ))
 
     fig_summary.update_layout(
-        xaxis=dict(range=[0, 100], fixedrange=True, title="SHAPE Score", gridcolor="rgba(150,150,150,0.1)"),
+        xaxis=dict(range=[0, 100], fixedrange=True, title="Score", gridcolor="rgba(150,150,150,0.1)"),
         yaxis=dict(autorange="reversed", fixedrange=True),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",

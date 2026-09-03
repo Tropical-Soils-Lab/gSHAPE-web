@@ -2711,30 +2711,40 @@ def render_single_sample(region_name, cfg, df, df_hist):
     
     # Loop through the variables already calculated for the chart above
     for pillar, s_val in [("Physical", score_phys), ("Chemical", score_chem), ("SOC", score_bio)]:
-        # ✨ THE FIX: Skip this pillar entirely if no indicators were selected for it
         if s_val is None:
             continue
             
         score_int = int(round(s_val))
         if score_int < 20:
-            diag_rows.append({"Pillar": pillar, "Score": score_int, "Assessment": "🔴 Very Low", "Critical Soil Functions Affected": CONSTRAINTS[pillar]["VeryLow"]})
+            diag_rows.append({"Pillar": pillar, "Score": score_int, "Assessment": "Very Low", "Critical Soil Functions Affected": CONSTRAINTS[pillar]["VeryLow"], "_raw_score": score_int})
         elif score_int < 40:
-            diag_rows.append({"Pillar": pillar, "Score": score_int, "Assessment": "🔴 Low", "Critical Soil Functions Affected": CONSTRAINTS[pillar]["Low"]})
+            diag_rows.append({"Pillar": pillar, "Score": score_int, "Assessment": "Low", "Critical Soil Functions Affected": CONSTRAINTS[pillar]["Low"], "_raw_score": score_int})
         elif score_int < 60:
-            diag_rows.append({"Pillar": pillar, "Score": score_int, "Assessment": "🟠 Medium", "Critical Soil Functions Affected": CONSTRAINTS[pillar]["Medium"]})
+            diag_rows.append({"Pillar": pillar, "Score": score_int, "Assessment": "Medium", "Critical Soil Functions Affected": CONSTRAINTS[pillar]["Medium"], "_raw_score": score_int})
 
     # 3. Render natively using Streamlit
     if len(diag_rows) == 0:
         st.success("Congratulations! All measured soil health pillars scored High (>= 60), indicating fully functional soil systems that are unrestricted by major soil function constraints.")
     else:
-        # Convert to Pandas DataFrame for clean rendering
         df_diag = pd.DataFrame(diag_rows)
         
-        # Use st.table() so the text wraps nicely on multiple lines
-        st.table(df_diag)
+        # ✨ NEW: Styling function to match the score zones
+        def color_diagnostic_rows(row):
+            s = row.get("_raw_score", 100)
+            if s >= 80: bg = "background-color: rgba(26, 150, 65, 0.25); font-weight: 500;"
+            elif s >= 60: bg = "background-color: rgba(119, 195, 92, 0.25); font-weight: 500;"
+            elif s >= 40: bg = "background-color: rgba(255, 193, 7, 0.25); font-weight: 500;"
+            elif s >= 20: bg = "background-color: rgba(244, 109, 67, 0.25); font-weight: 500;"
+            else: bg = "background-color: rgba(215, 48, 39, 0.25); font-weight: 500;"
+            return [bg] * len(row)
+            
+        # Drop the raw score so it doesn't show up in the final table
+        display_diag_df = df_diag.drop(columns=["_raw_score"])
+        
+        # st.table automatically wraps long text perfectly
+        st.table(display_diag_df.style.apply(color_diagnostic_rows, axis=1))
         
     st.divider()
-
     # ── INDICATOR SELECTION DROPDOWN (Correctly positioned below summary) ──
     chosen_indicator = st.selectbox(
         "Soil Health Indicators:",

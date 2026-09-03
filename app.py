@@ -2276,12 +2276,14 @@ def render_single_sample(region_name, cfg, df, df_hist):
         # 3. Render inputs dynamically into the next available column
         if "Soil Organic Carbon" in target_indicators or "SMAF Soil Organic Carbon" in target_indicators:
             with cols[col_idx % 3]: 
-                oc_val = st.number_input("Measured SOC (%)", min_value=0.0, max_value=20.0, step=0.1, value=None, placeholder="Enter value...", key=f"{k}_oc")
+                # Changed key to bypass old memory
+                oc_val = st.number_input("Measured SOC (%)", min_value=0.0, max_value=20.0, step=0.1, value=None, placeholder="Enter value...", key=f"{k}_oc_new")
             col_idx += 1
             
         if "Soil Phosphorus" in target_indicators:
             with cols[col_idx % 3]: 
-                p_val = st.number_input("Measured Phosphorus (mg/kg)", min_value=0.0, max_value=500.0, step=5.0, value=None, placeholder="Enter value...", key=f"{k}_sm_p_input")
+                # Changed key to bypass old memory
+                p_val = st.number_input("Measured Phosphorus (mg/kg)", min_value=0.0, max_value=500.0, step=5.0, value=None, placeholder="Enter value...", key=f"{k}_p_input_new")
             col_idx += 1
             
         if "Extractable Potassium" in target_indicators:

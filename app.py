@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import re
 from scipy.stats import norm
 from scipy.interpolate import PchipInterpolator
 import plotly.graph_objects as go
@@ -10,8 +11,9 @@ from pathlib import Path
 # Assuming these are your custom local modules
 from soc_recommendations import load_soc_rules, get_management_questions, get_selected_answers, get_soc_recommendation, get_cropping_systems
 
-# 1. Master Page Configuration 
-# (This MUST be the very first Streamlit command in your script)
+# ════════════════════════════════════════════════════════════════════
+# 1. PAGE CONFIGURATION (MUST BE FIRST & ONLY CALLED ONCE)
+# ════════════════════════════════════════════════════════════════════
 st.set_page_config(
     page_title="gSHAPE | Soil Health Scoring",
     page_icon="🌱",
@@ -19,197 +21,75 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. Custom CSS for Spacing, Layout, and Premium SaaS Styling
+# ════════════════════════════════════════════════════════════════════
+# 2. MASTER CSS (BOTH OF YOUR BLOCKS PERFECTLY MERGED)
+# ════════════════════════════════════════════════════════════════════
 st.markdown("""
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap');
+
         /* Hide the Streamlit header, menu, and footer */
         header {visibility: hidden;}
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         
-        /* Pull the main content up */
+        /* Reset container padding */
         .block-container {
             padding-top: 2rem !important;
             padding-bottom: 2rem !important;
+            margin-top: 0px !important;
         }
 
-        /* ✨ 1. ELEVATE EXPANDERS INTO PREMIUM CARDS */
-        div[data-testid="stExpander"] {
-            background-color: #ffffff;
-            border: 1px solid #e8e8e8;
-            border-radius: 12px !important;
-            box-shadow: 0 4px 14px rgba(0,0,0,0.04);
-            margin-bottom: 1.5rem;
-            overflow: hidden;
-            transition: box-shadow 0.2s ease-in-out;
-        }
-        div[data-testid="stExpander"]:hover {
-            box-shadow: 0 6px 20px rgba(0,0,0,0.08);
-        }
-        
-        /* ✨ 2. COLORIZE EXPANDER HEADERS */
-        div[data-testid="stExpander"] details summary {
-            background-color: #fbfbfc;
-            border-bottom: 1px solid #f0f0f0;
-            padding: 0.5rem 1rem;
-        }
-        div[data-testid="stExpander"] details summary p {
-            font-size: 1.15rem;
-            font-weight: 700;
-            color: #1a9641; /* gSHAPE Green */
-            letter-spacing: 0.5px;
-        }
+        /* ✨ HEADER BANNER */
+        .fl-header { background: linear-gradient(135deg, #0a3d1f 0%, #1a6b35 60%, #0f5132 100%); border-radius: 12px !important; padding: 36px 24px; margin-top: 16px !important; margin-bottom: 12px; display: block !important; text-align: center !important; position: relative !important; overflow: hidden !important; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .fl-header::before { content: "🔬" !important; position: absolute !important; left: 40px !important; top: 50% !important; transform: translateY(-50%) !important; font-size: 54px !important; opacity: 0.25 !important; pointer-events: none !important; }
+        .fl-header::after { content: "🌱" !important; position: absolute !important; right: 40px !important; top: 50% !important; transform: translateY(-50%) !important; font-size: 54px !important; opacity: 0.25 !important; pointer-events: none !important; }
+        .fl-header .main-title { color: #ffffff; font-size: 44px; font-weight: 800; margin: 0 0 6px 0; letter-spacing: 1px; line-height: 1.1; position: relative !important; z-index: 2 !important; }
+        .fl-header .sub-title { color: #e8f5e9; font-size: 19px; font-weight: 400; margin: 0 0 8px 0; opacity: 0.95; letter-spacing: 0.5px; position: relative !important; z-index: 2 !important; }
+        .fl-header .tagline { color: #a5d6a7; font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 1.5px; margin: 0; position: relative !important; z-index: 2 !important; }
 
-        /* ✨ 3. SOFTEN & STYLE INPUT FIELDS */
-        div[data-baseweb="select"] > div, 
-        div[data-baseweb="input"] > div {
-            background-color: #fcfcfb !important;
-            border-radius: 8px !important;
-            border: 1px solid #e0e0e0 !important;
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.02) !important;
-            transition: all 0.2s ease;
-        }
-        
-        /* Focus state for inputs (Glow effect) */
-        div[data-baseweb="select"] > div:focus-within, 
-        div[data-baseweb="input"] > div:focus-within {
-            border-color: #1a9641 !important;
-            box-shadow: 0 0 0 1px #1a9641 !important;
-        }
+        /* ✨ UI CARDS & BOXES */
+        .info-box { background: #f0f7ff; border-left: 3px solid #1565c0; border-radius: 0 8px 8px 0; padding: 8px 14px; margin: 10px 0 18px 0; font-size: 12px; color: #0d47a1; line-height: 1.4; }
+        .coming-soon-box { border: 1.5px dashed #e0e0e0; border-radius: 12px; padding: 40px 30px; text-align: center; margin: 20px 0; }
+        .coming-soon-box h3 { font-size: 18px; margin-bottom: 8px; color: #333; }
+        .coming-soon-box p { font-size: 14px; color: #666; max-width: 480px; margin: 0 auto; }
+        .pg-card { border: 0.5px solid #e0e0e0; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+        .pg-card h4 { font-size: 15px; font-weight: 600; margin: 0 0 6px 0; color: #333; }
+        .pg-card p  { font-size: 13px; color: #666; margin: 0; line-height: 1.5; }
+        .region-pill { display: inline-block; padding: 3px 12px; border-radius: 14px; font-size: 12px; font-weight: 600; background: rgba(26,150,65,0.15); color: #1a9641; margin-bottom: 8px; }
 
-        /* ✨ 4. PILLAR BADGES FOR UI HEADERS */
-        .pillar-badge-phys { 
-            color: #d95f02; /* Terra Cotta */
-            font-weight: 700; 
-            margin-bottom: 12px; 
-            font-size: 16px; 
-            border-bottom: 2px solid rgba(217, 95, 2, 0.2);
-            padding-bottom: 4px;
-            display: inline-block;
-        }
-        .pillar-badge-chem { 
-            color: #7570b3; /* Deep Blue/Purple */
-            font-weight: 700; 
-            margin-bottom: 12px; 
-            font-size: 16px; 
-            border-bottom: 2px solid rgba(117, 112, 179, 0.2);
-            padding-bottom: 4px;
-            display: inline-block;
-        }
-        .pillar-badge-bio  { 
-            color: #1a9641; /* gSHAPE Green */
-            font-weight: 700; 
-            margin-bottom: 12px; 
-            font-size: 16px; 
-            border-bottom: 2px solid rgba(26, 150, 65, 0.2);
-            padding-bottom: 4px;
-            display: inline-block;
-        }
-        /* ✨ 5. PREMIUM TAB STYLING (Single Sample, Batch Scoring) */
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 12px; /* Adds space between the tabs */
-            border-bottom: 2px solid #e8e8e8; /* Anchors the tabs to a baseline */
-        }
+        /* ✨ EXPANDERS */
+        div[data-testid="stExpander"] { background-color: #ffffff; border: 1px solid #e8e8e8; border-radius: 12px !important; box-shadow: 0 4px 14px rgba(0,0,0,0.04); margin-bottom: 1.5rem; overflow: hidden; transition: box-shadow 0.2s ease-in-out; }
+        div[data-testid="stExpander"]:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
+        div[data-testid="stExpander"] details summary { background-color: #fbfbfc; border-bottom: 1px solid #f0f0f0; padding: 0.5rem 1rem; }
+        div[data-testid="stExpander"] details summary p { font-size: 1.15rem; font-weight: 700; color: #1a9641; letter-spacing: 0.5px; }
+
+        /* ✨ INPUT FIELDS */
+        div[data-baseweb="select"] > div, div[data-baseweb="input"] > div { background-color: #fcfcfb !important; border-radius: 8px !important; border: 1px solid #e0e0e0 !important; box-shadow: inset 0 1px 3px rgba(0,0,0,0.02) !important; transition: all 0.2s ease; }
+        div[data-baseweb="select"] > div:focus-within, div[data-baseweb="input"] > div:focus-within { border-color: #1a9641 !important; box-shadow: 0 0 0 1px #1a9641 !important; }
+
+        /* ✨ PILLAR BADGES */
+        .pillar-badge-phys { color: #d95f02; font-weight: 700; margin-bottom: 12px; font-size: 16px; border-bottom: 2px solid rgba(217, 95, 2, 0.2); padding-bottom: 4px; display: inline-block; }
+        .pillar-badge-chem { color: #7570b3; font-weight: 700; margin-bottom: 12px; font-size: 16px; border-bottom: 2px solid rgba(117, 112, 179, 0.2); padding-bottom: 4px; display: inline-block; }
+        .pillar-badge-bio  { color: #1a9641; font-weight: 700; margin-bottom: 12px; font-size: 16px; border-bottom: 2px solid rgba(26, 150, 65, 0.2); padding-bottom: 4px; display: inline-block; }
         
-        .stTabs [data-baseweb="tab"] {
-            font-size: 1.15rem !important; /* Makes the text significantly bigger */
-            font-weight: 600 !important;
-            padding: 14px 28px !important;
-            border-radius: 10px 10px 0px 0px !important; /* Rounds the top corners like a physical folder */
-            color: #737373 !important;
-            background-color: #f0f0f0 !important; /* Soft gray panel for inactive tabs */
-            border-bottom: none !important;
-            transition: all 0.2s ease;
-        }
-        
-        /* Subtle darkening when a user hovers over an inactive tab */
-        .stTabs [data-baseweb="tab"]:hover {
-            color: #2b2b2b !important;
-            background-color: #e6e6e6 !important;
-        }
-        
-        /* ✨ THE ACTIVE PANEL HIGHLIGHT */
-        .stTabs [data-baseweb="tab"][aria-selected="true"] {
-            background-color: rgba(26, 150, 65, 0.12) !important; /* Soft gSHAPE Green Panel */
-            color: #1a9641 !important; /* Vibrant Green Text */
-            border-bottom: 3px solid #1a9641 !important; /* Strong green anchor line */
-        }
+        /* ✨ MASTER REGION TABS (Huge, stretch across screen) */
+        .stTabs [data-baseweb="tab-list"] { display: flex !important; width: 100% !important; gap: 0px !important; margin-bottom: 20px; border-bottom: 2px solid #e0e0e0; }
+        .stTabs [data-baseweb="tab"] { flex-grow: 1 !important; flex-basis: 0 !important; text-align: center !important; justify-content: center !important; font-size: 32px !important; font-weight: 700 !important; padding: 20px 24px !important; border-radius: 8px 8px 0px 0px !important; transition: all 0.2s ease; font-family: inherit, "Noto Color Emoji" !important; background-color: transparent !important; border-bottom: none !important; }
+        .stTabs [data-baseweb="tab"][aria-selected="true"] { background-color: rgba(26, 150, 65, 0.20) !important; color: #1a9641 !important; border-bottom: 3px solid #1a9641 !important; }
+        .stTabs [data-baseweb="tab"]:hover { background-color: rgba(26,150,65,0.04) !important; }
+
+        /* ✨ NESTED SUB-TABS (Small, localized) */
+        .stTabs [data-baseweb="tab-panel"] .stTabs [data-baseweb="tab-list"] { display: inline-flex !important; width: auto !important; gap: 24px !important; border-bottom: 2px solid #e8e8e8 !important; }
+        .stTabs [data-baseweb="tab-panel"] .stTabs [data-baseweb="tab"] { flex-grow: 0 !important; flex-basis: auto !important; font-size: 1.15rem !important; font-weight: 600 !important; padding: 14px 28px !important; border-radius: 10px 10px 0px 0px !important; background-color: #f0f0f0 !important; color: #737373 !important; }
+        .stTabs [data-baseweb="tab-panel"] .stTabs [data-baseweb="tab"]:hover { color: #2b2b2b !important; background-color: #e6e6e6 !important; }
+        .stTabs [data-baseweb="tab-panel"] .stTabs [data-baseweb="tab"][aria-selected="true"] { background-color: rgba(26, 150, 65, 0.12) !important; color: #1a9641 !important; border-bottom: 3px solid #1a9641 !important; }
     </style>
 """, unsafe_allow_html=True)
 
-# Create the tabs
-tab1, tab2 = st.tabs(["Single Sample Scoring", "Batch Scoring"])
-
-# ==========================================
-# TAB 1: SINGLE SAMPLE SCORING
-# ==========================================
-with tab1:
-    st.markdown("### Enter Soil Sample Data")
-    st.write("Input the laboratory results below to generate a gSHAPE soil health score.")
-    
-    # Using columns to layout the inputs nicely
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown('<div class="pillar-badge-phys">Physical Pillar</div>', unsafe_allow_html=True)
-        bulk_density = st.number_input("Bulk Density (g/cm³)", min_value=0.0, step=0.1)
-        aggregate_stability = st.number_input("Aggregate Stability (%)", min_value=0.0, max_value=100.0, step=1.0)
-        
-    with col2:
-        st.markdown('<div class="pillar-badge-chem">Chemical Pillar</div>', unsafe_allow_html=True)
-        ph_level = st.number_input("pH Level", min_value=0.0, max_value=14.0, step=0.1, value=7.0)
-        phosphorus = st.number_input("Extractable Phosphorus (ppm)", min_value=0.0, step=1.0)
-        
-    with col3:
-        st.markdown('<div class="pillar-badge-bio">Biological Pillar</div>', unsafe_allow_html=True)
-        som = st.number_input("Soil Organic Matter (%)", min_value=0.0, step=0.1)
-        respiration = st.number_input("Soil Respiration (mg CO2-C/kg)", min_value=0.0, step=1.0)
-
-    # Demonstrating your custom styled expander
-    with st.expander("Management Practices & Site Context"):
-        st.write("Select the current management practices to refine recommendations.")
-        crop_system = st.selectbox(
-            "Cropping System", 
-            ["Corn-Soybean Rotation", "Continuous Corn", "Pasture", "Cover Crop Integration"]
-        )
-        tillage = st.selectbox(
-            "Tillage Practice",
-            ["No-Till", "Reduced Tillage", "Conventional Tillage"]
-        )
-
-    # A button to trigger the calculation
-    if st.button("Calculate gSHAPE Score", type="primary"):
-        st.success("Scoring logic will go here!")
-
-# ==========================================
-# TAB 2: BATCH SCORING
-# ==========================================
-with tab2:
-    st.markdown("### Upload Batch Data")
-    st.write("Upload a CSV containing multiple soil samples to calculate scores in bulk.")
-    
-    # File uploader area
-    uploaded_file = st.file_uploader("Upload Soil Data (CSV)", type=['csv'])
-    
-    if uploaded_file is not None:
-        # Read and display the dataframe
-        df = pd.read_csv(uploaded_file)
-        st.dataframe(df, use_container_width=True)
-        
-        col_a, col_b = st.columns([1, 4])
-        with col_a:
-            if st.button("Process Batch", type="primary"):
-                st.success(f"Successfully processed {len(df)} samples!")
-        with col_b:
-            st.download_button(
-                label="Download Results",
-                data="Dummy data, replace with processed CSV",
-                file_name="gSHAPE_batch_results.csv",
-                mime="text/csv",
-                disabled=True
-            )
-
-# ── GLOBAL GEOGRAPHY & ROUTING DATA ──
+# ════════════════════════════════════════════════════════════════════
+# 3. GLOBAL GEOGRAPHY DATA
+# ════════════════════════════════════════════════════════════════════
 SSA_COUNTRIES = [
     "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cameroon", "Cape Verde", 
     "Central African Republic", "Chad", "Comoros", "Democratic Republic of the Congo", 
@@ -232,7 +112,6 @@ US_STATES = [
     "Wisconsin", "Wyoming"
 ]
 
-# Comprehensive list of all world countries
 WORLD_COUNTRIES = [
     "Afghanistan", "Albania", "Algeria", "Andorra", "Antigua and Barbuda", "Argentina", 
     "Armenia", "Australia", "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", 
@@ -248,7 +127,7 @@ WORLD_COUNTRIES = [
     "Marshall Islands", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", 
     "Morocco", "Myanmar", "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua", 
     "North Korea", "North Macedonia", "Norway", "Oman", "Pakistan", "Palau", "Palestine State", 
-    "Panama", "Papua New Guinea", "Paraguay", "Peru", "ilippines", "Poland", "Portugal", 
+    "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", 
     "Qatar", "Romania", "Russia", "Saint Kitts and Nevis", "Saint Lucia", 
     "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Saudi Arabia", "Serbia", 
     "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "South Korea", "Spain", "Sri Lanka", 
@@ -258,11 +137,12 @@ WORLD_COUNTRIES = [
     "Vanuatu", "Venezuela", "Vietnam", "Yemen"
 ]
 
-# Safely combine both lists to ensure no duplicates, then sort alabetically
 ALL_COUNTRIES = list(set(WORLD_COUNTRIES + SSA_COUNTRIES))
 ALL_COUNTRIES.sort()
 
-# ── EXCEL RECOMMENDATION DATABASE SETUP ──
+# ════════════════════════════════════════════════════════════════════
+# 4. RECOMMENDATION DATABASE LOGIC
+# ════════════════════════════════════════════════════════════════════
 EXCEL_PATH = Path(__file__).parent / "gSHAPE_SOC_Recommendations.xlsx"
 
 @st.cache_data(show_spinner=False)
@@ -276,7 +156,6 @@ def load_recommendation_database():
 soc_rules_df = load_recommendation_database()
 
 def get_score_zone(score):
-    """Translates the 0-100 score into a standardized quintile zone."""
     if score < 20: return "Very Low"
     elif score < 40: return "Low"
     elif score < 60: return "Medium"
@@ -284,32 +163,21 @@ def get_score_zone(score):
     else: return "Very High"
 
 def render_excel_recommendation_engine(region_name, crop, score, key_prefix="rec"):
-    """Dynamically builds input section directly from the Excel rules database filtered by region."""
     if soc_rules_df is None or soc_rules_df.empty:
         st.info("Recommendation database is currently unavailable.")
         return
         
-   # ✨ 1. REGION FILTER (WITH FLORIDA OVERRIDE & INHERITANCE) ✨
     if "Region" not in soc_rules_df.columns:
         st.error("Missing 'Region' column in the Excel database.")
         return
         
     if region_name in ["Brazil", "Sub-Saharan Africa"]:
-        # Brazil & Africa pull exclusively from Tropical rules
         region_rules_df = soc_rules_df[soc_rules_df["Region"] == "Tropical"].copy()
     else:
-        # Florida pulls both Florida AND Tropical rules
         combined_df = soc_rules_df[soc_rules_df["Region"].isin(["Florida", "Tropical"])].copy()
-        
-        # Sort so 'Florida' comes before 'Tropical'
-        combined_df["Region"] = pd.Categorical(
-            combined_df["Region"], 
-            categories=["Florida", "Tropical"], 
-            ordered=True
-        )
+        combined_df["Region"] = pd.Categorical(combined_df["Region"], categories=["Florida", "Tropical"], ordered=True)
         combined_df = combined_df.sort_values("Region")
         
-        # Deduplicate: Keeps the 'Florida' row if it exists; otherwise falls back to 'Tropical'
         dedup_keys = ["Code", "Management question", "Selected answer", "SOC level"]
         valid_keys = [col for col in dedup_keys if col in combined_df.columns]
         
@@ -325,35 +193,25 @@ def render_excel_recommendation_engine(region_name, crop, score, key_prefix="rec
     zone = get_score_zone(score)
     st.markdown("## 📋 Management Recommendations")
     
-    # ─── 2. DYNAMIC CROP TO SYSTEM ROUTING (EXCEL-DRIVEN) ───
     sys_df = region_rules_df[['Code', 'Cropping system', 'Crops']].drop_duplicates().dropna(subset=['Crops'])
-    
     target_system_name = None
     target_code = None
     
     crop_clean = crop.lower()
     crop_tokens = [c.strip() for c in crop_clean.replace('/', ',').split(',')]
     
-    import re # Needed for strict word boundary matching
-    
-    # PASS 1: Strict match (prevents "Pine" from matching "Pineapple")
     for _, row in sys_df.iterrows():
         excel_crops = str(row['Crops']).lower()
         excel_tokens = [c.strip() for c in excel_crops.replace('/', ',').split(',')]
-        
-        # Check for exact matches
         if set(crop_tokens).intersection(set(excel_tokens)):
             target_system_name = row['Cropping system']
             target_code = row['Code']
             break
-            
-        # Check for standalone words (matches "pine" in "pine, slash", ignores "pineapple")
         if any(re.search(rf'\b{re.escape(token)}\b', excel_crops) for token in crop_tokens):
             target_system_name = row['Cropping system']
             target_code = row['Code']
             break
             
-    # PASS 2: Loose Fallback (Only runs if Pass 1 finds absolutely nothing)
     if not target_system_name:
         for _, row in sys_df.iterrows():
             excel_crops = str(row['Crops']).lower()
@@ -362,18 +220,14 @@ def render_excel_recommendation_engine(region_name, crop, score, key_prefix="rec
                 target_code = row['Code']
                 break
     
-    # Default fallback if crop isn't in database at all
     if not target_system_name:
         target_system_name = sys_df['Cropping system'].iloc[0]
         target_code = sys_df['Code'].iloc[0]
         
-    # ✨ Clean, farmer-friendly caption UI
     st.caption(f"Generating custom action plan for: **{crop}** | Current Status: **{zone}** (Score: {score:.1f}/100)")
     
-    # ─── 3. Build the UI Dropdowns ───
     with st.expander("🌾 Management Practice Inputs", expanded=True):
         st.markdown("Select your current field practices below to generate your tailored action plan:")
-        
         questions = get_management_questions(region_rules_df, target_code)
         
         if not questions:
@@ -381,78 +235,45 @@ def render_excel_recommendation_engine(region_name, crop, score, key_prefix="rec
             return
             
         selections = {}
-        
-        # ✨ NEW: Wrap the dropdowns inside a form to prevent instant popping
         with st.form(key=f"{key_prefix}_form"):
             cols = st.columns(len(questions))
-            
             for idx, q in enumerate(questions):
                 answers = get_selected_answers(region_rules_df, target_code, q)
                 with cols[idx % len(cols)]:
                     options = ["— Select Practice —"] + list(answers) + ["None of the above"]
                     selections[q] = st.selectbox(q, options)
-                    
-            # ✨ NEW: The button that triggers the generation
             submit_button = st.form_submit_button("Generate Custom Action Plan")
                 
-    # ✨ THE GATEKEEPER: Check button state and dropdown completion
     if not submit_button:
-        # If they haven't clicked the button yet, stop here.
         return
         
     if any(ans == "— Select Practice —" for ans in selections.values()):
-        # If they clicked the button but left something blank, warn them and stop.
         st.warning("💡 Please select an option for every management practice above, then click Generate.")
         return
-    # ─── 4. Assemble the advice into the unified UI Box ───
+
     st.markdown("### Your Custom Agronomic Strategy")
     combined_bullets = ""
     
-    # USING HEX ENCODING TO PREVENT COPY-PASTE STRIPPING
-    li_open = "\x3cli style='margin-bottom: 12px;'\x3e"
-    li_close = "\x3c/li\x3e"
-    strong_open = "\x3cstrong\x3e"
-    strong_close = "\x3c/strong\x3e"
-    br_tag = "\x3cbr\x3e"
-    em_open = "\x3cem\x3e"
-    em_close = "\x3c/em\x3e"
+    li_open, li_close = "\x3cli style='margin-bottom: 12px;'\x3e", "\x3c/li\x3e"
+    strong_open, strong_close = "\x3cstrong\x3e", "\x3c/strong\x3e"
+    br_tag, em_open, em_close = "\x3cbr\x3e", "\x3cem\x3e", "\x3c/em\x3e"
     
     for q, ans in selections.items():
-        # ✨ SKIPPER: Skip this category entirely if they select "None of the above"
         if ans == "None of the above":
             continue
-            
         try:
-            soc_result = get_soc_recommendation(
-                rules_df=region_rules_df,
-                code=target_code,
-                management_question=q,
-                selected_answer=ans,
-                soc_level=zone
-            )
-            
-            interp = str(soc_result.get("interpretation", "")).strip()
-            rec = str(soc_result.get("recommendation", "")).strip()
-            
-            # Pandas sometimes reads empty Excel cells as the string "nan". Let's clear those out.
+            soc_result = get_soc_recommendation(rules_df=region_rules_df, code=target_code, management_question=q, selected_answer=ans, soc_level=zone)
+            interp, rec = str(soc_result.get("interpretation", "")).strip(), str(soc_result.get("recommendation", "")).strip()
             if interp.lower() == "nan": interp = ""
             if rec.lower() == "nan": rec = ""
-            
-            # ✨ NEW: If both the interpretation and recommendation are completely blank, skip this bullet!
-            if not interp and not rec:
-                continue
-            
-            if interp and not interp.endswith('.'):
-                interp += "."
+            if not interp and not rec: continue
+            if interp and not interp.endswith('.'): interp += "."
             
             full_advice = f"{interp} {br_tag}{em_open}Action: {rec}{em_close}" if rec else interp
             combined_bullets += f"{li_open}{strong_open}{q} ({ans}):{strong_close} {full_advice}{li_close}"
-            
         except Exception:
-            # ✨ NEW: Do absolutely nothing if there is an error or a missing rule. Just skip it!
             pass
             
-    # ─── 5. Color Box Rendering ───
     if score >= 80: bg_color, border_color = "rgba(26, 150, 65, 0.15)", "#1a9641"
     elif score >= 60: bg_color, border_color = "rgba(119, 195, 92, 0.15)", "#77c35c"
     elif score >= 40: bg_color, border_color = "rgba(255, 193, 7, 0.15)", "#ffc107"
@@ -460,210 +281,74 @@ def render_excel_recommendation_engine(region_name, crop, score, key_prefix="rec
     else: bg_color, border_color = "rgba(215, 48, 39, 0.15)", "#d73027"
     
     div_open = f"\x3cdiv style='background-color: {bg_color}; border-left: 5px solid {border_color}; padding: 20px 24px 8px 24px; border-radius: 6px; margin-bottom: 14px; line-height: 1.6;'\x3e"
-    div_close = "\x3c/div\x3e"
-    ul_open = "\x3cul style='margin: 0; padding-left: 20px;'\x3e"
-    ul_close = "\x3c/ul\x3e"
+    div_close, ul_open, ul_close = "\x3c/div\x3e", "\x3cul style='margin: 0; padding-left: 20px;'\x3e", "\x3c/ul\x3e"
     
     if not combined_bullets:
          combined_bullets = f"{li_open}No exact matching criteria found. Focus on maximizing biomass and minimizing disturbance.{li_close}"
          
     custom_box = f"{div_open}\n{ul_open}\n{combined_bullets}\n{ul_close}\n{div_close}"
     st.markdown(custom_box, unsafe_allow_html=True)
-# ════════════════════════════════════════════════════════════════════
-# 1. PAGE CONFIG & GLOBAL CSS
-# ════════════════════════════════════════════════════════════════════
-st.set_page_config(page_title="SHAPE — Soil Health Assessment", page_icon="🌱", layout="wide")
 
+
+# ════════════════════════════════════════════════════════════════════
+# 5. UI RENDERING 
+# ════════════════════════════════════════════════════════════════════
 st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap');
-
-/* Reset container padding to stable heights and fix top black space */
-.block-container {
-    padding-top: 2rem !important;
-    padding-bottom: 2rem !important;
-    margin-top: 0px !important;
-}
-
-/* Enhanced title banner: centered, fully visible corners, and flanking soil graics */
-.fl-header {
-    background: linear-gradient(135deg, #0a3d1f 0%, #1a6b35 60%, #0f5132 100%);
-    border-radius: 12px !important;
-    padding: 36px 24px; 
-    margin-top: 16px !important; 
-    margin-bottom: 12px;
-    display: block !important;
-    text-align: center !important;
-    position: relative !important;
-    overflow: hidden !important; 
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-/* Left Side Graic: Soil & Diagnostics Microscope Symbol */
-.fl-header::before {
-    content: "🔬" !important;
-    position: absolute !important;
-    left: 40px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    font-size: 54px !important;
-    opacity: 0.25 !important;
-    pointer-events: none !important;
-}
-
-/* Right Side Graic: Regenerative Sprout Symbol */
-.fl-header::after {
-    content: "🌱" !important;
-    position: absolute !important;
-    right: 40px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    font-size: 54px !important;
-    opacity: 0.25 !important;
-    pointer-events: none !important;
-}
-
-/* Styled for the prominent main tool acronym */
-.fl-header .main-title {
-    color: #ffffff;
-    font-size: 44px;
-    font-weight: 800;
-    margin: 0 0 6px 0;
-    letter-spacing: 1px;
-    line-height: 1.1;
-    position: relative !important;
-    z-index: 2 !important;
-}
-
-/* Styled for the clear descriptive name below the acronym */
-.fl-header .sub-title {
-    color: #e8f5e9;
-    font-size: 19px;
-    font-weight: 400;
-    margin: 0 0 8px 0;
-    opacity: 0.95;
-    letter-spacing: 0.5px;
-    position: relative !important;
-    z-index: 2 !important;
-}
-
-/* Styled for the engineering lab tagline to balance empty space */
-.fl-header .tagline {
-    color: #a5d6a7;
-    font-size: 13px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    margin: 0;
-    position: relative !important;
-    z-index: 2 !important;
-}
-
-/* Make info box text smaller and clean */
-.info-box {
-    background: var(--color-background-info);
-    border-left: 3px solid #1565c0;
-    border-radius: 0 8px 8px 0;
-    padding: 8px 14px;
-    margin: 10px 0 18px 0;
-    font-size: 12px;
-    color: var(--color-text-info);
-    line-height: 1.4;
-}
-.coming-soon-box {
-    border: 1.5px dashed var(--color-border-tertiary);
-    border-radius: 12px;
-    padding: 40px 30px;
-    text-align: center;
-    margin: 20px 0;
-}
-.coming-soon-box h3 { font-size: 18px; margin-bottom: 8px; color: var(--color-text-primary); }
-.coming-soon-box p { font-size: 14px; color: var(--color-text-secondary); max-width: 480px; margin: 0 auto; }
-
-.pg-card {
-    border: 0.5px solid var(--color-border-tertiary);
-    border-radius: 10px;
-    padding: 14px 16px;
-    margin-bottom: 10px;
-}
-.pg-card h4 { font-size: 15px; font-weight: 600; margin: 0 0 6px 0; color: var(--color-text-primary); }
-.pg-card p  { font-size: 13px; color: var(--color-text-secondary); margin: 0; line-height: 1.5; }
-
-.region-pill {
-    display: inline-block;
-    padding: 3px 12px;
-    border-radius: 14px;
-    font-size: 12px;
-    font-weight: 600;
-    background: rgba(26,150,65,0.15);
-    color: #1a9641;
-    margin-bottom: 8px;
-}
-
-/* Subtle shadows for clean containers */
-div[data-testid="stExpander"] {
-    background-color: rgba(255,255,255,0.01);
-    border-radius: 12px !important;
-}
-
-/* ─── ENHANCED REGION SELECTION TABS LAYOUT ─── */
-/* Targets the master tab row container to stretch across the page full-width */
-.stTabs [data-baseweb="tab-list"] {
-    display: flex !important;
-    width: 100% !important;
-    gap: 0px !important; 
-    margin-bottom: 20px;
-    border-bottom: 2px solid var(--color-border-tertiary);
-}
-
-/* Forces each individual region tab item to grow equally and fill the screen space */
-.stTabs [data-baseweb="tab"] {
-    flex-grow: 1 !important;
-    flex-basis: 0 !important;
-    text-align: center !important;
-    justify-content: center !important;
-    font-size: 32px !important; 
-    font-weight: 700 !important;
-    padding: 20px 24px !important; 
-    border-radius: 8px 8px 0px 0px !important;
-    transition: all 0.2s ease;
-    
-    /* THE MAGIC BULLETPROOF FLAG LINE */
-    font-family: inherit, "Noto Color Emoji" !important; 
-}
-
-/* Assign a specific green background tint to active region tab panels */
-.stTabs [data-baseweb="tab"][aria-selected="true"] {
-    background-color: rgba(26, 150, 65, 0.20) !important;
-    color: #1a9641 !important;
-    border-bottom: 3px solid #1a9641 !important;
-}
-
-/* Give tabs a subtle hover change so users know they are click options */
-.stTabs [data-baseweb="tab"]:hover {
-    background-color: rgba(26,150,65,0.04) !important;
-}
-
-/* Keeps the inner sub-tabs (Single Sample, Batch Scoring, How to Use) normal size and localized */
-.stTabs [data-baseweb="tab-panel"] .stTabs [data-baseweb="tab-list"] {
-    display: inline-flex !important;
-    width: auto !important;
-    gap: 24px !important;
-    border-bottom: none !important;
-}
-
-.stTabs [data-baseweb="tab-panel"] .stTabs [data-baseweb="tab"] {
-    flex-grow: 0 !important;
-    flex-basis: auto !important;
-    font-size: 15px !important;
-    font-weight: 600 !important;
-    padding: 6px 12px !important;
-    border-radius: 0px !important;
-    background-color: transparent !important;
-    border-bottom: none !important;
-}
-</style>
+    <div class="fl-header">
+        <h1 class="main-title">gSHAPE</h1>
+        <h2 class="sub-title">Soil Health Assessment Protocol and Evaluation</h2>
+        <p class="tagline">Sustainable Management of Tropical Soils Lab</p>
+    </div>
 """, unsafe_allow_html=True)
+
+# You can nest these inside region tabs later if you want to use the massive tab CSS!
+tab1, tab2 = st.tabs(["Single Sample Scoring", "Batch Scoring"])
+
+with tab1:
+    st.markdown("### Enter Soil Sample Data")
+    st.write("Input the laboratory results below to generate a gSHAPE soil health score.")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown('<div class="pillar-badge-phys">Physical Pillar</div>', unsafe_allow_html=True)
+        bulk_density = st.number_input("Bulk Density (g/cm³)", min_value=0.0, step=0.1)
+        aggregate_stability = st.number_input("Aggregate Stability (%)", min_value=0.0, max_value=100.0, step=1.0)
+        
+    with col2:
+        st.markdown('<div class="pillar-badge-chem">Chemical Pillar</div>', unsafe_allow_html=True)
+        ph_level = st.number_input("pH Level", min_value=0.0, max_value=14.0, step=0.1, value=7.0)
+        phosphorus = st.number_input("Extractable Phosphorus (ppm)", min_value=0.0, step=1.0)
+        
+    with col3:
+        st.markdown('<div class="pillar-badge-bio">Biological Pillar</div>', unsafe_allow_html=True)
+        som = st.number_input("Soil Organic Matter (%)", min_value=0.0, step=0.1)
+        respiration = st.number_input("Soil Respiration (mg CO2-C/kg)", min_value=0.0, step=1.0)
+
+    with st.expander("Management Practices & Site Context"):
+        st.write("Select the current management practices to refine recommendations.")
+        crop_system = st.selectbox("Cropping System", ["Corn-Soybean Rotation", "Continuous Corn", "Pasture", "Cover Crop Integration"])
+        tillage = st.selectbox("Tillage Practice", ["No-Till", "Reduced Tillage", "Conventional Tillage"])
+
+    if st.button("Calculate gSHAPE Score", type="primary"):
+        st.success("Scoring logic will go here!")
+
+with tab2:
+    st.markdown("### Upload Batch Data")
+    st.write("Upload a CSV containing multiple soil samples to calculate scores in bulk.")
+    
+    uploaded_file = st.file_uploader("Upload Soil Data (CSV)", type=['csv'])
+    
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file)
+        st.dataframe(df, use_container_width=True)
+        
+        col_a, col_b = st.columns([1, 4])
+        with col_a:
+            if st.button("Process Batch", type="primary"):
+                st.success(f"Successfully processed {len(df)} samples!")
+        with col_b:
+            st.download_button("Download Results", data="Dummy data", file_name="gSHAPE_batch_results.csv", mime="text/csv", disabled=True)
 
 # ════════════════════════════════════════════════════════════════════
 # 2. PEER GROUP DEFINITIONS PER REGION

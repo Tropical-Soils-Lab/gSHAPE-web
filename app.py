@@ -137,8 +137,77 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Note: to use the custom badges in your app, use markdown like this:
-# st.markdown('<div class="pillar-badge-phys">Physical Pillar</div>', unsafe_allow_html=True)
+# Create the tabs
+tab1, tab2 = st.tabs(["Single Sample Scoring", "Batch Scoring"])
+
+# ==========================================
+# TAB 1: SINGLE SAMPLE SCORING
+# ==========================================
+with tab1:
+    st.markdown("### Enter Soil Sample Data")
+    st.write("Input the laboratory results below to generate a gSHAPE soil health score.")
+    
+    # Using columns to layout the inputs nicely
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown('<div class="pillar-badge-phys">Physical Pillar</div>', unsafe_allow_html=True)
+        bulk_density = st.number_input("Bulk Density (g/cm³)", min_value=0.0, step=0.1)
+        aggregate_stability = st.number_input("Aggregate Stability (%)", min_value=0.0, max_value=100.0, step=1.0)
+        
+    with col2:
+        st.markdown('<div class="pillar-badge-chem">Chemical Pillar</div>', unsafe_allow_html=True)
+        ph_level = st.number_input("pH Level", min_value=0.0, max_value=14.0, step=0.1, value=7.0)
+        phosphorus = st.number_input("Extractable Phosphorus (ppm)", min_value=0.0, step=1.0)
+        
+    with col3:
+        st.markdown('<div class="pillar-badge-bio">Biological Pillar</div>', unsafe_allow_html=True)
+        som = st.number_input("Soil Organic Matter (%)", min_value=0.0, step=0.1)
+        respiration = st.number_input("Soil Respiration (mg CO2-C/kg)", min_value=0.0, step=1.0)
+
+    # Demonstrating your custom styled expander
+    with st.expander("Management Practices & Site Context"):
+        st.write("Select the current management practices to refine recommendations.")
+        crop_system = st.selectbox(
+            "Cropping System", 
+            ["Corn-Soybean Rotation", "Continuous Corn", "Pasture", "Cover Crop Integration"]
+        )
+        tillage = st.selectbox(
+            "Tillage Practice",
+            ["No-Till", "Reduced Tillage", "Conventional Tillage"]
+        )
+
+    # A button to trigger the calculation
+    if st.button("Calculate gSHAPE Score", type="primary"):
+        st.success("Scoring logic will go here!")
+
+# ==========================================
+# TAB 2: BATCH SCORING
+# ==========================================
+with tab2:
+    st.markdown("### Upload Batch Data")
+    st.write("Upload a CSV containing multiple soil samples to calculate scores in bulk.")
+    
+    # File uploader area
+    uploaded_file = st.file_uploader("Upload Soil Data (CSV)", type=['csv'])
+    
+    if uploaded_file is not None:
+        # Read and display the dataframe
+        df = pd.read_csv(uploaded_file)
+        st.dataframe(df, use_container_width=True)
+        
+        col_a, col_b = st.columns([1, 4])
+        with col_a:
+            if st.button("Process Batch", type="primary"):
+                st.success(f"Successfully processed {len(df)} samples!")
+        with col_b:
+            st.download_button(
+                label="Download Results",
+                data="Dummy data, replace with processed CSV",
+                file_name="gSHAPE_batch_results.csv",
+                mime="text/csv",
+                disabled=True
+            )
 
 # ── GLOBAL GEOGRAPHY & ROUTING DATA ──
 SSA_COUNTRIES = [

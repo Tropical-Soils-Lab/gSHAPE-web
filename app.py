@@ -4734,13 +4734,18 @@ def render_performance_diagnostics(region_name, cfg, df):
         progress.progress(0.6, text="6/9: Testing Full Pipeline Latency...")
         pipe_times = []
         
-        # We render the single sample tab invisibly to measure full streamlit state+render overhead
-        with st.container(height=0): 
+        # We render the single sample tab to measure full streamlit state+render overhead
+        # Using an empty placeholder so we can instantly erase it after the test
+        render_placeholder = st.empty()
+        with render_placeholder.container(): 
             render_single_sample(region_name, cfg, df, None) # Warm up
             for _ in range(15):
                 t0 = time.perf_counter()
                 render_single_sample(region_name, cfg, df, None)
                 pipe_times.append(time.perf_counter() - t0)
+                
+        # Instantly clear the dummy UI so it doesn't clutter your diagnostics tab
+        render_placeholder.empty()
                 
         ms_pipe, mr_pipe = summarize(pipe_times)
         results_table.append({"Test": "Full pipeline latency (UI to render)", "Mean ± SD": f"{ms_pipe} ms", "Details": mr_pipe, "N": 15})

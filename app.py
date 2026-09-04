@@ -4734,14 +4734,28 @@ def render_performance_diagnostics(region_name, cfg, df):
         progress.progress(0.6, text="6/9: Testing Full Pipeline Latency...")
         pipe_times = []
         
+       # ── 6. FULL PIPELINE LATENCY (UI TO RENDER) ──
+        progress.progress(0.6, text="6/9: Testing Full Pipeline Latency...")
+        pipe_times = []
+        
         # We render the single sample tab to measure full streamlit state+render overhead
         # Using an empty placeholder so we can instantly erase it after the test
         render_placeholder = st.empty()
         with render_placeholder.container(): 
-            render_single_sample(region_name, cfg, df, None) # Warm up
-            for _ in range(15):
+            # Warm up with a unique key
+            warm_cfg = cfg.copy()
+            warm_cfg["key"] = f"{cfg['key']}_diag_warm"
+            render_single_sample(region_name, warm_cfg, df, None)
+            
+            for i in range(15):
                 t0 = time.perf_counter()
-                render_single_sample(region_name, cfg, df, None)
+                
+                # Dynamically generate a unique key prefix for every loop iteration
+                # This prevents Streamlit from throwing a DuplicateElementKey error
+                loop_cfg = cfg.copy()
+                loop_cfg["key"] = f"{cfg['key']}_diag_{i}"
+                
+                render_single_sample(region_name, loop_cfg, df, None)
                 pipe_times.append(time.perf_counter() - t0)
                 
         # Instantly clear the dummy UI so it doesn't clutter your diagnostics tab

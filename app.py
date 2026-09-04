@@ -4786,10 +4786,11 @@ def render_performance_diagnostics(region_name, cfg, df):
             ms_per_row = (statistics.mean(batch_times) / size) * 1000
             results_table.append({"Test": f"Batch CSV pipeline (N={size})", "Mean ± SD": f"{ms_b} s total", "Details": f"~{ms_per_row:.3f} ms/row", "N": 5})
 
-        # ── 8. INTERPOLATION METHOD COMPARISON ──
+# ── 8. INTERPOLATION METHOD COMPARISON ──
         progress.progress(0.8, text="8/9: Comparing Interpolation Methods...")
-        df_1d = load_csv_safe(REGIONS["Florida"]["csv"])
-        df_2d = load_csv_safe(REGIONS["Brazil"]["csv"])
+        # Use the built-in region loader to ensure col_map renames the columns correctly!
+        df_1d, _ = load_region_data(REGIONS["Florida"])
+        df_2d, _ = load_region_data(REGIONS["Brazil"])
         
         t1d_times, t2d_times = [], []
         if df_1d is not None and df_2d is not None:

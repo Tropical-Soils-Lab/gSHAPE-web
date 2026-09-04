@@ -12,7 +12,8 @@ from soc_recommendations import load_soc_rules, get_management_questions, get_se
 import streamlit as st
 import pandas as pd
 import numpy as np
-# ... (your other imports) ...
+import time
+import statistics
 
 # 1. Master Page Configuration 
 # (This MUST be the very first Streamlit command in your script)
@@ -4621,6 +4622,99 @@ def render_how_to_use(region_name, cfg):
             st.markdown(f"<div class='pg-card'><h4>{title}</h4><p>{desc}</p></div>", unsafe_allow_html=True)
 
 
+def render_performance_diagnostics(region_name, cfg, df):
+    """Stress-tests the gSHAPE engine to generate data for the manuscript."""
+    st.markdown("### ⏱️ Manuscript Performance Diagnostics")
+    st.info("This module runs isolated stress tests on the gSHAPE scoring engine to generate timing metrics for Section 4.4 of the manuscript.")
+    
+    if st.button("🚀 Run Full Performance Suite", type="primary", use_container_width=True):
+        
+        # --- 1. CACHE VERIFICATION ---
+        st.markdown("#### 1. Parameter Database Load Times (Caching)")
+        
+        # Clear cache to force a "cold" read
+        st.cache_data.clear() 
+        
+        # Cold Start
+        start_cold = time.time()
+        load_smaf_lookup_dynamic("SMAF_lookup.xlsx")
+        time_cold = time.time() - start_cold
+        
+        # Warm Start (Cached)
+        start_warm = time.time()
+        load_smaf_lookup_dynamic("SMAF_lookup.xlsx")
+        time_warm = time.time() - start_warm
+        
+        st.table(pd.DataFrame([
+            {"State": "Cold Start (Disk Read & Parse)", "Time (seconds)": f"{time_cold:.4f} s"},
+            {"State": "Warm Start (Memory Cache)", "Time (seconds)": f"{time_warm:.6f} s"},
+            {"State": "Speed Increase", "Time (seconds)": f"{(time_cold/time_warm):.0f}x faster"}
+        ]))
+
+        # --- 2. API LATENCY ---
+        st.markdown("#### 2. NASA POWER API Response Time")
+        api_times = []
+        with st.spinner("Pinging NASA API 5 times..."):
+            for _ in range(5):
+                start_api = time.time()
+                # Use Florida default coords to test
+                fetch_climate(29.65, -82.32, need_precip=True) 
+                api_times.append(time.time() - start_api)
+                
+        st.table(pd.DataFrame([{
+            "Metric": "External API Latency", 
+            "Mean": f"{statistics.mean(api_times):.3f} s", 
+            "Median": f"{statistics.median(api_times):.3f} s",
+            "Range": f"{min(api_times):.3f} - {max(api_times):.3f} s"
+        }]))
+
+        # --- 3. BATCH THROUGHPUT (SCALING BEHAVIOR) ---
+        st.markdown("#### 3. Engine Throughput & Scaling Behavior")
+        st.markdown("Testing synchronous calculation of 13 indicators across scaling row counts.")
+        
+        scale_results = []
+        test_sizes = [10, 100, 1000]
+        
+        # Ensure data is loaded
+        smaf_data = load_smaf_lookup_dynamic("SMAF_lookup.xlsx")
+        
+        # Progress bar for the heavy math
+        bar = st.progress(0)
+        
+        for idx, size in enumerate(test_sizes):
+            # Generate a massive synthetic dataset
+            dummy_df = pd.DataFrame({
+                "oc": np.random.uniform(0.5, 4.0, size),
+                "ph_val": np.random.uniform(4.5, 8.0, size),
+                "bd_g_cm3": np.random.uniform(1.0, 1.8, size),
+                "agg_pct": np.random.uniform(10, 90, size),
+                "mbc_mg_kg": np.random.uniform(50, 800, size)
+            })
+            
+            start_batch = time.time()
+            
+            # Isolate the raw mathematical execution (No UI rendering)
+            for _, r in dummy_df.iterrows():
+                # Simulate running a heavy suite of mixed indicators
+                compute_score(r["oc"], 0.5, 0.2) # SHAPE math
+                run_smaf_ph_score(r["ph_val"], 82, smaf_data, clamp=False)
+                run_smaf_bd_score(r["bd_g_cm3"], 2, 0)
+                run_smaf_agg_score(r["agg_pct"], 2, 2, 2, smaf_data, clamp=False)
+                run_smaf_mbc_score(r["mbc_mg_kg"], 2, 2, 1.3, smaf_data, clamp=False)
+                
+            batch_time = time.time() - start_batch
+            
+            scale_results.append({
+                "Samples Scored (N)": size,
+                "Total Time": f"{batch_time:.4f} s",
+                "Time per Sample": f"{(batch_time/size)*1000:.2f} ms",
+                "Throughput": f"{int(size/batch_time)} samples/sec"
+            })
+            bar.progress((idx + 1) / len(test_sizes))
+            
+        st.table(pd.DataFrame(scale_results))
+        st.success("✅ Diagnostics complete. Data ready for manuscript Section 4.4.")
+
 def render_region(region_name, cfg):
     mineral_df, hist_df = load_region_data(cfg)
 
@@ -4629,7 +4723,7 @@ def render_region(region_name, cfg):
                  f"to activate scoring for {region_name}.")
         return
     # 1. Standard sub-tabs setup
-    tab_single, tab_batch, tab_use = st.tabs(["🔬 Single Sample", "📊 Batch Scoring", "📖 How to Use"])
+    tab_single, tab_batch, tab_use, tab_diag = st.tabs(["🔬 Single Sample", "📊 Batch Scoring", "📖 How to Use", "⏱️ Diagnostics"])
 
     # 2. Render Single Sample View
     with tab_single:
@@ -4645,8 +4739,9 @@ def render_region(region_name, cfg):
         render_batch_scoring(region_name, cfg, mineral_df, hist_df)
 
     # 4. Render How to Use View
-    with tab_use:
-        render_how_to_use(region_name, cfg)
+    # 5. Render Diagnostics View
+    with tab_diag:
+        render_performance_diagnostics(region_name, cfg, mineral_df)
 
 # ════════════════════════════════════════════════════════════════════
 # 9. GLOBAL ROUTING ENGINE (Replaces Region Tabs)

@@ -4694,10 +4694,14 @@ def render_performance_diagnostics(region_name, cfg, df):
             start_batch = time.time()
             
             # Isolate the raw mathematical execution (No UI rendering)
+          # Isolate the raw mathematical execution (No UI rendering)
             for _, r in dummy_df.iterrows():
                 # Simulate running a heavy suite of mixed indicators
                 compute_score(r["oc"], 0.5, 0.2) # SHAPE math
-                run_smaf_ph_score(r["ph_val"], 82, smaf_data, clamp=False)
+                
+                # Removed clamp=False because the pH function doesn't use it!
+                run_smaf_ph_score(r["ph_val"], 82, smaf_data) 
+                
                 run_smaf_bd_score(r["bd_g_cm3"], 2, 0)
                 run_smaf_agg_score(r["agg_pct"], 2, 2, 2, smaf_data, clamp=False)
                 run_smaf_mbc_score(r["mbc_mg_kg"], 2, 2, 1.3, smaf_data, clamp=False)

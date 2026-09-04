@@ -4628,7 +4628,7 @@ def render_how_to_use(region_name, cfg):
 def render_performance_diagnostics(region_name, cfg, df):
     """Rigorous stress-testing suite for academic manuscript publication."""
     st.markdown("### ⏱️ Manuscript Performance Diagnostics")
-    st.info("Runs rigorous $N$-repetition benchmarking using `time.perf_counter()` to generate publication-ready tables. Excludes warm-up iterations and reports full summary statistics.")
+    
     
     # ── ENVIRONMENT SPECS ──
     st.markdown(f"**Test Environment:** Python {sys.version.split()[0]} | Streamlit {st.__version__} | OS: {platform.system()} | CPU: {platform.processor()}")

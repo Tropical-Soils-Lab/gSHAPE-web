@@ -4692,7 +4692,8 @@ def render_performance_diagnostics(region_name, cfg, df):
         for _ in range(20):
             t0 = time.perf_counter()
             fetch_climate(29.65, -82.32, need_precip=True)
-            api_times.append(time.time() - t0)
+            # ✨ BUG FIX: Strictly use perf_counter to prevent Epoch time overlap
+            api_times.append(time.perf_counter() - t0) 
             
         ms_api, mr_api = summarize(api_times, factor=1) # report in seconds
         results_table.append({"Test": "NASA POWER API latency", "Mean ± SD": f"{ms_api} s", "Details": mr_api, "N": 20})
@@ -4709,14 +4710,15 @@ def render_performance_diagnostics(region_name, cfg, df):
             fallback_times.append(time.perf_counter() - t0)
             
         ms_fb, mr_fb = summarize(fallback_times, factor=1)
-        results_table.append({"Test": "NASA POWER fallback timing", "Mean ± SD": f"{ms_fb} s", "Details": mr_fb, "N": 5})
+        # ✨ FIX: Clarified that this is a hardcoded constraint, not latency variance
+        results_table.append({"Test": "NASA POWER fallback constraint", "Mean ± SD": f"{ms_fb} s", "Details": "Hardcoded 2.0s timeout boundary", "N": 5})
 
         # ── 5. ENGINE THROUGHPUT (SYNTHETIC) ──
         progress.progress(0.5, text="5/9: Testing Engine Throughput...")
         smaf_data = load_smaf_lookup_dynamic("SMAF_lookup.xlsx")
         sizes = [10, 100, 1000]
         for size in sizes:
-            rates = []
+            per_sample_times = []
             for _ in range(10): # 10 reps
                 df_mock = pd.DataFrame({"oc": np.random.uniform(0.5, 4.0, size), "ph": np.random.uniform(4.5, 8.0, size)})
                 
@@ -4725,42 +4727,32 @@ def render_performance_diagnostics(region_name, cfg, df):
                     run_smaf_ph_score(r["ph"], 82, smaf_data)
                     compute_score(r["oc"], 0.5, 0.2)
                 elapsed = time.perf_counter() - t0
-                rates.append(size / elapsed) # samples per second
                 
-            mean_rate = statistics.mean(rates)
-            results_table.append({"Test": f"Engine throughput (N={size})", "Mean ± SD": f"{mean_rate:,.0f} samples/sec", "Details": f"Math only", "N": 10})
+                # ✨ FIX: Track exact time per sample in seconds for consistency
+                per_sample_times.append(elapsed / size) 
+                
+            # ✨ FIX: Format as ms/sample with full Mean, SD, Median, and Range
+            ms_rate, mr_rate = summarize(per_sample_times, factor=1000) 
+            results_table.append({"Test": f"Engine math throughput (N={size})", "Mean ± SD": f"{ms_rate} ms/sample", "Details": mr_rate, "N": 10})
 
         # ── 6. FULL PIPELINE LATENCY (UI TO RENDER) ──
         progress.progress(0.6, text="6/9: Testing Full Pipeline Latency...")
         pipe_times = []
         
-       # ── 6. FULL PIPELINE LATENCY (UI TO RENDER) ──
-        progress.progress(0.6, text="6/9: Testing Full Pipeline Latency...")
-        pipe_times = []
-        
-        # We render the single sample tab to measure full streamlit state+render overhead
-        # Using an empty placeholder so we can instantly erase it after the test
         render_placeholder = st.empty()
         with render_placeholder.container(): 
-            # Warm up with a unique key
             warm_cfg = cfg.copy()
             warm_cfg["key"] = f"{cfg['key']}_diag_warm"
             render_single_sample(region_name, warm_cfg, df, None)
             
             for i in range(15):
                 t0 = time.perf_counter()
-                
-                # Dynamically generate a unique key prefix for every loop iteration
-                # This prevents Streamlit from throwing a DuplicateElementKey error
                 loop_cfg = cfg.copy()
                 loop_cfg["key"] = f"{cfg['key']}_diag_{i}"
-                
                 render_single_sample(region_name, loop_cfg, df, None)
                 pipe_times.append(time.perf_counter() - t0)
                 
-        # Instantly clear the dummy UI so it doesn't clutter your diagnostics tab
         render_placeholder.empty()
-                
         ms_pipe, mr_pipe = summarize(pipe_times)
         results_table.append({"Test": "Full pipeline latency (UI to render)", "Mean ± SD": f"{ms_pipe} ms", "Details": mr_pipe, "N": 15})
 
@@ -4770,15 +4762,13 @@ def render_performance_diagnostics(region_name, cfg, df):
         for size in batch_sizes:
             batch_times = []
             for _ in range(5):
-                # Simulate real physical file I/O overhead
                 dummy_csv = pd.DataFrame({"soc_pct": np.random.uniform(0.5, 4.0, size)})
                 csv_buffer = io.BytesIO()
                 dummy_csv.to_csv(csv_buffer, index=False)
                 csv_buffer.seek(0)
                 
                 t0 = time.perf_counter()
-                uploaded_df = pd.read_csv(csv_buffer) # Native pandas I/O
-                # Vectorized/apply simulation of batch process
+                uploaded_df = pd.read_csv(csv_buffer) 
                 uploaded_df["Score"] = uploaded_df["soc_pct"].apply(lambda x: compute_score(x, 0.5, 0.2))
                 batch_times.append(time.perf_counter() - t0)
                 
@@ -4786,9 +4776,8 @@ def render_performance_diagnostics(region_name, cfg, df):
             ms_per_row = (statistics.mean(batch_times) / size) * 1000
             results_table.append({"Test": f"Batch CSV pipeline (N={size})", "Mean ± SD": f"{ms_b} s total", "Details": f"~{ms_per_row:.3f} ms/row", "N": 5})
 
-# ── 8. INTERPOLATION METHOD COMPARISON ──
+        # ── 8. INTERPOLATION METHOD COMPARISON ──
         progress.progress(0.8, text="8/9: Comparing Interpolation Methods...")
-        # Use the built-in region loader to ensure col_map renames the columns correctly!
         df_1d, _ = load_region_data(REGIONS["Florida"])
         df_2d, _ = load_region_data(REGIONS["Brazil"])
         
@@ -4821,7 +4810,6 @@ def render_performance_diagnostics(region_name, cfg, df):
         scale_array = np.full(1000, 2.5)
         scale_scores = [compute_score(val, 0.5, 0.2) for val in scale_array]
         
-        # Assert that the 1000th item matches the 1st item perfectly
         is_correct = "PASS" if scale_scores[-1] == baseline_score else "FAIL"
         results_table.append({"Test": "Correctness-under-scale", "Mean ± SD": is_correct, "Details": "N=1 vs N=1000 strict parity", "N": 1})
 

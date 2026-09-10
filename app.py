@@ -2399,7 +2399,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             lp_mean   = float(row["mean_lp"])
             lp_lcl    = float(row["lcl_lp"])
             lp_ucl    = float(row["ucl_lp"])
-            sigma_val = float(row["mean_sigma"])
+            sigma_val = float(np.exp(row["mean_sigma"]))
             plot_max  = max(15.0, oc_val + 5)
         else:
             lp_mean, lp_lcl, lp_ucl, sigma_val, plot_max = 0.0, 0.0, 0.0, 1.0, 15.0
@@ -2517,25 +2517,27 @@ def render_single_sample(region_name, cfg, df, df_hist):
     score_overall = sum(active_pillar_scores) / len(active_pillar_scores) if active_pillar_scores else 0.0
 
     # Build chart data dynamically so unselected categories are hidden entirely
+  # Build chart data dynamically so unselected categories are hidden entirely
     summary_scores, summary_labels, summary_colors = [], [], []
     
-    if score_phys is not None:
+    if score_phys is not None and pd.notna(score_phys):
         summary_scores.append(int(round(score_phys)))
         summary_labels.append("Physical")
         summary_colors.append(score_color(score_phys))
-    if score_chem is not None:
+    if score_chem is not None and pd.notna(score_chem):
         summary_scores.append(int(round(score_chem)))
         summary_labels.append("Chemical")
         summary_colors.append(score_color(score_chem))
-    if score_bio is not None:
+    if score_bio is not None and pd.notna(score_bio):
         summary_scores.append(int(round(score_bio)))
         summary_labels.append("Biological")
         summary_colors.append(score_color(score_bio))
         
-    # Always append Overall at the bottom
-    summary_scores.append(int(round(score_overall)))
-    summary_labels.append("<b>OVERALL</b>")
-    summary_colors.append(score_color(score_overall))
+    # Always append Overall at the bottom if valid
+    if pd.notna(score_overall):
+        summary_scores.append(int(round(score_overall)))
+        summary_labels.append("<b>OVERALL</b>")
+        summary_colors.append(score_color(score_overall))
 
     summary_text = [f"{s}/100  |  {score_label(s)}" for s in summary_scores]
     
@@ -4482,7 +4484,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
                     
                     if row_b is not None:
                         lp_b = float(row_b["mean_lp"])
-                        sig_b = float(row_b["mean_sigma"])
+                        sig_b = float(np.exp(row_b["mean_sigma"]))
                         s = compute_score(oc_val, lp_b, sig_b)
                         batch.at[index, "Soil Organic Carbon Score"] = round(s, 1)
                         tgt_ocs.append(round(percentile_to_oc(90, lp_b, sig_b), 3))

@@ -4420,10 +4420,46 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             # --- EXECUTE SCORING MATH ---
             
             # SHAPE SOC 
+           # SHAPE SOC 
             if "Soil Organic Carbon" in target_indicators and selected_framework in ["SHAPE", "SHAPE + SMAF (Hybrid)"]:
-                if all(col in r for col in ["oc", "peer_group_taxon", "peer_group_texture", "PRISM_tmea"]) or all(col in r for col in ["soc_pct", "peer_group_taxon", "peer_group_texture", "PRISM_tmea"]):
-                    oc_val = safe_float(r.get("soc_pct", r.get("oc")))
-                    row_b = get_params_any(cfg, df, str(r["peer_group_taxon"]).strip(), str(r["peer_group_texture"]).strip(), float(r["PRISM_tmea"]), float(r.get("PRISM_ppt", 0)) if has_precip else None)
+                oc_val = None
+                if "soc_pct" in r and pd.notna(r["soc_pct"]) and str(r["soc_pct"]).strip() != "":
+                    oc_val = safe_float(r["soc_pct"])
+                elif "oc" in r and pd.notna(r["oc"]) and str(r["oc"]).strip() != "":
+                    oc_val = safe_float(r["oc"])
+
+                if oc_val is not None:
+                    # 1. Taxon Fallback (CSV first, then UI)
+                    r_tax = str(r.get("peer_group_taxon", "")).strip()
+                    if r_tax and r_tax.lower() != "nan": row_tax = r_tax
+                    else:
+                        ui_sub = st.session_state.get(f"{k}_sub", "")
+                        row_tax = parse_code(ui_sub) if "— Select —" not in ui_sub and ui_sub else "Unknown"
+                        
+                    # 2. Texture Fallback (CSV first, then UI)
+                    r_pg_tex = str(r.get("peer_group_texture", "")).strip()
+                    if r_pg_tex and r_pg_tex.lower() != "nan": row_pg_tex = r_pg_tex
+                    else: row_pg_tex = cfg["texture_map"].get(st.session_state.get(f"{k}_tex", ""), "Unknown")
+
+                    # 3. Temperature Fallback (CSV first, then UI Slider)
+                    try:
+                        row_temp = float(r.get("PRISM_tmea", np.nan))
+                        if np.isnan(row_temp): raise ValueError
+                    except (ValueError, TypeError):
+                        row_temp = float(st.session_state.get(f"{k}_temp", cfg["temp_default"]))
+                        
+                    # 4. Precipitation Fallback (CSV first, then UI Slider)
+                    row_precip = None
+                    if has_precip:
+                        try:
+                            row_precip = float(r.get("PRISM_ppt", np.nan))
+                            if np.isnan(row_precip): raise ValueError
+                        except (ValueError, TypeError):
+                            row_precip = float(st.session_state.get(f"{k}_precip", cfg["precip_default"]))
+
+                    # Execute the spatial lookup safely!
+                    row_b = get_params_any(cfg, df, row_tax, row_pg_tex, row_temp, row_precip)
+                    
                     if row_b is not None:
                         lp_b = float(row_b["mean_lp"])
                         sig_b = float(np.exp(row_b["mean_sigma"]))

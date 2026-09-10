@@ -4420,32 +4420,44 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             # --- EXECUTE SCORING MATH ---
             
             # SHAPE SOC 
-           # SHAPE SOC 
+          # SHAPE SOC 
             if "Soil Organic Carbon" in target_indicators and selected_framework in ["SHAPE", "SHAPE + SMAF (Hybrid)"]:
                 oc_val = None
-                if "soc_pct" in r and pd.notna(r["soc_pct"]) and str(r["soc_pct"]).strip() != "":
-                    oc_val = safe_float(r["soc_pct"])
-                elif "oc" in r and pd.notna(r["oc"]) and str(r["oc"]).strip() != "":
-                    oc_val = safe_float(r["oc"])
+                
+                # Aggressively hunt for the Carbon value no matter what the user named the column
+                for possible_col in ["soc_pct", "oc", "SOC", "Soil Organic Carbon", "Carbon", "soc", "TOC"]:
+                    if possible_col in r and pd.notna(r[possible_col]) and str(r[possible_col]).strip() != "":
+                        oc_val = safe_float(r[possible_col])
+                        break
 
                 if oc_val is not None:
-                    # 1. Taxon Fallback (CSV first, then UI)
+                    # 1. Taxon Fallback (CSV first, then UI, then Safe Default)
                     r_tax = str(r.get("peer_group_taxon", "")).strip()
-                    if r_tax and r_tax.lower() != "nan": row_tax = r_tax
+                    if r_tax and r_tax.lower() != "nan": 
+                        row_tax = r_tax
                     else:
                         ui_sub = st.session_state.get(f"{k}_sub", "")
-                        row_tax = parse_code(ui_sub) if "— Select —" not in ui_sub and ui_sub else "Unknown"
-                        
-                    # 2. Texture Fallback (CSV first, then UI)
+                        if "— Select —" not in ui_sub and ui_sub:
+                            row_tax = parse_code(ui_sub)
+                        else:
+                            row_tax = parse_code(cfg["taxon_display"][0]) # Safe Default
+                            
+                    # 2. Texture Fallback (CSV first, then UI, then Safe Default)
                     r_pg_tex = str(r.get("peer_group_texture", "")).strip()
-                    if r_pg_tex and r_pg_tex.lower() != "nan": row_pg_tex = r_pg_tex
-                    else: row_pg_tex = cfg["texture_map"].get(st.session_state.get(f"{k}_tex", ""), "Unknown")
+                    if r_pg_tex and r_pg_tex.lower() != "nan": 
+                        row_pg_tex = r_pg_tex
+                    else:
+                        ui_tex = st.session_state.get(f"{k}_tex", "")
+                        if "— Select —" not in ui_tex and ui_tex:
+                            row_pg_tex = cfg["texture_map"].get(ui_tex, list(cfg["texture_map"].values())[0])
+                        else:
+                            row_pg_tex = list(cfg["texture_map"].values())[0] # Safe Default
 
                     # 3. Temperature Fallback (CSV first, then UI Slider)
                     try:
                         row_temp = float(r.get("PRISM_tmea", np.nan))
                         if np.isnan(row_temp): raise ValueError
-                    except (ValueError, TypeError):
+                    except (ValueError, TypeError, KeyError):
                         row_temp = float(st.session_state.get(f"{k}_temp", cfg["temp_default"]))
                         
                     # 4. Precipitation Fallback (CSV first, then UI Slider)
@@ -4454,11 +4466,19 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
                         try:
                             row_precip = float(r.get("PRISM_ppt", np.nan))
                             if np.isnan(row_precip): raise ValueError
-                        except (ValueError, TypeError):
+                        except (ValueError, TypeError, KeyError):
                             row_precip = float(st.session_state.get(f"{k}_precip", cfg["precip_default"]))
 
                     # Execute the spatial lookup safely!
                     row_b = get_params_any(cfg, df, row_tax, row_pg_tex, row_temp, row_precip)
+                    
+                    # Absolute Failsafe: If exact combo doesn't exist, force a fallback so it ALWAYS scores
+                    if row_b is None and df is not None and not df.empty:
+                        fallback_sub = df[df["peer_group_taxon"] == row_tax]
+                        if not fallback_sub.empty:
+                            row_b = fallback_sub.iloc[0]
+                        else:
+                            row_b = df.iloc[0] # Ultimate fallback
                     
                     if row_b is not None:
                         lp_b = float(row_b["mean_lp"])

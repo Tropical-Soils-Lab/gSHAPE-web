@@ -2399,7 +2399,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             lp_mean   = float(row["mean_lp"])
             lp_lcl    = float(row["lcl_lp"])
             lp_ucl    = float(row["ucl_lp"])
-            sigma_val = float(np.exp(row["mean_sigma"]))
+            sigma_val = float(row["mean_sigma"])
             plot_max  = max(15.0, oc_val + 5)
         else:
             lp_mean, lp_lcl, lp_ucl, sigma_val, plot_max = 0.0, 0.0, 0.0, 1.0, 15.0
@@ -4482,7 +4482,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
                     
                     if row_b is not None:
                         lp_b = float(row_b["mean_lp"])
-                        sig_b = float(np.exp(row_b["mean_sigma"]))
+                        sig_b = float(row_b["mean_sigma"])
                         s = compute_score(oc_val, lp_b, sig_b)
                         batch.at[index, "Soil Organic Carbon Score"] = round(s, 1)
                         tgt_ocs.append(round(percentile_to_oc(90, lp_b, sig_b), 3))

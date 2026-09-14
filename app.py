@@ -2843,7 +2843,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             fig_p.add_trace(go.Scatter(x=[p_val], y=[score_p / 100.0], mode="markers", marker=dict(color=color_p, size=14, line=dict(color="white", width=2)), name="Your Site"))
             
             fig_p.update_layout(
-                xaxis_title="Extractable P (mg/kg)", yaxis_title="Performance Rating",
+                xaxis_title="Extractable P (mg/kg)", yaxis_title="Score",
                 yaxis=dict(range=[0, 1.05], tickformat=".2f"), xaxis=dict(range=[0, 300]),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02),
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=400, margin=dict(l=10, r=10, t=40, b=10)
@@ -2929,7 +2929,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             fig_bd.add_trace(go.Scatter(x=[bd_val], y=[score_bd / 100.0], mode="markers", marker=dict(color=color_bd, size=14, line=dict(color="white", width=2)), name="Your Soil"))
             
             fig_bd.update_layout(
-                xaxis_title="Bulk Density (g/cm³)", yaxis_title="SHAPE Score",
+                xaxis_title="Bulk Density (g/cm³)", yaxis_title="Score",
                 yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0.6, 1.8]),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02),
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=400, margin=dict(l=10, r=10, t=40, b=10)
@@ -3030,7 +3030,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             ))
             fig_ec.update_layout(
                 xaxis_title=f"{'ECsat' if ec_method_id == 1 else 'EC 1:1'} (dS/m)", 
-                yaxis_title="SHAPE Score",
+                yaxis_title="Score",
                 yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0, hi_range]),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02),
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
@@ -3127,7 +3127,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             ))
             fig_agg.update_layout(
                 xaxis_title="Macroaggregate Stability (%)", 
-                yaxis_title="SHAPE Score",
+                yaxis_title="Score",
                 yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0, 100]),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02),
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
@@ -3216,7 +3216,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             ))
             fig_sar.update_layout(
                 xaxis_title="Sodium Adsorption Ratio (SAR)", 
-                yaxis_title="SHAPE Score",
+                yaxis_title="Score",
                 yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0, 12]),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02),
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
@@ -3309,7 +3309,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             
             fig_pmn.update_layout(
                 xaxis_title="Potentially Mineralizable Nitrogen (mg/kg)", 
-                yaxis_title="SHAPE Score",
+                yaxis_title="Score",
                 yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0, chart_max]),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02),
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
@@ -3403,7 +3403,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             
             fig_awc.update_layout(
                 xaxis_title="Available Water Capacity (g H₂O / g soil)", 
-                yaxis_title="SHAPE Score",
+                yaxis_title="Score",
                 yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0, 0.30]),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02),
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
@@ -3504,7 +3504,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             
             fig_wfps.update_layout(
                 xaxis_title="Water-Filled Pore Space (%)", 
-                yaxis_title="SHAPE Score",
+                yaxis_title="Score",
                 yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0, 1.0], tickformat=".0%"),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02),
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
@@ -3601,7 +3601,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             
             fig_mbc.update_layout(
                 xaxis_title="Microbial Biomass Carbon (mg/kg)", 
-                yaxis_title="SHAPE Score",
+                yaxis_title="Score",
                 yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0, 1000]),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02),
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
@@ -3691,7 +3691,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             ))
             fig_bg.update_layout(
                 xaxis_title="Beta-glucosidase activity (mg PNP / kg / hr)", 
-                yaxis_title="SHAPE Score",
+                yaxis_title="Score",
                 yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0, 1250]),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02),
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
@@ -3869,7 +3869,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             ))
             fig_exk.update_layout(
                 xaxis_title="Extractable Potassium (mg/kg)", 
-                yaxis_title="SHAPE Score",
+                yaxis_title="Score",
                 yaxis=dict(range=[0, 1.05], tickformat=".0%"), xaxis=dict(range=[0, 400]),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02),
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", 
@@ -4094,7 +4094,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 name=f"Target ({target_pct}th)", hovertemplate=f"Target<br>SOC: {tgt_oc:.2f}%<br>{target_pct}th pct<extra></extra>"
             ))
             fig_cdf.update_layout(
-                xaxis_title="Soil Organic Carbon (%)", yaxis_title="SHAPE Score",
+                xaxis_title="Soil Organic Carbon (%)", yaxis_title="Score",
                 yaxis=dict(range=[0, 1], tickformat=".0%"), xaxis=dict(range=[0, plot_max]),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02),
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",

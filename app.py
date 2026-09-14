@@ -1962,11 +1962,19 @@ def get_params_2d(df, tax, tex, target_temp, target_precip):
     Q11, Q21 = get_row(t0, p0), get_row(t1, p0)
     Q12, Q22 = get_row(t0, p1), get_row(t1, p1)
 
+    # If the grid is missing a corner, fall back to a normalized nearest-neighbor
     if any(q is None for q in [Q11, Q21, Q12, Q22]):
         sub_d = sub.copy()
-        sub_d["_dist"] = (sub_d["PRISM_tmea"] - t) ** 2 + (sub_d["PRISM_ppt"] - p) ** 2
+        
+        # ✨ FIX: Calculate the max range to normalize the scale weights
+        t_range = max(temps) - min(temps) if max(temps) > min(temps) else 1.0
+        p_range = max(precs) - min(precs) if max(precs) > min(precs) else 1.0
+        
+        # ✨ FIX: Normalize the distance so MAP doesn't overpower MAT
+        sub_d["_dist"] = ((sub_d["PRISM_tmea"] - t) / t_range) ** 2 + ((sub_d["PRISM_ppt"] - p) / p_range) ** 2
         return sub_d.sort_values("_dist").iloc[0]
 
+    # Standard Bilinear Interpolation
     wt = (t - t0) / (t1 - t0) if t1 != t0 else 0.0
     wp = (p - p0) / (p1 - p0) if p1 != p0 else 0.0
 

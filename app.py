@@ -630,7 +630,7 @@ BR_R1 = ["Acrisols","Fluvisols","Technosols","Anthrosols","Durisols","Gypsisols"
          "Solonchaks","Solonetz","Leptosols","Alisols","Regosols","Arenosols","Cryosols"]
 BR_R2 = ["Ferralsols","Nitisols","Stagnosols","Plinthosols","Luvisols","Lixisols","Retisols",
          "Planosols","Vertisols","Gleysols"]
-BR_R3 = ["Histosols","Umbrisols","aeozems","Chernozems","Kastanozems","Podzols","Andosols","Cambisols"]
+BR_R3 = ["Histosols","Umbrisols","Aeozems","Chernozems","Kastanozems","Podzols","Andosols","Cambisols"]
 
 BR_TAXON_DISPLAY = sorted(
     make_display(BR_R1, "R1") + make_display(BR_R2, "R2") + make_display(BR_R3, "R3")
@@ -645,7 +645,7 @@ BR_TEXTURE_MAP = {
 BR_PG_TAXON_DESC = {
     "R1": "Acrisols, Fluvisols, Technosols, Anthrosols, Durisols, Gypsisols, Calcisols, Solonchaks, Solonetz, Leptosols, Alisols, Regosols, Arenosols, Cryosols",
     "R2": "Ferralsols, Nitisols, Stagnosols, Plinthosols, Luvisols, Lixisols, Retisols, Planosols, Vertisols, Gleysols",
-    "R3": "Histosols, Umbrisols, aeozems, Chernozems, Kastanozems, Podzols, Andosols, Cambisols",
+    "R3": "Histosols, Umbrisols, Aeozems, Chernozems, Kastanozems, Podzols, Andosols, Cambisols",
 }
 BR_PG_TEXTURE_DESC = {
     "T1": "Sand, Loamy Sand, Sandy Loam",
@@ -677,7 +677,7 @@ BR_TAXON_DISPLAY_SIBC = sorted(
 )
 
 # ---- SUB-SAHARAN AFRICA (Ethiopia-calibrated, WRB Reference Soil Groups) ----
-ET_OR2 = ["Andosols","Chernozems","Gleysols","Kastanozems","aeozems","Podzols","Stagnosols"]
+ET_OR2 = ["Andosols","Chernozems","Gleysols","Kastanozems","Aeozems","Podzols","Stagnosols"]
 ET_OR3 = ["Acrisols","Alisols","Cambisols","Fluvisols","Planosols","Vertisols","Nitisols","Umbrisols"]
 ET_OR4 = ["Ferralsols","Leptosols","Lixisols","Luvisols","Plinthosols","Retisols","Regosols"]
 ET_OR5 = ["Arenosols","Calcisols","Durisols","Gypsisols","Solonchaks","Solonetz"]
@@ -694,7 +694,7 @@ ET_TEXTURE_MAP = {
     "Sandy Clay (T3)": "T3", "Silty Clay (T3)": "T3", "Clay (T3)": "T3",
 }
 ET_PG_TAXON_DESC = {
-    "Or2": "Andosols, Chernozems, Gleysols, Kastanozems, aeozems, Podzols, Stagnosols",
+    "Or2": "Andosols, Chernozems, Gleysols, Kastanozems, Aeozems, Podzols, Stagnosols",
     "Or3": "Acrisols, Alisols, Cambisols, Fluvisols, Planosols, Vertisols, Nitisols, Umbrisols",
     "Or4": "Ferralsols, Leptosols, Lixisols, Luvisols, Plinthosols, Retisols, Regosols",
     "Or5": "Arenosols, Calcisols, Durisols, Gypsisols, Solonchaks, Solonetz",

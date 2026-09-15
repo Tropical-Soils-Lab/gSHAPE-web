@@ -4384,10 +4384,17 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
                 st.code(', '.join(MASTER_CROP_OPTIONS), language="text")
 
     # 3. Handle File Upload
+    # 3. Handle File Upload with Multi-Encoding Fallback
     uploaded = st.file_uploader("Upload your populated CSV", type="csv", key=f"{k}_uploader")
     if uploaded is not None:
         try:
-            up_df = pd.read_csv(uploaded)
+            # ✨ FIX: Try standard UTF-8 first, then automatically fall back to Windows-1252 (Excel default)
+            try:
+                up_df = pd.read_csv(uploaded, encoding="utf-8")
+            except UnicodeDecodeError:
+                uploaded.seek(0) # Reset file pointer
+                up_df = pd.read_csv(uploaded, encoding="cp1252")
+                
             up_df.columns = up_df.columns.str.strip()
             st.session_state[f"{k}_batch_df"] = up_df
         except Exception as e:

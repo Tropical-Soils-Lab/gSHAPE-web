@@ -4299,9 +4299,9 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
         template_cols["Weathering"] = ["Slightly Weathered"] * 3
     if "Electrical Conductivity" in target_indicators or "Sodium Adsorption Ratio" in target_indicators:
         template_cols["EC_Method"] = ["Saturated Paste (ECsat)"] * 3
-       if any(ind in target_indicators for ind in ["Potentially Mineralizable Nitrogen", "Beta-glucosidase", "SMAF Soil Organic Carbon", "Microbial Biomass Carbon"]):
+    if any(ind in target_indicators for ind in ["Potentially Mineralizable Nitrogen", "Beta-glucosidase", "SMAF Soil Organic Carbon", "Microbial Biomass Carbon"]):
         template_cols["Climate_Class"] = ["Class 3 (Cool/Wet)"] * 3
-        if "Microbial Biomass Carbon" in target_indicators:
+    if "Microbial Biomass Carbon" in target_indicators:
         template_cols["Season"] = ["Spring"] * 3
     if any(ind in target_indicators for ind in ["Soil Phosphorus", "Macroaggregate Stability"]):
         template_cols["Slope"] = ["0–2% Level Slope"] * 3

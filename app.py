@@ -4549,8 +4549,10 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
 
             # SMAF SOC 
             if "SMAF Soil Organic Carbon" in target_indicators and "soc_pct" in r and pd.notna(r["soc_pct"]):
-                batch.at[index, "SMAF Soil Organic Carbon Score"] = round(run_smaf_soc_score(float(r["soc_pct"]), row_om_id, row_texture_id, row_climate_id, SMAF_DATA), 1)
-
+                # ✨ FIX: Use safe_float to prevent crashes if a row has a blank or text value
+                soc_batch_val = safe_float(r["soc_pct"])
+                if soc_batch_val > 0:
+                    batch.at[index, "SMAF Soil Organic Carbon Score"] = round(run_smaf_soc_score(soc_batch_val, row_om_id, row_texture_id, row_climate_id, SMAF_DATA), 1)
             # pH 
             if "pH" in target_indicators and "ph_val" in r and pd.notna(r["ph_val"]):
                 batch.at[index, "pH Score"] = round(run_smaf_ph_score(float(r["ph_val"]), row_crop_id, SMAF_DATA), 1)

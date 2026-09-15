@@ -2940,22 +2940,22 @@ def render_single_sample(region_name, cfg, df, df_hist):
             st.markdown("### 📋 Agronomic Recommendations")
             
             # 1. Assign the 5-tier logic
-            if score >= 80:
+            # 1. Assign the 5-tier logic
+            if score_bd >= 80:
                 bd_level = "Very High"
                 bd_rec = "Your soil bulk density is optimal, providing excellent aeration, water infiltration, and unrestricted root penetration. Maintain current soil management and minimal disturbance practices."
-            elif score >= 60:
+            elif score_bd >= 60:
                 bd_level = "High"
                 bd_rec = "Your soil bulk density is adequate and generally supportive of healthy root growth. Monitor heavy field traffic and maintain organic matter inputs to prevent future compaction."
-            elif score >= 40:
+            elif score_bd >= 40:
                 bd_level = "Medium"
                 bd_rec = "Your soil shows moderate signs of compaction, which may begin to limit root expansion and water infiltration. Consider integrating practices like cover cropping (e.g., deep-rooted species like tillage radish) or reducing field traffic when the soil is wet to gradually improve porosity."
-            elif score >= 20:
+            elif score_bd >= 20:
                 bd_level = "Low"
                 bd_rec = "Your soil bulk density indicates significant compaction that is likely restricting root development and field drainage. We suggest implementing compaction-alleviation strategies, such as adding organic amendments or utilizing deep-rooted cover crops. Consult a local agronomist to evaluate the exact depth of the compaction layer."
             else:
                 bd_level = "Very Low"
                 bd_rec = "Your soil bulk density is severely restricting root growth, water movement, and biological activity. Mechanical interventions like subsoiling or deep ripping, combined with long-term organic matter building, may be necessary. Please consult with a certified agronomist to properly diagnose the hardpan depth and determine the safest intervention strategy."
-
             # 2. Render the recommendation box
             st.info(f"**Score Tier: {bd_level}**\n\n{bd_rec}")
     elif chosen_indicator == "Electrical Conductivity":

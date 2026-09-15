@@ -2220,7 +2220,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 
             clim_options = ["— Select —"] + list(SMAF_CLIMATE_MAP.keys())
             selected_climate_class = clim_options[1]
-            if "Potentially Mineralizable Nitrogen" in target_indicators or "Microbial Biomass Carbon" in target_indicators:
+            if any(ind in target_indicators for ind in ["Potentially Mineralizable Nitrogen", "Microbial Biomass Carbon", "Beta-glucosidase", "SMAF Soil Organic Carbon"]):
                 is_warm = target_temp >= 15.0
                 is_wet = target_precip >= 600.0 if target_precip is not None else True
                 derived_clim_id = 1 if (is_warm and is_wet) else 2 if (is_warm and not is_wet) else 3 if (not is_warm and is_wet) else 4
@@ -2769,7 +2769,8 @@ def render_single_sample(region_name, cfg, df, df_hist):
     )
 # ALWAYS calculate the SOC score in the background so the Recommendation Engine 
 # and Carbon Calculator at the bottom of the page don't crash when switching tabs!
-    score = compute_score(oc_val, lp_mean, sigma_val)
+    safe_oc = oc_val if oc_val is not None else 2.0  # Failsafe if SOC is not selected
+    score = compute_score(safe_oc, lp_mean, sigma_val)
     # Safely grab the target percentile from the slider (default to 90 if it doesn't exist)
     target_pct = st.session_state.get(f"{k}_target_pct", 90)
 

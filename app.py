@@ -4475,143 +4475,101 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             
             # SHAPE SOC 
           # SHAPE SOC 
+            # --- EXECUTE SCORING MATH SAFELY ---
+            
+            # 1. SHAPE SOC 
             if "Soil Organic Carbon" in target_indicators and selected_framework in ["SHAPE", "SHAPE + SMAF (Hybrid)"]:
                 oc_val = None
-                
-                # Aggressively hunt for the Carbon value no matter what the user named the column
                 for possible_col in ["soc_pct", "oc", "SOC", "Soil Organic Carbon", "Carbon", "soc", "TOC"]:
                     if possible_col in r and pd.notna(r[possible_col]) and str(r[possible_col]).strip() != "":
                         oc_val = safe_float(r[possible_col])
                         break
+                if oc_val is not None and oc_val > 0:
+                    # ... [keep your existing SHAPE calculation lines here] ...
+                    pass
 
-                if oc_val is not None:
-                    # 1. Taxon Fallback (CSV first, then UI, then Safe Default)
-                    r_tax = str(r.get("peer_group_taxon", "")).strip()
-                    if r_tax and r_tax.lower() != "nan": 
-                        row_tax = r_tax
-                    else:
-                        ui_sub = st.session_state.get(f"{k}_sub", "")
-                        if "— Select —" not in ui_sub and ui_sub:
-                            row_tax = parse_code(ui_sub)
-                        else:
-                            row_tax = parse_code(cfg["taxon_display"][0]) # Safe Default
-                            
-                    # 2. Texture Fallback (CSV first, then UI, then Safe Default)
-                    r_pg_tex = str(r.get("peer_group_texture", "")).strip()
-                    if r_pg_tex and r_pg_tex.lower() != "nan": 
-                        row_pg_tex = r_pg_tex
-                    else:
-                        ui_tex = st.session_state.get(f"{k}_tex", "")
-                        if "— Select —" not in ui_tex and ui_tex:
-                            row_pg_tex = cfg["texture_map"].get(ui_tex, list(cfg["texture_map"].values())[0])
-                        else:
-                            row_pg_tex = list(cfg["texture_map"].values())[0] # Safe Default
-
-                    # 3. Temperature Fallback (CSV first, then UI Slider)
-                    try:
-                        row_temp = float(r.get("PRISM_tmea", np.nan))
-                        if np.isnan(row_temp): raise ValueError
-                    except (ValueError, TypeError, KeyError):
-                        row_temp = float(st.session_state.get(f"{k}_temp", cfg["temp_default"]))
-                        
-                    # 4. Precipitation Fallback (CSV first, then UI Slider)
-                    row_precip = None
-                    if has_precip:
-                        try:
-                            row_precip = float(r.get("PRISM_ppt", np.nan))
-                            if np.isnan(row_precip): raise ValueError
-                        except (ValueError, TypeError, KeyError):
-                            row_precip = float(st.session_state.get(f"{k}_precip", cfg["precip_default"]))
-
-                    # Execute the spatial lookup safely!
-                    row_b = get_params_any(cfg, df, row_tax, row_pg_tex, row_temp, row_precip)
-                    
-                    # Absolute Failsafe: If exact combo doesn't exist, force a fallback so it ALWAYS scores
-                    if row_b is None and df is not None and not df.empty:
-                        fallback_sub = df[df["peer_group_taxon"] == row_tax]
-                        if not fallback_sub.empty:
-                            row_b = fallback_sub.iloc[0]
-                        else:
-                            row_b = df.iloc[0] # Ultimate fallback
-                    
-                    if row_b is not None:
-                        lp_b = float(row_b["mean_lp"])
-                        sig_b = float(np.exp(row_b["mean_sigma"]))
-                        s = compute_score(oc_val, lp_b, sig_b)
-                        batch.at[index, "Soil Organic Carbon Score"] = round(s, 1)
-                        tgt_ocs.append(round(percentile_to_oc(90, lp_b, sig_b), 3))
-                    else:
-                        tgt_ocs.append(np.nan)
-                else:
-                    tgt_ocs.append(np.nan)
-            else:
-                tgt_ocs.append(np.nan)
-
-            # SMAF SOC 
-            # SMAF SOC 
+            # 2. SMAF SOC 
             if "SMAF Soil Organic Carbon" in target_indicators and "soc_pct" in r and pd.notna(r["soc_pct"]):
-                soc_batch_val = safe_float(r["soc_pct"])
-                if soc_batch_val > 0:
-                    batch.at[index, "SMAF Soil Organic Carbon Score"] = round(run_smaf_soc_score(soc_batch_val, row_om_id, row_texture_id, row_climate_id, SMAF_DATA), 1)
+                soc_v = safe_float(r["soc_pct"])
+                if soc_v > 0:
+                    batch.at[index, "SMAF Soil Organic Carbon Score"] = round(run_smaf_soc_score(soc_v, row_om_id, row_texture_id, row_climate_id, SMAF_DATA), 1)
 
-            # pH 
+            # 3. pH 
             if "pH" in target_indicators and "ph_val" in r and pd.notna(r["ph_val"]):
-                ph_batch_val = safe_float(r["ph_val"])
-                if ph_batch_val > 0:
-                    batch.at[index, "pH Score"] = round(run_smaf_ph_score(ph_batch_val, row_crop_id, SMAF_DATA), 1)
+                ph_v = safe_float(r["ph_val"])
+                if ph_v > 0:
+                    batch.at[index, "pH Score"] = round(run_smaf_ph_score(ph_v, row_crop_id, SMAF_DATA), 1)
 
-            # Phosphorus 
-            # Phosphorus 
+            # 4. Phosphorus 
             if "Soil Phosphorus" in target_indicators and "p_mg_kg" in r and pd.notna(r["p_mg_kg"]):
-                r_soc = r.get("soc_pct")
-                parsed_soc = safe_float(r_soc) if pd.notna(r_soc) and str(r_soc).strip() != "" else 0.0
-                p_soc_proxy = parsed_soc if parsed_soc > 0 else {1: 4.0, 2: 2.0, 3: 1.0, 4: 0.5}.get(row_om_id, 2.0)
-                
-                # ✨ FIX: Use safe_float to handle blank or missing phosphorus values gracefully
-                p_batch_val = safe_float(r["p_mg_kg"])
-                if p_batch_val > 0:
-                    batch.at[index, "Soil Phosphorus Score"] = round(run_smaf_p_score(p_batch_val, row_crop_id, row_method_id, row_weather_id, row_texture_id, row_slope_id, p_soc_proxy), 1)
-            # Extractable Potassium 
+                p_v = safe_float(r["p_mg_kg"])
+                if p_v > 0:
+                    r_soc = r.get("soc_pct")
+                    parsed_soc = safe_float(r_soc) if pd.notna(r_soc) and str(r_soc).strip() != "" else 0.0
+                    p_soc_proxy = parsed_soc if parsed_soc > 0 else {1: 4.0, 2: 2.0, 3: 1.0, 4: 0.5}.get(row_om_id, 2.0)
+                    batch.at[index, "Soil Phosphorus Score"] = round(run_smaf_p_score(p_v, row_crop_id, row_method_id, row_weather_id, row_texture_id, row_slope_id, p_soc_proxy), 1)
+
+            # 5. Extractable Potassium 
             if "Extractable Potassium" in target_indicators and "k_mg_kg" in r and pd.notna(r["k_mg_kg"]):
-                batch.at[index, "Extractable Potassium Score"] = round(run_smaf_exk_score(float(r["k_mg_kg"]), row_texture_id, SMAF_DATA), 1)
+                k_v = safe_float(r["k_mg_kg"])
+                if k_v > 0:
+                    batch.at[index, "Extractable Potassium Score"] = round(run_smaf_exk_score(k_v, row_texture_id, SMAF_DATA), 1)
 
-            # Electrical Conductivity 
+            # 6. Electrical Conductivity 
             if "Electrical Conductivity" in target_indicators and "ec_ds_m" in r and pd.notna(r["ec_ds_m"]):
-                batch.at[index, "Electrical Conductivity Score"] = round(run_smaf_ec_score(float(r["ec_ds_m"]), row_crop_id, row_ec_method_id, row_texture_id, SMAF_DATA), 1)
+                ec_v = safe_float(r["ec_ds_m"])
+                if ec_v >= 0:
+                    batch.at[index, "Electrical Conductivity Score"] = round(run_smaf_ec_score(ec_v, row_crop_id, row_ec_method_id, row_texture_id, SMAF_DATA), 1)
 
-            # Sodium Adsorption Ratio 
-            if "Sodium Adsorption Ratio" in target_indicators and "sar_val" in r and "ec_ds_m" in r and pd.notna(r["sar_val"]) and pd.notna(r["ec_ds_m"]):
-                batch.at[index, "Sodium Adsorption Ratio Score"] = round(run_smaf_sar_score(float(r["sar_val"]), float(r["ec_ds_m"]), row_ec_method_id, row_texture_id, SMAF_DATA), 1)
-            # Bulk Density 
+            # 7. Sodium Adsorption Ratio 
+            if "Sodium Adsorption Ratio" in target_indicators and "sar_val" in r and "ec_ds_m" in r and pd.notna(r["sar_val"]):
+                sar_v = safe_float(r["sar_val"])
+                ec_v = safe_float(r["ec_ds_m"])
+                batch.at[index, "Sodium Adsorption Ratio Score"] = round(run_smaf_sar_score(sar_v, ec_v, row_ec_method_id, row_texture_id, SMAF_DATA), 1)
+
+            # 8. Bulk Density 
             if "Bulk Density" in target_indicators and "bd_g_cm3" in r and pd.notna(r["bd_g_cm3"]):
-                # ✨ FIX: Use row_mineralogy_id instead of the hardcoded ui_mineralogy_id
-                batch.at[index, "Bulk Density Score"] = round(run_smaf_bd_score(float(r["bd_g_cm3"]), row_texture_id, row_mineralogy_id), 1)
+                bd_v = safe_float(r["bd_g_cm3"])
+                if bd_v > 0:
+                    batch.at[index, "Bulk Density Score"] = round(run_smaf_bd_score(bd_v, row_texture_id, row_mineralogy_id), 1)
 
-            # Macroaggregate Stability 
+            # 9. Macroaggregate Stability 
             if "Macroaggregate Stability" in target_indicators and "agg_pct" in r and pd.notna(r["agg_pct"]):
-                batch.at[index, "Macroaggregate Stability Score"] = round(run_smaf_agg_score(float(r["agg_pct"]), row_om_id, row_texture_id, ui_fe_id, SMAF_DATA), 1)
+                agg_v = safe_float(r["agg_pct"])
+                if agg_v >= 0:
+                    batch.at[index, "Macroaggregate Stability Score"] = round(run_smaf_agg_score(agg_v, row_om_id, row_texture_id, row_fe_id, SMAF_DATA), 1)
 
-            # Available Water Capacity 
+            # 10. Available Water Capacity 
             if "Available Water Capacity" in target_indicators and "awc_g_g" in r and pd.notna(r["awc_g_g"]):
-                batch.at[index, "Available Water Capacity Score"] = round(run_smaf_awc_score(float(r["awc_g_g"]), ui_awc_region, row_texture_id, row_om_id, SMAF_DATA), 1)
+                awc_v = safe_float(r["awc_g_g"])
+                if awc_v >= 0:
+                    batch.at[index, "Available Water Capacity Score"] = round(run_smaf_awc_score(awc_v, row_awc_region, row_texture_id, row_om_id, SMAF_DATA), 1)
 
-            # Water-Filled Pore Space 
+            # 11. Water-Filled Pore Space 
             if "Water-Filled Pore Space" in target_indicators and "wfps_frac" in r and pd.notna(r["wfps_frac"]):
-                wfps_res = run_smaf_wfps_score(float(r["wfps_frac"]), row_texture_id, SMAF_DATA)
-                batch.at[index, "Water-Filled Pore Space Score"] = round(wfps_res["combined"], 1)
+                wfps_v = safe_float(r["wfps_frac"])
+                if wfps_v >= 0:
+                    wfps_res = run_smaf_wfps_score(wfps_v, row_texture_id, SMAF_DATA)
+                    batch.at[index, "Water-Filled Pore Space Score"] = round(wfps_res["combined"], 1)
 
-            # PMN 
+            # 12. PMN 
             if "Potentially Mineralizable Nitrogen" in target_indicators and "pmn_mg_kg" in r and pd.notna(r["pmn_mg_kg"]):
-                batch.at[index, "Potentially Mineralizable Nitrogen Score"] = round(run_smaf_pmn_score(float(r["pmn_mg_kg"]), row_om_id, row_texture_id, row_climate_id, SMAF_DATA), 1)
+                pmn_v = safe_float(r["pmn_mg_kg"])
+                if pmn_v >= 0:
+                    batch.at[index, "Potentially Mineralizable Nitrogen Score"] = round(run_smaf_pmn_score(pmn_v, row_om_id, row_texture_id, row_climate_id, SMAF_DATA), 1)
 
-            # Microbial Biomass Carbon 
+            # 13. Microbial Biomass Carbon 
             if "Microbial Biomass Carbon" in target_indicators and "mbc_mg_kg" in r and pd.notna(r["mbc_mg_kg"]):
-                batch.at[index, "Microbial Biomass Carbon Score"] = round(run_smaf_mbc_score(float(r["mbc_mg_kg"]), row_om_id, row_texture_id, row_season_climate, SMAF_DATA), 1)
+                mbc_v = safe_float(r["mbc_mg_kg"])
+                if mbc_v >= 0:
+                    batch.at[index, "Microbial Biomass Carbon Score"] = round(run_smaf_mbc_score(mbc_v, row_om_id, row_texture_id, row_season_climate, SMAF_DATA), 1)
 
-            # Beta-glucosidase 
+            # 14. Beta-glucosidase 
             if "Beta-glucosidase" in target_indicators and "bg_mg_kg_hr" in r and pd.notna(r["bg_mg_kg_hr"]):
-                batch.at[index, "Beta-glucosidase Score"] = round(run_smaf_bg_score(float(r["bg_mg_kg_hr"]), row_om_id, row_texture_id, row_climate_id, SMAF_DATA), 1)
-
+                bg_v = safe_float(r["bg_mg_kg_hr"])
+                if bg_v >= 0:
+                    batch.at[index, "Beta-glucosidase Score"] = round(run_smaf_bg_score(bg_v, row_om_id, row_texture_id, row_climate_id, SMAF_DATA), 1)
+            
         # 5. Post-Processing & Aggregation
         batch = batch.copy()
         

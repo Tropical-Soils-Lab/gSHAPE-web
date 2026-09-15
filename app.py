@@ -4317,7 +4317,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
         )
         
         # Inject realistic fake data for whatever indicators happen to be active!
-        if st.button("✨ Try Demo Data", use_container_width=True, key=f"{k}_demo_btn"):
+        if st.button("Try Demo Data", use_container_width=True, key=f"{k}_demo_btn"):
             demo_df = pd.DataFrame(template_cols)
             if "soc_pct" in demo_df.columns: demo_df["soc_pct"] = [1.2, 2.5, 4.8]
             if "ph_val" in demo_df.columns: demo_df["ph_val"] = [5.2, 6.5, 7.8]
@@ -4612,7 +4612,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
         )
         st.plotly_chart(fig_dist, width='stretch', key=f"{k}_dist_chart")
 
-        st.markdown("#### 🧪 Scored Results")
+        st.markdown("####Scored Results")
         
         # 8. Render Restored Colored Dataframe
         def highlight_zone(row):
@@ -4631,7 +4631,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
         if "lat" in batch.columns and "lon" in batch.columns:
             map_data = batch[["lat", "lon"]].dropna()
             if not map_data.empty:
-                st.markdown("#### 📍 Site Map")
+                st.markdown("####Site Map")
                 st.map(map_data, zoom=4)
 
         st.divider()

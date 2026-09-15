@@ -2424,23 +2424,23 @@ def render_single_sample(region_name, cfg, df, df_hist):
     fe_id_sum = SMAF_FE_MAP.get(selected_fe_class, 2) if 'selected_fe_class' in locals() else 2
     climate_id_sum = SMAF_CLIMATE_MAP.get(st.session_state.get(f"{k}_sm_climate_class", ""), 3)
 
-    bd_val_sum = st.session_state.get(f"{k}_bd", 1.45)
     mineral_str = st.session_state.get(f"{k}_bd_min", "— Select —")
     mineralogy_id_sum = SMAF_MINERALOGY_MAP.get(mineral_str, 0) if mineral_str != "— Select —" else 0
 
-    agg_val_sum = st.session_state.get(f"{k}_agg", 40.0)
-    awc_val_sum = st.session_state.get(f"{k}_awc", 0.15)
-    w_val_sum = st.session_state.get(f"{k}_w_val", 0.25)
-    ph_val_sum = st.session_state.get(f"{k}_ph", 6.0)
-    p_val_sum = st.session_state.get(f"{k}_sm_p_input", 25.0)
-    k_val_sum = st.session_state.get(f"{k}_exk_val", 125.0)
-    ec_val_sum = st.session_state.get(f"{k}_ec", 1.5)
-    sar_val_sum = st.session_state.get(f"{k}_sar", 2.0)
-    pmn_val_sum = st.session_state.get(f"{k}_pmn", 10.0)
-    mbc_val_sum = st.session_state.get(f"{k}_mbc_val", 200.0)
-    bg_val_sum = st.session_state.get(f"{k}_bg_val", 300.0)
-    
-    wfps_frac_sum = get_wfps_frac(w_val_sum, bd_val_sum, SMAF_DATA)
+    # ✨ FIX: Route the live variables we just captured directly to the summary math.
+    # This prevents the app from pulling dead defaults out of the session state cache!
+    bd_val_sum = bd_val
+    agg_val_sum = agg_val
+    awc_val_sum = awc_val
+    ph_val_sum = ph_val
+    p_val_sum = p_val
+    k_val_sum = k_val
+    ec_val_sum = ec_val
+    sar_val_sum = sar_val
+    pmn_val_sum = pmn_val
+    mbc_val_sum = mbc_val
+    bg_val_sum = bg_val
+    wfps_frac_sum = wfps_frac
 
     # Initialize category scores and counts
     phys_scores, chem_scores, bio_scores = [], [], []
@@ -2476,7 +2476,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
         weather_id_sum = SMAF_WEATHERING_MAP.get(weather_str, 3)
         slope_str = st.session_state.get(f"{k}_sm_slope", "0–2% Level Slope")
         slope_id_sum = SMAF_SLOPE_MAP.get(slope_str, 1)
-        oc_val_sum = st.session_state.get(f"{k}_oc", 2.0)
+        oc_val_sum = oc_val if oc_val is not None else 2.0
         chem_scores.append(safe_float(run_smaf_p_score(p_val_sum, crop_id_sum, method_id_sum, weather_id_sum, texture_id_sum, slope_id_sum, oc_val_sum)))
         
     if "Electrical Conductivity" in target_indicators:
@@ -2626,7 +2626,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             weather_id_sum = SMAF_WEATHERING_MAP.get(weather_str, 3)
             slope_str = st.session_state.get(f"{k}_sm_slope", "0–2% Level Slope")
             slope_id_sum = SMAF_SLOPE_MAP.get(slope_str, 1)
-            oc_val_sum = st.session_state.get(f"{k}_oc", 2.0)
+            oc_val_sum = oc_val if oc_val is not None else 2.0
             scr = run_smaf_p_score(p_val_sum, crop_id_sum, method_id_sum, weather_id_sum, texture_id_sum, slope_id_sum, oc_val_sum)
         elif ind == "Electrical Conductivity":
             val = f"{ec_val_sum} dS/m"

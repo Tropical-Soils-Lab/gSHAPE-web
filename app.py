@@ -4930,12 +4930,12 @@ st.markdown("### Global Location Setup")
 
 loc_c1, loc_c2 = st.columns(2)
 with loc_c1:
-    selected_country = st.selectbox("Country", ALL_COUNTRIES)
+    selected_country = st.selectbox("Country", ["— Select —"] + ALL_COUNTRIES)
     
 with loc_c2:
     selected_state = None
     if selected_country == "United States":
-        selected_state = st.selectbox("State", US_STATES)
+        selected_state = st.selectbox("State", ["— Select —"] + US_STATES)
         
 # ── FRAMEWORK LOGIC (The SHAPE Gatekeeper) ──
 active_region_name = "Global_SMAF"

@@ -4463,7 +4463,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             row_season_num = {"Spring": 1, "Summer": 2, "Fall": 3, "Winter": 4}.get(row_season_name, 1)
             row_season_climate = 1.0 if row_season_num == 1 else float(f"{row_season_num}.{row_climate_id}")
 
-            r_slope = str(r.get("Slope", "")).strip()
+            r_slope = str(r.get("Slope", "")).strip().replace("Ð", "–").replace("-", "–")
             row_slope_id = SMAF_SLOPE_MAP.get(r_slope, ui_slope_id) if r_slope and r_slope != "nan" else ui_slope_id
 
             # ✨ SMART FIX: Extract Clay Mineralogy from the row, or use the UI fallback

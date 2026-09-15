@@ -934,8 +934,8 @@ SMAF_TEXTURE_MAP = {
     "Sand / Loamy Sand / Sandy Loam (<8% clay)": 1, 
     "Sandy Loam (>8% clay) / Sandy Clay Loam / Loam": 2, 
     "Silt Loam / Silt": 3,
-    "Sandy Clay / Clay Loam / Silty Clay loam / Silty Clay / Clay (<60% clay)": 4, 
-    "Clay (>60% clay)": 5          
+    "Sandy Clay / Clay Loam / Silty Clay loam / Silty Clay / Clay (<40% clay)": 4, 
+    "Clay (>40% clay)": 5          
 }
 
 SMAF_SLOPE_MAP = {

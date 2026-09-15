@@ -2408,9 +2408,10 @@ def render_single_sample(region_name, cfg, df, df_hist):
             lp_lcl    = float(row["lcl_lp"])
             lp_ucl    = float(row["ucl_lp"])
             sigma_val = float(np.exp(row["mean_sigma"]))
-            plot_max  = max(15.0, oc_val + 5)
+            
+            # ✨ SMART FIX: Only add 5 if oc_val exists. Otherwise, default width is 15.0.
+            plot_max  = max(15.0, (oc_val + 5) if oc_val is not None else 15.0)
         else:
-            lp_mean, lp_lcl, lp_ucl, sigma_val, plot_max = 0.0, 0.0, 0.0, 1.0, 15.0
 
 # ── COMPREHENSIVE SOIL HEALTH SUMMARY (DYNAMICALLY FILTERED) ──
     st.markdown("### Comprehensive Soil Health Overview")

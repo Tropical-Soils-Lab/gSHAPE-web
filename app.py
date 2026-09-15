@@ -4305,6 +4305,9 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
         template_cols["Season"] = ["Spring"] * 3
     if any(ind in target_indicators for ind in ["Soil Phosphorus", "Macroaggregate Stability"]):
         template_cols["Slope"] = ["0–2% Level Slope"] * 3
+    # ✨ FIX: Add Clay Mineralogy column if Bulk Density is active
+    if "Bulk Density" in target_indicators:
+        template_cols["Clay_Mineralogy"] = ["Smectitic"] * 3
 
     # Add Raw Lab Value columns
     for ind in target_indicators:
@@ -4364,7 +4367,9 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             if "Slope" in template.columns:
                 st.markdown("**Slope:**")
                 st.code('\n'.join(list(SMAF_SLOPE_MAP.keys())), language="text")
-                
+            if "Clay_Mineralogy" in template.columns:
+                st.markdown("**Clay_Mineralogy:**")
+                st.code('\n'.join(list(SMAF_MINERALOGY_MAP.keys())), language="text")
             if "P_Method" in template.columns:
                 st.markdown("**P_Method:**")
                 st.code('\n'.join(list(SMAF_METHOD_MAP.keys())), language="text")
@@ -4453,6 +4458,10 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
 
             r_slope = str(r.get("Slope", "")).strip()
             row_slope_id = SMAF_SLOPE_MAP.get(r_slope, ui_slope_id) if r_slope and r_slope != "nan" else ui_slope_id
+
+            # ✨ SMART FIX: Extract Clay Mineralogy from the row, or use the UI fallback
+            r_min = str(r.get("Clay_Mineralogy", "")).strip()
+            row_mineralogy_id = SMAF_MINERALOGY_MAP.get(r_min, ui_mineralogy_id) if r_min and r_min != "nan" else ui_mineralogy_id
 
 
             # --- EXECUTE SCORING MATH ---
@@ -4559,10 +4568,10 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             # Sodium Adsorption Ratio 
             if "Sodium Adsorption Ratio" in target_indicators and "sar_val" in r and "ec_ds_m" in r and pd.notna(r["sar_val"]) and pd.notna(r["ec_ds_m"]):
                 batch.at[index, "Sodium Adsorption Ratio Score"] = round(run_smaf_sar_score(float(r["sar_val"]), float(r["ec_ds_m"]), row_ec_method_id, row_texture_id, SMAF_DATA), 1)
-
             # Bulk Density 
             if "Bulk Density" in target_indicators and "bd_g_cm3" in r and pd.notna(r["bd_g_cm3"]):
-                batch.at[index, "Bulk Density Score"] = round(run_smaf_bd_score(float(r["bd_g_cm3"]), row_texture_id, ui_mineralogy_id), 1)
+                # ✨ FIX: Use row_mineralogy_id instead of the hardcoded ui_mineralogy_id
+                batch.at[index, "Bulk Density Score"] = round(run_smaf_bd_score(float(r["bd_g_cm3"]), row_texture_id, row_mineralogy_id), 1)
 
             # Macroaggregate Stability 
             if "Macroaggregate Stability" in target_indicators and "agg_pct" in r and pd.notna(r["agg_pct"]):

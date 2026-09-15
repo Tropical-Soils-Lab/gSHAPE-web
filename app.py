@@ -950,7 +950,6 @@ SMAF_MINERALOGY_MAP = {
     "Glassy": 2,
     "Other": 3
 }
-# ✨ NEW: Macroaggregate Stability Maps
 SMAF_OM_MAP = {
     "Class 1 (Highest OM)": 1, 
     "Class 2 (Med-High OM)": 2, 
@@ -958,11 +957,17 @@ SMAF_OM_MAP = {
     "Class 4 (Lowest OM)": 4
 }
 
+SOILP_OM_ALT_MAP = {
+    1: {"b2": 0.1250, "c2": 0.250},  # Class 1 (hi)
+    2: {"b2": 0.0250, "c2": 0.050},  # Class 2 (mhi)
+    3: {"b2": 0.0175, "c2": 0.035},  # Class 3 (mlo)
+    4: {"b2": 0.0100, "c2": 0.020}   # Class 4 (lo)
+}
+
 SMAF_FE_MAP = {
     "(High Iron-Oxide)": 1,
     "All Other Soil Orders": 2
 }
-# ✨ NEW: PMN Climate Map
 SMAF_CLIMATE_MAP = {
     "Class 1 (Warm/Wet)": 1,
     "Class 2 (Warm/Dry)": 2,
@@ -998,14 +1003,19 @@ def run_smaf_ph_score(ph_val, crop_id, smaf_data, use_alt_c=False):
     except (KeyError, TypeError, ValueError):
         return 0.0
 
-def run_smaf_p_score(soil_p, crop, method, weathering, texture, slope, toc):
+def run_smaf_p_score(soil_p, crop, method, weathering, texture, slope, om_class):
     if not SMAF_DATA: return 0.0
     K = SMAF_DATA["K"]
     xc = soil_p * SMAF_DATA["method"].get((method, weathering), 1.0)
     pmax = SMAF_DATA["crops"].get(crop, {"pmax": 30.0})["pmax"]
     env = SMAF_DATA["slope"].get(slope, {"envprotect": 120.0})["envprotect"]
 
-    b2, c2 = toc / 200.0, toc / 100.0
+    # ✨ Replaced TOC division with official Alternate Table 3 OM Class lookup
+    om_idx = int(om_class) if om_class in [1, 2, 3, 4] else 2
+    alt_factors = SOILP_OM_ALT_MAP.get(om_idx, SOILP_OM_ALT_MAP[2])
+    b2 = alt_factors["b2"]
+    c2 = alt_factors["c2"]
+
     b1 = SMAF_DATA["crops"].get(crop, {"b1": 1.0})["b1"]
     b3 = SMAF_DATA["texture"].get(texture, {"b3": 0.0})["b3"]
     c3 = SMAF_DATA["texture"].get(texture, {"c3": 1.0})["c3"]
@@ -2627,8 +2637,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
             weather_id_sum = SMAF_WEATHERING_MAP.get(weather_str, 3)
             slope_str = st.session_state.get(f"{k}_sm_slope", "0–2% Level Slope")
             slope_id_sum = SMAF_SLOPE_MAP.get(slope_str, 1)
-            oc_val_sum = oc_val if oc_val is not None else 2.0
-            scr = run_smaf_p_score(p_val_sum, crop_id_sum, method_id_sum, weather_id_sum, texture_id_sum, slope_id_sum, oc_val_sum)
+            scr = run_smaf_p_score(p_val_sum, crop_id_sum, method_id_sum, weather_id_sum, texture_id_sum, slope_id_sum, om_class=om_id_sum)
         elif ind == "Electrical Conductivity":
             val = f"{ec_val_sum} dS/m"
             ec_method_str_sum = st.session_state.get(f"{k}_ec_method", "Saturated Paste (ECsat)")
@@ -2804,7 +2813,8 @@ def render_single_sample(region_name, cfg, df, df_hist):
             oc_val = 2.0
 
         # Unified SOC value feeds into Phosphorus scoring
-        score_p = run_smaf_p_score(p_val, crop_id, method_id, weather_id, texture_id, slope_id, oc_val)
+        om_id = SMAF_OM_MAP.get(st.session_state.get(f"{k}_sm_om_class", "Class 2 (Med-High OM)"), 2)
+        score_p = run_smaf_p_score(p_val, crop_id, method_id, weather_id, texture_id, slope_id, om_class=om_id)
         color_p = score_color(score_p)
         label_p = score_label(score_p)
 
@@ -4501,14 +4511,15 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
                     batch.at[index, "pH Score"] = round(run_smaf_ph_score(ph_v, row_crop_id, SMAF_DATA), 1)
 
             # 4. Phosphorus 
+            # Phosphorus 
             if "Soil Phosphorus" in target_indicators and "p_mg_kg" in r and pd.notna(r["p_mg_kg"]):
                 p_v = safe_float(r["p_mg_kg"])
                 if p_v > 0:
-                    r_soc = r.get("soc_pct")
-                    parsed_soc = safe_float(r_soc) if pd.notna(r_soc) and str(r_soc).strip() != "" else 0.0
-                    p_soc_proxy = parsed_soc if parsed_soc > 0 else {1: 4.0, 2: 2.0, 3: 1.0, 4: 0.5}.get(row_om_id, 2.0)
-                    batch.at[index, "Soil Phosphorus Score"] = round(run_smaf_p_score(p_v, row_crop_id, row_method_id, row_weather_id, row_texture_id, row_slope_id, p_soc_proxy), 1)
-
+                    # ✨ Batch loop now passes row_om_id directly to use Alternate Table 3
+                    batch.at[index, "Soil Phosphorus Score"] = round(
+                        run_smaf_p_score(p_v, row_crop_id, row_method_id, row_weather_id, row_texture_id, row_slope_id, om_class=row_om_id), 
+                        1
+                    )
             # 5. Extractable Potassium 
             if "Extractable Potassium" in target_indicators and "k_mg_kg" in r and pd.notna(r["k_mg_kg"]):
                 k_v = safe_float(r["k_mg_kg"])

@@ -4299,8 +4299,12 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
         template_cols["Weathering"] = ["Slightly Weathered"] * 3
     if "Electrical Conductivity" in target_indicators or "Sodium Adsorption Ratio" in target_indicators:
         template_cols["EC_Method"] = ["Saturated Paste (ECsat)"] * 3
-    if any(ind in target_indicators for ind in ["Potentially Mineralizable Nitrogen", "Beta-glucosidase", "SMAF Soil Organic Carbon"]):
+       if any(ind in target_indicators for ind in ["Potentially Mineralizable Nitrogen", "Beta-glucosidase", "SMAF Soil Organic Carbon", "Microbial Biomass Carbon"]):
         template_cols["Climate_Class"] = ["Class 3 (Cool/Wet)"] * 3
+        if "Microbial Biomass Carbon" in target_indicators:
+        template_cols["Season"] = ["Spring"] * 3
+    if any(ind in target_indicators for ind in ["Soil Phosphorus", "Macroaggregate Stability"]):
+        template_cols["Slope"] = ["0–2% Level Slope"] * 3
 
     # Add Raw Lab Value columns
     for ind in target_indicators:
@@ -4353,6 +4357,14 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             if "Climate_Class" in template.columns:
                 st.markdown("**Climate_Class:**")
                 st.code('\n'.join(list(SMAF_CLIMATE_MAP.keys())), language="text")
+            
+            if "Season" in template.columns:
+                st.markdown("**Season:**")
+                st.code("Spring\nSummer\nFall\nWinter", language="text")
+            if "Slope" in template.columns:
+                st.markdown("**Slope:**")
+                st.code('\n'.join(list(SMAF_SLOPE_MAP.keys())), language="text")
+                
             if "P_Method" in template.columns:
                 st.markdown("**P_Method:**")
                 st.code('\n'.join(list(SMAF_METHOD_MAP.keys())), language="text")
@@ -4432,6 +4444,16 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
 
             r_ecmeth = str(r.get("EC_Method", "")).strip()
             row_ec_method_id = 1 if "Saturated Paste" in r_ecmeth else (2 if "1:1" in r_ecmeth else ui_ec_method_id)
+
+            # ✨ SMART FIX: Extract Season and Slope from the row, or use the UI fallback
+            r_season = str(r.get("Season", "")).strip().capitalize()
+            row_season_name = r_season if r_season in ["Spring", "Summer", "Fall", "Winter"] else season_name
+            row_season_num = {"Spring": 1, "Summer": 2, "Fall": 3, "Winter": 4}.get(row_season_name, 1)
+            row_season_climate = 1.0 if row_season_num == 1 else float(f"{row_season_num}.{row_climate_id}")
+
+            r_slope = str(r.get("Slope", "")).strip()
+            row_slope_id = SMAF_SLOPE_MAP.get(r_slope, ui_slope_id) if r_slope and r_slope != "nan" else ui_slope_id
+
 
             # --- EXECUTE SCORING MATH ---
             
@@ -4518,10 +4540,14 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
                 batch.at[index, "pH Score"] = round(run_smaf_ph_score(float(r["ph_val"]), row_crop_id, SMAF_DATA), 1)
 
             # Phosphorus 
+            # Phosphorus 
             if "Soil Phosphorus" in target_indicators and "p_mg_kg" in r and pd.notna(r["p_mg_kg"]):
-                oc_val = safe_float(r.get("soc_pct", 2.0))
-                batch.at[index, "Soil Phosphorus Score"] = round(run_smaf_p_score(float(r["p_mg_kg"]), row_crop_id, row_method_id, row_weather_id, row_texture_id, ui_slope_id, oc_val), 1)
-
+                # Use SOC from row if it exists, otherwise use the safe OM Class proxy we made earlier!
+                r_soc = r.get("soc_pct")
+                p_soc_proxy = float(r_soc) if pd.notna(r_soc) and str(r_soc).strip() != "" else {1: 4.0, 2: 2.0, 3: 1.0, 4: 0.5}.get(row_om_id, 2.0)
+                
+                # ✨ FIX: Use row_slope_id instead of the hardcoded ui_slope_id
+                batch.at[index, "Soil Phosphorus Score"] = round(run_smaf_p_score(float(r["p_mg_kg"]), row_crop_id, row_method_id, row_weather_id, row_texture_id, row_slope_id, p_soc_proxy), 1)
             # Extractable Potassium 
             if "Extractable Potassium" in target_indicators and "k_mg_kg" in r and pd.notna(r["k_mg_kg"]):
                 batch.at[index, "Extractable Potassium Score"] = round(run_smaf_exk_score(float(r["k_mg_kg"]), row_texture_id, SMAF_DATA), 1)

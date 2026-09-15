@@ -959,7 +959,7 @@ SMAF_OM_MAP = {
 }
 
 SMAF_FE_MAP = {
-    "Ultisols (High Iron-Oxide)": 1,
+    "(High Iron-Oxide)": 1,
     "All Other Soil Orders": 2
 }
 # ✨ NEW: PMN Climate Map

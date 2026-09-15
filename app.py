@@ -2254,17 +2254,17 @@ def render_single_sample(region_name, cfg, df, df_hist):
                 "Class 4 (Lowest OM)"
             ]
 
-            # Initialize session state default if it doesn't exist yet
-            if f"{k}_sm_om_class" not in st.session_state:
-                st.session_state[f"{k}_sm_om_class"] = om_options[1] # Default to Class 2
+           # ✨ FIX: Smart Auto-Assign Tracker
+            # If the user selects a new Soil Taxonomy, instantly auto-update the OM Class!
+            if st.session_state.get(f"{k}_last_tax") != raw_tax:
+                st.session_state[f"{k}_sm_om_class"] = om_options[default_om_idx]
+                st.session_state[f"{k}_last_tax"] = raw_tax
 
-            # ✨ REMOVED THE TAXONOMY OVERRIDE LOOP SO YOUR MANUAL SELECTION STICKS!
             selected_om_class = st.selectbox(
-                "Organic Matter (OM) Class", 
+                "Organic Matter (OM) Class (Auto-Assigned)", 
                 options=om_options, 
                 key=f"{k}_sm_om_class"
             )
-        
             # This explicitly locks the checkbox so it ONLY appears for United States -> Florida
             hist_toggle = False 
             
@@ -2797,6 +2797,10 @@ def render_single_sample(region_name, cfg, df, df_hist):
         weather_id = SMAF_WEATHERING_MAP[st.session_state[f"{k}_sm_weather"]]
         texture_id = SMAF_TEXTURE_MAP[st.session_state[f"{k}_sm_tex"]]
         slope_id = SMAF_SLOPE_MAP[st.session_state[f"{k}_sm_slope"]]
+
+        # ✨ FIX: If SOC is hidden/empty, use 2.0 as a safe default so the math doesn't crash
+        if oc_val is None:
+            oc_val = 2.0
 
         # Unified SOC value feeds into Phosphorus scoring
         score_p = run_smaf_p_score(p_val, crop_id, method_id, weather_id, texture_id, slope_id, oc_val)

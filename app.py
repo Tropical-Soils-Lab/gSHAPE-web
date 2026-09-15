@@ -4563,14 +4563,14 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             # Phosphorus 
             # Phosphorus 
             if "Soil Phosphorus" in target_indicators and "p_mg_kg" in r and pd.notna(r["p_mg_kg"]):
-                # Use SOC from row if it exists, otherwise use the safe OM Class proxy we made earlier!
-                # ✨ FIX: Use safe_float so blank or invalid carbon cells don't crash the batch
                 r_soc = r.get("soc_pct")
                 parsed_soc = safe_float(r_soc) if pd.notna(r_soc) and str(r_soc).strip() != "" else 0.0
                 p_soc_proxy = parsed_soc if parsed_soc > 0 else {1: 4.0, 2: 2.0, 3: 1.0, 4: 0.5}.get(row_om_id, 2.0)
                 
-                # ✨ FIX: Use row_slope_id instead of the hardcoded ui_slope_id
-                batch.at[index, "Soil Phosphorus Score"] = round(run_smaf_p_score(float(r["p_mg_kg"]), row_crop_id, row_method_id, row_weather_id, row_texture_id, row_slope_id, p_soc_proxy), 1)
+                # ✨ FIX: Use safe_float to handle blank or missing phosphorus values gracefully
+                p_batch_val = safe_float(r["p_mg_kg"])
+                if p_batch_val > 0:
+                    batch.at[index, "Soil Phosphorus Score"] = round(run_smaf_p_score(p_batch_val, row_crop_id, row_method_id, row_weather_id, row_texture_id, row_slope_id, p_soc_proxy), 1)
             # Extractable Potassium 
             if "Extractable Potassium" in target_indicators and "k_mg_kg" in r and pd.notna(r["k_mg_kg"]):
                 batch.at[index, "Extractable Potassium Score"] = round(run_smaf_exk_score(float(r["k_mg_kg"]), row_texture_id, SMAF_DATA), 1)

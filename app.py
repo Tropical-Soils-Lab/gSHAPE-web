@@ -1539,13 +1539,19 @@ def run_smaf_awc_score(
         if b2 is None:
             return 0.0
 
-        b = b1 * b2
-        x_d = x ** d_mmf
+        # Critical: multiplication, not addition.
+        b = float(b1) * float(b2)
 
-        try:
-            score = (a_mmf * b + c_mmf * x_d) / (b + x_d)
-        except ZeroDivisionError:
+        x_to_d = x ** d_mmf
+
+        denominator = b + x_to_d
+        if denominator == 0:
             return 0.0
+
+        score = (
+            (a_mmf * b)
+            + (c_mmf * x_to_d)
+        ) / denominator
 
     # Region 2: Humid sinusoidal curve
     #

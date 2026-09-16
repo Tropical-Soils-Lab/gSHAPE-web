@@ -2519,10 +2519,49 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
     # Display the active branch only when AWC is selected.
     if "Available Water Capacity" in target_indicators:
+    awc_region_options = {
+        "Auto-assigned": awc_region_id,
+        "Region 1 — Arid": 1,
+        "Region 2 — Humid": 2
+    }
+
+    awc_region_choice = st.selectbox(
+        "AWC Region",
+        options=list(awc_region_options.keys()),
+        index=0,
+        help=(
+            "Use Auto-assigned for normal app scoring. "
+            "Use Region 1 or Region 2 to validate against "
+            "the SMAF AWC reference curves."
+        ),
+        key=f"{k}_awc_region_override"
+    )
+
+    # Replace the automatic branch only when user selects a manual override.
+    if awc_region_choice != "Auto-assigned":
+        awc_region_id = awc_region_options[awc_region_choice]
+        st.session_state[f"{k}_awc_region"] = awc_region_id
+
+        if awc_region_id == 1:
+            awc_region_label = "Region 1 — Arid (manual override)"
+        else:
+            awc_region_label = "Region 2 — Humid (manual override)"
+
+    # Ensure auto-assigned region remains saved if no manual override was selected.
+    else:
+        st.session_state[f"{k}_awc_region"] = awc_region_id
+
+    if awc_region_id == 1:
         st.info(
             f"**AWC scoring branch:** {awc_region_label}. "
             f"Texture class: {texture_id}; "
             f"OM class: {SMAF_OM_MAP.get(selected_om_class, 2)}."
+        )
+    else:
+        st.info(
+            f"**AWC scoring branch:** {awc_region_label}. "
+            f"Texture class: {texture_id}. "
+            f"OM class is not used by the humid AWC curve."
         )
 
     # ------------------------------------------------------------------

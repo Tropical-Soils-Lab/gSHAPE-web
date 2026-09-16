@@ -1755,7 +1755,7 @@ def run_smaf_mbc_score(mbc_val, om_class, texture, season_climate, smaf_data, cl
     
     try:
         # Hardcoding the correct 40.478 constant to override the Excel typo
-        y = float(K.get("a", 1.0)) / (1.0 + float(K.get("b", 40.478)) * math.exp(-c * mbc_val))
+        y = float(K.get("a", 1.0)) / (1.0 + float(K.get("b", 40.748)) * math.exp(-c * mbc_val))
     except (OverflowError, TypeError, ValueError):
         y = 0.0
         

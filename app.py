@@ -2751,55 +2751,145 @@ def render_single_sample(region_name, cfg, df, df_hist,bg_df=None):
     if "Extractable Potassium" in target_indicators:
         chem_scores.append(safe_float(run_smaf_exk_score(k_val_sum, texture_id_sum, SMAF_DATA)))
 
-    # ── BIOLOGICAL INDICATORS ──
+        # ── BIOLOGICAL INDICATORS ──
     if "Soil Organic Carbon" in target_indicators:
-        bio_scores.append(safe_float(compute_score(oc_val, lp_mean, sigma_val)))
-    if "SMAF Soil Organic Carbon" in target_indicators:
-        bio_scores.append(safe_float(run_smaf_soc_score(oc_val, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)))
-        
-    if "Potentially Mineralizable Nitrogen" in target_indicators:
-        bio_scores.append(safe_float(run_smaf_pmn_score(pmn_val_sum, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)))
-        
-    if "Microbial Biomass Carbon" in target_indicators:
-        season_name = st.session_state.get(f"{k}_sm_season", "Spring")
-        season_num = {"Spring": 1, "Summer": 2, "Fall": 3, "Winter": 4}.get(season_name, 1)
-        
-        # ✨ Define climate_id safely here too
-        climate_id = SMAF_CLIMATE_MAP.get(st.session_state.get(f"{k}_sm_climate_class", ""), 3)
-        
-        season_climate_code = 1.0 if season_num == 1 else float(f"{season_num}.{climate_id}")
-        bio_scores.append(safe_float(run_smaf_mbc_score(mbc_val_sum, om_id_sum, texture_id_sum, season_climate_code, SMAF_DATA)))
-
-    if "BG-SHAPE" in target_indicators and bg_df is not None:
-        _bg_tax = parse_code(
-            st.session_state.get(f"{k}_sub", cfg["taxon_display"][0])
+        bio_scores.append(
+            safe_float(
+                compute_score(
+                    oc_val,
+                    lp_mean,
+                    sigma_val
+                )
+            )
         )
+
+    if "SMAF Soil Organic Carbon" in target_indicators:
+        bio_scores.append(
+            safe_float(
+                run_smaf_soc_score(
+                    oc_val,
+                    om_id_sum,
+                    texture_id_sum,
+                    climate_id_sum,
+                    SMAF_DATA
+                )
+            )
+        )
+
+    if "Potentially Mineralizable Nitrogen" in target_indicators:
+        bio_scores.append(
+            safe_float(
+                run_smaf_pmn_score(
+                    pmn_val_sum,
+                    om_id_sum,
+                    texture_id_sum,
+                    climate_id_sum,
+                    SMAF_DATA
+                )
+            )
+        )
+
+    if "Microbial Biomass Carbon" in target_indicators:
+        season_name = st.session_state.get(
+            f"{k}_sm_season",
+            "Spring"
+        )
+
+        season_num = {
+            "Spring": 1,
+            "Summer": 2,
+            "Fall": 3,
+            "Winter": 4
+        }.get(season_name, 1)
+
+        climate_id = SMAF_CLIMATE_MAP.get(
+            st.session_state.get(
+                f"{k}_sm_climate_class",
+                ""
+            ),
+            3
+        )
+
+        season_climate_code = (
+            1.0
+            if season_num == 1
+            else float(f"{season_num}.{climate_id}")
+        )
+
+        bio_scores.append(
+            safe_float(
+                run_smaf_mbc_score(
+                    mbc_val_sum,
+                    om_id_sum,
+                    texture_id_sum,
+                    season_climate_code,
+                    SMAF_DATA
+                )
+            )
+        )
+
+    if "Beta-glucosidase" in target_indicators:
+        bio_scores.append(
+            safe_float(
+                run_smaf_bg_score(
+                    bg_val_sum,
+                    om_id_sum,
+                    texture_id_sum,
+                    climate_id_sum,
+                    SMAF_DATA
+                )
+            )
+        )
+
+    # ── BG-SHAPE ──
+    # Treat BG-SHAPE as a Biological indicator exactly like
+    # SMAF Beta-glucosidase for pillar averaging/diagnostics.
+    if "BG-SHAPE" in target_indicators and bg_df is not None:
+
+        _bg_tax = parse_code(
+            st.session_state.get(
+                f"{k}_sub",
+                cfg["taxon_display"][0]
+            )
+        )
+
         _bg_tex = cfg["texture_map"].get(
-            st.session_state.get(f"{k}_tex", ""), "T1"
+            st.session_state.get(
+                f"{k}_tex",
+                ""
+            ),
+            "T1"
         )
 
         _bg_row = get_params_2d(
             bg_df,
             _bg_tax,
             _bg_tex,
-            st.session_state.get(f"{k}_temp", cfg["temp_default"]),
-            st.session_state.get(f"{k}_precip", cfg["precip_default"])
+            st.session_state.get(
+                f"{k}_temp",
+                cfg["temp_default"]
+            ),
+            st.session_state.get(
+                f"{k}_precip",
+                cfg["precip_default"]
+            )
         )
 
         if _bg_row is not None:
             _lp_bg = float(_bg_row["mean_lp"])
-            _sig_bg = float(np.exp(_bg_row["mean_sigma"]))
-
-            bio_scores.append(
-                safe_float(
-                    compute_bg_shape_score(
-                        bg_val_sum,
-                        _lp_bg,
-                        _sig_bg
-                    )
-                )
+            _sig_bg = float(
+                np.exp(_bg_row["mean_sigma"])
             )
 
+            bg_shape_score = compute_bg_shape_score(
+                bg_val_sum,
+                _lp_bg,
+                _sig_bg
+            )
+
+            bio_scores.append(
+                safe_float(bg_shape_score)
+            )
    # ── DYNAMIC CATEGORY AVERAGING (Only includes categories with selected indicators) ──
     score_phys = sum(phys_scores) / len(phys_scores) if phys_scores else None
     score_chem = sum(chem_scores) / len(chem_scores) if chem_scores else None
@@ -2936,6 +3026,7 @@ def render_single_sample(region_name, cfg, df, df_hist,bg_df=None):
         elif ind == "Beta-glucosidase":
             val = f"{bg_val_sum} mg/kg/hr"
             scr = run_smaf_bg_score(bg_val_sum, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)
+        
         elif ind == "BG-SHAPE":
         # These are correctly indented 4 spaces under elif
             val = f"{bg_val_sum} mg/kg/hr"
@@ -3024,18 +3115,49 @@ def render_single_sample(region_name, cfg, df, df_hist,bg_df=None):
     diag_rows = []
     
     # Loop through the variables already calculated for the chart above
-    for pillar, s_val in [("Physical", score_phys), ("Chemical", score_chem), ("SOC", score_bio)]:
+        # Biological indicators, including SMAF BG and BG-SHAPE,
+    # use the same biological/SOC constraint framework.
+    diagnostic_pillars = [
+        ("Physical", score_phys, "Physical"),
+        ("Chemical", score_chem, "Chemical"),
+        ("Biological", score_bio, "SOC"),
+    ]
+
+    for pillar, s_val, constraint_key in diagnostic_pillars:
         if s_val is None:
             continue
-            
-        score_int = int(round(s_val))
-        if score_int < 20:
-            diag_rows.append({"Pillar": pillar, "Score": score_int, "Assessment": "Very Low", "Critical Soil Functions Affected": CONSTRAINTS[pillar]["VeryLow"], "_raw_score": score_int})
-        elif score_int < 40:
-            diag_rows.append({"Pillar": pillar, "Score": score_int, "Assessment": "Low", "Critical Soil Functions Affected": CONSTRAINTS[pillar]["Low"], "_raw_score": score_int})
-        elif score_int < 60:
-            diag_rows.append({"Pillar": pillar, "Score": score_int, "Assessment": "Medium", "Critical Soil Functions Affected": CONSTRAINTS[pillar]["Medium"], "_raw_score": score_int})
 
+        score_int = int(round(s_val))
+
+        if score_int < 20:
+            diag_rows.append({
+                "Pillar": pillar,
+                "Score": score_int,
+                "Assessment": "Very Low",
+                "Critical Soil Functions Affected":
+                    CONSTRAINTS[constraint_key]["VeryLow"],
+                "_raw_score": score_int
+            })
+
+        elif score_int < 40:
+            diag_rows.append({
+                "Pillar": pillar,
+                "Score": score_int,
+                "Assessment": "Low",
+                "Critical Soil Functions Affected":
+                    CONSTRAINTS[constraint_key]["Low"],
+                "_raw_score": score_int
+            })
+
+        elif score_int < 60:
+            diag_rows.append({
+                "Pillar": pillar,
+                "Score": score_int,
+                "Assessment": "Medium",
+                "Critical Soil Functions Affected":
+                    CONSTRAINTS[constraint_key]["Medium"],
+                "_raw_score": score_int
+            })
     # 3. Render natively using Streamlit
     if len(diag_rows) == 0:
         st.success("Congratulations! All measured soil health pillars scored High (>= 60), indicating fully functional soil systems that are unrestricted by major soil function constraints.")

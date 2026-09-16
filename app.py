@@ -1765,14 +1765,20 @@ def run_smaf_mbc_score(mbc_val, om_class, texture, season_climate, smaf_data, cl
         4.4: 0.940,
     }
 
-    c3 = (
-        sc_dict.get(sc_key)
-        or sc_dict.get(str(sc_key))
-        or mbc_c3_reference.get(sc_key)
-        or sc_dict.get(base_season)
-        or sc_dict.get(str(base_season))
-        or 1.0
-    )
+        # The reference workbook is the authoritative source for
+    # recognized season × climate combinations.
+    c3 = mbc_c3_reference.get(sc_key)
+
+    # Only use values loaded from the lookup sheet if the code is
+    # not represented in the validated reference workbook table.
+    if c3 is None:
+        c3 = (
+            sc_dict.get(sc_key)
+            or sc_dict.get(str(sc_key))
+            or sc_dict.get(base_season)
+            or sc_dict.get(str(base_season))
+            or 1.0
+        )
     
     c = float(c1) * float(c2) * float(c3)
     

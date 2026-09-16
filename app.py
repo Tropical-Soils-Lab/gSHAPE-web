@@ -1471,15 +1471,10 @@ def load_awc_data(smaf_data, path="SMAF_lookup.xlsx"):
 def run_smaf_awc_score(awc_v, region_id, texture_id, om_id):
     """
     Calculates the SMAF score for Available Water Capacity (AWC).
-    awc_v: float, measured AWC in g H2O / g soil
-    region_id: 1 for Arid (LRR A-J), 2 for Humid
-    texture_id: int, SMAF Texture Class (1-5)
-    om_id: int, SMAF Organic Matter Class (1-4)
     """
     x = float(awc_v)
     
-    # 1. Look up Site-Specific Factors
-    # Texture -> b1 (arid), d (humid)
+    # Texture lookup: b1 (arid), d (humid)
     texture_map = {
         1: (0.002754, -1.89288002),
         2: (0.007404, -2.348342498),
@@ -1487,9 +1482,9 @@ def run_smaf_awc_score(awc_v, region_id, texture_id, om_id):
         4: (0.006234666, -2.23568667),
         5: (0.004255, -2.042720013)
     }
-    b1, d_humid = texture_map.get(texture_id, texture_map[2]) # Fallback to class 2
+    b1, d_humid = texture_map.get(texture_id, texture_map[2])
     
-    # OM Class -> b2 (arid only)
+    # OM Class lookup: b2 (arid only)
     om_map = {
         1: 1.25, 
         2: 1.05, 
@@ -1498,25 +1493,21 @@ def run_smaf_awc_score(awc_v, region_id, texture_id, om_id):
     }
     b2 = om_map.get(om_id, om_map[2])
 
-    # 2. Execute Regional Algorithm
+    # Regional Algorithm
     if region_id == 1:
         # MMF Algorithm (Arid)
-        a = 0.0114
-        c = 1.08786
+        a_arid = 0.0114
+        c_arid = 1.08786
         d_fixed = 2.182
-        b = b1 * b2
-        
-        score = (a * b + c * (x ** d_fixed)) / (b + (x ** d_fixed))
+        b_arid = b1 * b2
+        score = (a_arid * b_arid + c_arid * (x ** d_fixed)) / (b_arid + (x ** d_fixed))
     else:
         # Sinusoidal Algorithm (Humid)
-        a = 0.4772
+        a_sin = 0.4772
         b_sin = 0.52675
-        c = 6.87765
-        
-        score = a + b_sin * math.cos(c * x + d_humid)
+        c_sin = 6.87765
+        score = a_sin + b_sin * math.cos(c_sin * x + d_humid)
 
-    # 3. Output standard 0 to 1 scale 
-    # (Multiply by 100 in your main loop if your SQI logic expects a 0-100 scale)
     return max(0.0, min(1.0, score))
 # ----------------------------------------------------------------------
 # SMAF WATER-FILLED PORE SPACE (WFPS) BACKEND ENGINE

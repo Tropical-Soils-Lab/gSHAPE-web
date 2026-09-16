@@ -2774,9 +2774,9 @@ def render_single_sample(region_name, cfg, df, df_hist,bg_df=None):
         bio_scores.append(safe_float(run_smaf_bg_score(bg_val_sum, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)))
 
     if "BG-SHAPE" in target_indicators and bg_df is not None:
-    _bg_tax = parse_code(st.session_state.get(f"{k}_sub", cfg["taxon_display"][0]))
-    _bg_tex = cfg["texture_map"].get(st.session_state.get(f"{k}_tex", ""), "T1")
-    _bg_row = get_params_2d(bg_df, _bg_tax, _bg_tex,
+        _bg_tax = parse_code(st.session_state.get(f"{k}_sub", cfg["taxon_display"][0]))
+        _bg_tex = cfg["texture_map"].get(st.session_state.get(f"{k}_tex", ""), "T1")
+        _bg_row = get_params_2d(bg_df, _bg_tax, _bg_tex,
                             st.session_state.get(f"{k}_temp", cfg["temp_default"]),
                             st.session_state.get(f"{k}_precip", cfg["precip_default"]))
     if _bg_row is not None:

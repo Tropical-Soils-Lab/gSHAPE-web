@@ -2520,8 +2520,8 @@ if "Available Water Capacity" in target_indicators:
         required_inputs.append(selected_bd_min)
         
     if any(val == "— Select —" for val in required_inputs):
-        st.info("💡 Please complete all dropdown selections in the **Site Inputs** above to unlock your soil health scores and recommendations.")
-        return
+       st.info("💡 Please complete all dropdown selections in the **Site Inputs** above to unlock your soil health scores and recommendations.")
+       return
     # ── GLOBAL SOC PEER GROUP RESOLUTION ──
     tax = parse_code(selected_sub)
     tex = cfg["texture_map"][selected_tex]

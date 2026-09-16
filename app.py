@@ -4647,39 +4647,130 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
         for index, r in batch.iterrows():
             
             # Extract row metadata if it exists, otherwise use the UI fallback
-            r_tex = str(r.get("Texture", "")).strip()
-            row_texture_id = SMAF_TEXTURE_MAP.get(r_tex, ui_texture_id) if r_tex and r_tex != "nan" else ui_texture_id
-            
-            r_om = str(r.get("OM_Class", "")).strip()
-            row_om_id = SMAF_OM_MAP.get(r_om, ui_om_id) if r_om and r_om != "nan" else ui_om_id
+                        # --- Row-level metadata overrides ---
+            # Supports both normal gSHAPE template columns and
+            # numeric Excel MBC validation-table columns.
 
+            # Texture:
+            # Normal template column: Texture
+            # Validation column:      texture_class
+            raw_tex = r.get("Texture", r.get("texture_class", ""))
+            r_tex = str(raw_tex).strip()
+
+            try:
+                row_texture_id = int(float(r_tex))
+            except (TypeError, ValueError):
+                row_texture_id = (
+                    SMAF_TEXTURE_MAP.get(r_tex, ui_texture_id)
+                    if r_tex and r_tex.lower() != "nan"
+                    else ui_texture_id
+                )
+
+            # Organic matter class:
+            # Normal template column: OM_Class
+            # Validation column:      OM_class
+            raw_om = r.get("OM_Class", r.get("OM_class", ""))
+            r_om = str(raw_om).strip()
+
+            try:
+                row_om_id = int(float(r_om))
+            except (TypeError, ValueError):
+                row_om_id = (
+                    SMAF_OM_MAP.get(r_om, ui_om_id)
+                    if r_om and r_om.lower() != "nan"
+                    else ui_om_id
+                )
+
+            # Iron-oxide class:
             r_fe = str(r.get("Fe2O3_Class", "")).strip()
-            row_fe_id = SMAF_FE_MAP.get(r_fe, ui_fe_id) if r_fe and r_fe != "nan" else ui_fe_id
+            row_fe_id = (
+                SMAF_FE_MAP.get(r_fe, ui_fe_id)
+                if r_fe and r_fe.lower() != "nan"
+                else ui_fe_id
+            )
 
+            # Available-water-capacity region:
             r_awc_region = str(r.get("AWC_Region", "")).strip()
-            row_awc_region = {"Region 1 Arid": 1,"Region 2 Humid": 2}.get(r_awc_region)
+            row_awc_region = {
+                "Region 1 Arid": 1,
+                "Region 2 Humid": 2
+            }.get(r_awc_region)
 
+            # Crop:
             r_crop = str(r.get("Crop", "")).strip().lower()
-            row_crop_id = SMAF_DATA.get("crop_ui_map", {}).get(r_crop, ui_crop_id) if r_crop and r_crop != "nan" else ui_crop_id
+            row_crop_id = (
+                SMAF_DATA.get("crop_ui_map", {}).get(r_crop, ui_crop_id)
+                if r_crop and r_crop.lower() != "nan"
+                else ui_crop_id
+            )
 
-            r_clim = str(r.get("Climate_Class", "")).strip()
-            row_climate_id = SMAF_CLIMATE_MAP.get(r_clim, ui_climate_id) if r_clim and r_clim != "nan" else ui_climate_id
-            row_season_climate = 1.0 if season_num == 1 else float(f"{season_num}.{row_climate_id}")
+            # Climate class:
+            # Normal template column: Climate_Class
+            # Optional numeric column: climate_class
+            raw_clim = r.get("Climate_Class", r.get("climate_class", ""))
+            r_clim = str(raw_clim).strip()
 
+            try:
+                row_climate_id = int(float(r_clim))
+            except (TypeError, ValueError):
+                row_climate_id = (
+                    SMAF_CLIMATE_MAP.get(r_clim, ui_climate_id)
+                    if r_clim and r_clim.lower() != "nan"
+                    else ui_climate_id
+                )
+
+            # P extraction method:
             r_pmeth = str(r.get("P_Method", "")).strip()
-            row_method_id = SMAF_METHOD_MAP.get(r_pmeth, ui_method_id) if r_pmeth and r_pmeth != "nan" else ui_method_id
-            
+            row_method_id = (
+                SMAF_METHOD_MAP.get(r_pmeth, ui_method_id)
+                if r_pmeth and r_pmeth.lower() != "nan"
+                else ui_method_id
+            )
+
+            # Soil weathering class:
             r_weath = str(r.get("Weathering", "")).strip()
-            row_weather_id = SMAF_WEATHERING_MAP.get(r_weath, ui_weather_id) if r_weath and r_weath != "nan" else ui_weather_id
+            row_weather_id = (
+                SMAF_WEATHERING_MAP.get(r_weath, ui_weather_id)
+                if r_weath and r_weath.lower() != "nan"
+                else ui_weather_id
+            )
 
+            # EC method:
             r_ecmeth = str(r.get("EC_Method", "")).strip()
-            row_ec_method_id = 1 if "Saturated Paste" in r_ecmeth else (2 if "1:1" in r_ecmeth else ui_ec_method_id)
+            row_ec_method_id = (
+                1 if "Saturated Paste" in r_ecmeth
+                else 2 if "1:1" in r_ecmeth
+                else ui_ec_method_id
+            )
 
-            # ✨ SMART FIX: Extract Season and Slope from the row, or use the UI fallback
-            r_season = str(r.get("Season", "")).strip().capitalize()
-            row_season_name = r_season if r_season in ["Spring", "Summer", "Fall", "Winter"] else season_name
-            row_season_num = {"Spring": 1, "Summer": 2, "Fall": 3, "Winter": 4}.get(row_season_name, 1)
-            row_season_climate = 1.0 if row_season_num == 1 else float(f"{row_season_num}.{row_climate_id}")
+            # MBC season × climate:
+            # Excel validation column: season_x_climate
+            # If omitted, construct the code from Season + Climate_Class.
+            raw_season_climate = r.get("season_x_climate", np.nan)
+
+            if pd.notna(raw_season_climate) and str(raw_season_climate).strip() != "":
+                row_season_climate = float(raw_season_climate)
+            else:
+                r_season = str(r.get("Season", "")).strip().capitalize()
+
+                row_season_name = (
+                    r_season
+                    if r_season in ["Spring", "Summer", "Fall", "Winter"]
+                    else season_name
+                )
+
+                row_season_num = {
+                    "Spring": 1,
+                    "Summer": 2,
+                    "Fall": 3,
+                    "Winter": 4
+                }.get(row_season_name, 1)
+
+                row_season_climate = (
+                    1.0
+                    if row_season_num == 1
+                    else float(f"{row_season_num}.{row_climate_id}")
+                )
 
             r_slope = str(r.get("Slope", "")).strip().replace("Ð", "–").replace("-", "–")
             row_slope_id = SMAF_SLOPE_MAP.get(r_slope, ui_slope_id) if r_slope and r_slope != "nan" else ui_slope_id
@@ -4787,11 +4878,32 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
                     batch.at[index, "Potentially Mineralizable Nitrogen Score"] = round(run_smaf_pmn_score(pmn_v, row_om_id, row_texture_id, row_climate_id, SMAF_DATA), 1)
 
             # 13. Microbial Biomass Carbon 
-            if "Microbial Biomass Carbon" in target_indicators and "mbc_mg_kg" in r and pd.notna(r["mbc_mg_kg"]):
-                mbc_v = safe_float(r["mbc_mg_kg"])
-                if mbc_v >= 0:
-                    batch.at[index, "Microbial Biomass Carbon Score"] = round(run_smaf_mbc_score(mbc_v, row_om_id, row_texture_id, row_season_climate, SMAF_DATA), 1)
+                        # 13. Microbial Biomass Carbon
+            # Accept either:
+            # - gSHAPE template column: mbc_mg_kg
+            # - Excel validation column: x_value
+            mbc_raw = r.get("mbc_mg_kg", np.nan)
 
+            if pd.isna(mbc_raw) or str(mbc_raw).strip() == "":
+                mbc_raw = r.get("x_value", np.nan)
+
+            if (
+                "Microbial Biomass Carbon" in target_indicators
+                and pd.notna(mbc_raw)
+            ):
+                mbc_v = safe_float(mbc_raw)
+
+                if mbc_v >= 0:
+                    batch.at[index, "Microbial Biomass Carbon Score"] = round(
+                        run_smaf_mbc_score(
+                            mbc_v,
+                            row_om_id,
+                            row_texture_id,
+                            row_season_climate,
+                            SMAF_DATA
+                        ),
+                        1
+                    )
             # 14. Beta-glucosidase 
             if "Beta-glucosidase" in target_indicators and "bg_mg_kg_hr" in r and pd.notna(r["bg_mg_kg_hr"]):
                 bg_v = safe_float(r["bg_mg_kg_hr"])

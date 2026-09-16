@@ -714,6 +714,7 @@ REGIONS = {
         "flag": "🇺🇸",
         "csv": "model_parameters.csv",
         "csv_hist": "histosol_parameters.csv",
+        "csv_bg": None,
         "has_histosol": True,
         "predictors": ["temp"],
         "taxon_display": FL_TAXON_DISPLAY,
@@ -734,6 +735,7 @@ REGIONS = {
         "flag": "🇧🇷",
         "csv": "model_parameters_brazil.csv",
         "csv_hist": None,
+        "csv_bg": "model_parameters_bg_brazil.csv",
         "has_histosol": False,
         "predictors": ["temp", "precip"],
         "taxon_display": BR_TAXON_DISPLAY,
@@ -760,6 +762,7 @@ REGIONS = {
         "flag": "🌍",
         "csv": "model_parameters_ethiopia.csv",
         "csv_hist": None,
+        "csv_bg": None,
         "has_histosol": False,
         "predictors": ["temp", "precip"],
         "taxon_display": ET_TAXON_DISPLAY,
@@ -807,6 +810,13 @@ def load_region_data(cfg):
     mineral = load_csv_safe(cfg["csv"], col_map=cfg.get("col_map"))
     hist = load_csv_safe(cfg["csv_hist"], col_map=cfg.get("col_map")) if cfg["csv_hist"] else None
     return mineral, hist
+
+@st.cache_data
+def load_bg_shape_data(csv_path, col_map=None):
+    """Load BG-SHAPE posterior parameter CSV, if it exists for this region."""
+    if not csv_path:
+        return None
+    return load_csv_safe(csv_path, col_map=col_map)
 
 @st.cache_data
 def load_smaf_lookup_dynamic(path):
@@ -2164,6 +2174,22 @@ def score_label(s):
 def percentile_to_oc(pct, lp_mean, sigma_val):
     return invlogit(norm.ppf(pct / 100, loc=lp_mean, scale=sigma_val)) * 100
 
+def compute_bg_shape_score(bg_val, lp_mean, sigma_val):
+    """Score BG via Bayesian log-normal CDF (mirrors SHAPE SOC but with log transform, not logit)."""
+    try:
+        if float(bg_val) <= 0:
+            return 0.0
+        return float(norm.cdf(_math.log(float(bg_val)), loc=lp_mean, scale=sigma_val) * 100)
+    except (TypeError, ValueError, OverflowError):
+        return 0.0
+
+def percentile_to_bg(pct, lp_mean, sigma_val):
+    """Return BG value (mg PNP kg⁻¹ hr⁻¹) at the given peer-group percentile."""
+    try:
+        return float(_math.exp(norm.ppf(pct / 100, loc=lp_mean, scale=sigma_val)))
+    except (TypeError, ValueError, OverflowError):
+        return 0.0
+
 def parse_code(display_str):
     return display_str.split("(")[1].replace(")", "")
 
@@ -2206,7 +2232,7 @@ def render_bulk_density_placeholder(region_name):
             st.slider("", 50, 99, 90, disabled=True, key=f"bd_pct_{region_name}")
         st.button("Calculate Bulk Density Score", disabled=True, key=f"bd_btn_{region_name}")
 
-def render_single_sample(region_name, cfg, df, df_hist):
+def render_single_sample(region_name, cfg, df, df_hist,bg_df=None):
     k = cfg["key"]
     has_precip = "precip" in cfg["predictors"]
 
@@ -2747,6 +2773,17 @@ def render_single_sample(region_name, cfg, df, df_hist):
     if "Beta-glucosidase" in target_indicators:
         bio_scores.append(safe_float(run_smaf_bg_score(bg_val_sum, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)))
 
+    if "BG-SHAPE" in target_indicators and bg_df is not None:
+    _bg_tax = parse_code(st.session_state.get(f"{k}_sub", cfg["taxon_display"][0]))
+    _bg_tex = cfg["texture_map"].get(st.session_state.get(f"{k}_tex", ""), "T1")
+    _bg_row = get_params_2d(bg_df, _bg_tax, _bg_tex,
+                            st.session_state.get(f"{k}_temp", cfg["temp_default"]),
+                            st.session_state.get(f"{k}_precip", cfg["precip_default"]))
+    if _bg_row is not None:
+        _lp_bg   = float(_bg_row["mean_lp"])
+        _sig_bg  = float(np.exp(_bg_row["mean_sigma"]))
+        bio_scores.append(safe_float(compute_bg_shape_score(bg_val_sum, _lp_bg, _sig_bg)))
+
    # ── DYNAMIC CATEGORY AVERAGING (Only includes categories with selected indicators) ──
     score_phys = sum(phys_scores) / len(phys_scores) if phys_scores else None
     score_chem = sum(chem_scores) / len(chem_scores) if chem_scores else None
@@ -2823,7 +2860,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
         "pH": "Chemical", "Soil Phosphorus": "Chemical", "Extractable Potassium": "Chemical",
         "Electrical Conductivity": "Chemical", "Sodium Adsorption Ratio": "Chemical",
         "Soil Organic Carbon": "Biological", "SMAF Soil Organic Carbon": "Biological", 
-        "Potentially Mineralizable Nitrogen": "Biological", "Microbial Biomass Carbon": "Biological","Beta-glucosidase": "Biological"
+        "Potentially Mineralizable Nitrogen": "Biological", "Microbial Biomass Carbon": "Biological","Beta-glucosidase": "Biological","BG-SHAPE": "Biological"
     }
     
     for ind in target_indicators:
@@ -2883,6 +2920,20 @@ def render_single_sample(region_name, cfg, df, df_hist):
         elif ind == "Beta-glucosidase":
             val = f"{bg_val_sum} mg/kg/hr"
             scr = run_smaf_bg_score(bg_val_sum, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)
+        elif ind == "BG-SHAPE":
+        # These three lines MUST be indented 4 spaces to the right of 'elif'
+            val = f"{bg_val_sum} mg/kg/hr"
+            scr = 0.0
+            if bg_df is not None:
+            # These are perfect exactly as you have them now!
+            _r = get_params_2d(bg_df, parse_code(st.session_state.get(f"{k}_sub", "")),
+                               cfg["texture_map"].get(st.session_state.get(f"{k}_tex", ""), "T1"),
+                               st.session_state.get(f"{k}_temp", cfg["temp_default"]),
+                               st.session_state.get(f"{k}_precip", cfg["precip_default"]))
+            
+            if _r is not None:
+                scr = compute_bg_shape_score(bg_val_sum, float(_r["mean_lp"]),
+                                             float(np.exp(_r["mean_sigma"])))
 
         elif ind == "Extractable Potassium":
             val = f"{k_val_sum} mg/kg"
@@ -3956,6 +4007,185 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
         st.info(f"**Score Tier: {bg_level}**\n\n{bg_rec}")
 
+    elif chosen_indicator == "BG-SHAPE":
+    if bg_df is None:
+        st.warning("BG-SHAPE parameter file not loaded for this region.")
+    else:
+        # ── 1. Parameter lookup ──
+        _bg_tax  = parse_code(selected_sub)
+        _bg_tex  = cfg["texture_map"][selected_tex]
+        _bg_row  = get_params_2d(bg_df, _bg_tax, _bg_tex, target_temp, target_precip)
+
+        if _bg_row is None:
+            st.error(f"No BG-SHAPE parameters found for {_bg_tax} · {_bg_tex} · "
+                     f"{target_temp}°C · {target_precip} mm. Check your CSV coverage.")
+        else:
+            lp_bg    = float(_bg_row["mean_lp"])
+            lp_lcl_bg = float(_bg_row["lcl_lp"])
+            lp_ucl_bg = float(_bg_row["ucl_lp"])
+            sigma_bg  = float(np.exp(_bg_row["mean_sigma"]))
+
+            score_bg   = compute_bg_shape_score(bg_val, lp_bg, sigma_bg)
+            color_bg   = score_color(score_bg)
+            label_bg   = score_label(score_bg)
+
+            target_pct_bg = st.session_state.get(f"{k}_target_pct", 90)
+            tgt_bg        = percentile_to_bg(target_pct_bg, lp_bg, sigma_bg)
+            median_bg     = percentile_to_bg(50,            lp_bg, sigma_bg)
+            plot_max_bg   = max(tgt_bg * 1.5, bg_val * 1.5, 800.0)
+
+            # ── 2. Layout ──
+            col_l, col_r = st.columns([1, 2])
+
+            with col_l:
+                gauge_title = (
+                    f"<b style='font-size:17px'>{label_bg}</b><br>"
+                    f"<span style='font-size:11px;color:gray'>"
+                    f"BG-SHAPE · {strip_code(selected_sub)} · {strip_code(selected_tex)} · "
+                    f"{target_temp:.1f}°C · {target_precip:.0f} mm · BG {bg_val} mg/kg/hr</span>"
+                )
+                fig_bg_gauge = go.Figure(go.Indicator(
+                    mode="gauge+number", value=int(round(score_bg)),
+                    title={"text": gauge_title, "font": {"size": 13}},
+                    number={"suffix": "/100", "font": {"size": 38, "color": color_bg}},
+                    gauge={
+                        "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray",
+                                 "tickvals": [0, 20, 40, 60, 80, 100]},
+                        "bar": {"color": color_bg, "thickness": 0.28},
+                        "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                        "steps": [
+                            {"range": [0,  20], "color": "rgba(215,48,39,0.35)"},
+                            {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
+                            {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
+                            {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
+                            {"range": [80,100], "color": "rgba(26,150,65,0.35)"},
+                        ],
+                        "threshold": {"line": {"color": color_bg, "width": 5},
+                                      "thickness": 0.8, "value": score_bg}
+                    }
+                ))
+                fig_bg_gauge.update_layout(
+                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                    height=260, margin=dict(l=20, r=20, t=80, b=10)
+                )
+                st.plotly_chart(fig_bg_gauge, use_container_width=True, key=f"{k}_bg_shape_gauge")
+
+                st.divider()
+                bg_gap = tgt_bg - bg_val
+                m1, m2 = st.columns(2)
+                with m1:
+                    st.metric("Peer Group Median",
+                              f"{median_bg:.1f} mg/kg/hr",
+                              f"{bg_val - median_bg:+.1f} difference")
+                with m2:
+                    st.metric(f"Target ({target_pct_bg}th pct)",
+                              f"{tgt_bg:.1f} mg/kg/hr",
+                              "✅ Exceeds target" if bg_gap <= 0 else f"-{bg_gap:.1f} needed")
+
+                st.divider()
+                st.markdown("**BG targets by percentile**")
+                bench_bg = pd.DataFrame({
+                    "Percentile": ["80th", "90th", "95th", "99th"],
+                    "Target BG (mg/kg/hr)": [
+                        f"{percentile_to_bg(p, lp_bg, sigma_bg):.1f}"
+                        for p in [80, 90, 95, 99]
+                    ]
+                })
+                st.dataframe(bench_bg, hide_index=True, use_container_width=True)
+
+                st.divider()
+                st.markdown("**📥 Export result**")
+                bg_export = pd.DataFrame([{
+                    "Region": region_name,
+                    "Suborder": strip_code(selected_sub),
+                    "Texture": strip_code(selected_tex),
+                    "Temperature_C": target_temp,
+                    "Precipitation_mm": target_precip,
+                    "BG_mg_kg_hr": bg_val,
+                    "BG_SHAPE_Score": round(score_bg, 2),
+                    "Zone": label_bg,
+                    f"Target_BG_{target_pct_bg}th_pct": round(tgt_bg, 2),
+                }])
+                st.download_button(
+                    "⬇️ Download as CSV",
+                    data=bg_export.to_csv(index=False).encode("utf-8"),
+                    file_name=f"gSHAPE_BG_{_bg_tax}_{_bg_tex}.csv",
+                    mime="text/csv", use_container_width=True,
+                    key=f"{k}_bg_shape_export"
+                )
+
+            with col_r:
+                st.markdown("#### Scoring Curve (BG-SHAPE)")
+                # Generate curve points
+                xs_bg = np.linspace(0.5, plot_max_bg, 400)  # must be > 0 for log()
+                y_mean_bg = [compute_bg_shape_score(xi, lp_bg,    sigma_bg) / 100 for xi in xs_bg]
+                y_lcl_bg  = [compute_bg_shape_score(xi, lp_lcl_bg, sigma_bg) / 100 for xi in xs_bg]
+                y_ucl_bg  = [compute_bg_shape_score(xi, lp_ucl_bg, sigma_bg) / 100 for xi in xs_bg]
+
+                fig_bg_cdf = go.Figure()
+                # 95% CI ribbon
+                fig_bg_cdf.add_trace(go.Scatter(
+                    x=np.concatenate([xs_bg, xs_bg[::-1]]),
+                    y=np.concatenate([y_ucl_bg, y_lcl_bg[::-1]]),
+                    fill="toself", fillcolor="rgba(26,150,65,0.18)",
+                    line=dict(color="rgba(0,0,0,0)"),
+                    name="95% Credible Interval", hoverinfo="skip"
+                ))
+                # Score curve
+                fig_bg_cdf.add_trace(go.Scatter(
+                    x=xs_bg, y=y_mean_bg, mode="lines",
+                    line=dict(color="#4C7A3F", width=2.5), name="Score Curve",
+                    hovertemplate="BG: %{x:.1f} mg/kg/hr<br>Score: %{y:.0%}<extra></extra>"
+                ))
+                # Zone lines
+                for zy, zl in [(0.20,"V.Low|Low"), (0.40,"Low|Med"),
+                               (0.60,"Med|High"), (0.80,"High|V.High")]:
+                    fig_bg_cdf.add_hline(y=zy, line_dash="dot",
+                                         line_color="rgba(150,150,150,0.5)",
+                                         annotation_text=zl, annotation_position="right")
+                # Your site
+                fig_bg_cdf.add_trace(go.Scatter(
+                    x=[bg_val], y=[score_bg / 100], mode="markers",
+                    marker=dict(color=color_bg, size=14, symbol="circle",
+                                line=dict(color="white", width=2)),
+                    name="Your Site",
+                    hovertemplate=f"BG: {bg_val} mg/kg/hr<br>Score: {score_bg:.0f}/100<extra></extra>"
+                ))
+                # Target marker
+                fig_bg_cdf.add_trace(go.Scatter(
+                    x=[tgt_bg], y=[target_pct_bg / 100], mode="markers",
+                    marker=dict(color="#0072B2", size=13, symbol="x-thin",
+                                line=dict(color="#0072B2", width=3)),
+                    name=f"Target ({target_pct_bg}th)",
+                    hovertemplate=f"Target<br>BG: {tgt_bg:.1f} mg/kg/hr<extra></extra>"
+                ))
+                fig_bg_cdf.update_layout(
+                    xaxis_title="Beta-glucosidase (mg PNP kg⁻¹ hr⁻¹)",
+                    yaxis_title="SHAPE Score",
+                    yaxis=dict(range=[0, 1], tickformat=".0%"),
+                    xaxis=dict(range=[0, plot_max_bg]),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                    height=400, margin=dict(l=10, r=10, t=40, b=10)
+                )
+                fig_bg_cdf.update_xaxes(gridcolor="rgba(150,150,150,0.1)")
+                fig_bg_cdf.update_yaxes(gridcolor="rgba(150,150,150,0.1)")
+                st.plotly_chart(fig_bg_cdf, use_container_width=True, key=f"{k}_bg_shape_curve")
+
+            # ── 3. Recommendations ──
+            st.divider()
+            st.markdown("### 📋 Agronomic Recommendations")
+            if score_bg >= 80:
+                st.success("**Score Tier: Very High**\n\nYour soil exhibits very high beta-glucosidase activity relative to comparable Brazilian soils under similar climate conditions, indicating a highly active soil carbon cycle. Continue minimal soil disturbance practices and maintain diverse crop rotations and continuous residue cover.")
+            elif score_bg >= 60:
+                st.success("**Score Tier: High**\n\nBeta-glucosidase activity is above the peer-group median, reflecting healthy soil organic matter turnover. Maintain current organic matter inputs and residue management to sustain biological function.")
+            elif score_bg >= 40:
+                st.warning("**Score Tier: Medium**\n\nYour beta-glucosidase activity is near the peer-group median. Incorporating high-biomass cover crops or compost applications can stimulate enzyme production and improve the biological carbon cycle.")
+            elif score_bg >= 20:
+                st.error("**Score Tier: Low**\n\nBelow-median beta-glucosidase activity suggests constrained carbon decomposition and reduced biological function. Prioritize practices that increase organic carbon inputs and reduce tillage intensity to rebuild the soil enzyme pool.")
+            else:
+                st.error("**Score Tier: Very Low**\n\nSeverely degraded enzyme activity indicates a critically depleted soil biological system. Immediate intervention with diverse organic amendments, cover cropping, and elimination of bare-fallow periods is recommended. Consult a local agronomist for a site-specific rehabilitation plan.")
+
     elif chosen_indicator == "SMAF Soil Organic Carbon":
         # 1. Grab Global Variables
         texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
@@ -4475,7 +4705,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
                        "https://scholar.google.com/scholar?q=soil+organic+carbon+soil+health",
                        width='stretch')
 
-def render_batch_scoring(region_name, cfg, df, df_hist):
+def render_batch_scoring(region_name, cfg, df, df_hist,bg_df=None):
     k = cfg["key"]
     has_precip = "precip" in cfg["predictors"]
     target_indicators = st.session_state.get("target_indicators", [])
@@ -5293,6 +5523,22 @@ def render_performance_diagnostics(region_name, cfg, df):
 def render_region(region_name, cfg):
     mineral_df, hist_df = load_region_data(cfg)
 
+    bg_df = load_bg_shape_data(cfg.get("csv_bg"), col_map=cfg.get("col_map"))
+
+    if mineral_df is None and region_name != "Global_SMAF":
+        st.error(f"⚠️ Parameter file '{cfg['csv']}' not found.")
+        return
+
+    tab_single, tab_batch, tab_use = st.tabs(["🔬 Single Sample", "📊 Batch Scoring", "📖 How to Use"])
+
+    with tab_single:
+        render_single_sample(region_name, cfg, mineral_df, hist_df, bg_df=bg_df)  # ← add bg_df
+    with tab_batch:
+        render_batch_scoring(region_name, cfg, mineral_df, hist_df, bg_df=bg_df)  # ← add bg_df
+    with tab_use:
+        render_how_to_use(region_name, cfg)
+
+
     if mineral_df is None and region_name != "Global_SMAF":
         st.error(f"⚠️ Parameter file '{cfg['csv']}' not found. Upload it to your deployment "
                  f"to activate scoring for {region_name}.")
@@ -5370,7 +5616,6 @@ if "Global_SMAF" not in REGIONS:
 active_cfg = REGIONS[active_region_name]
 
 # ── DYNAMIC INDICATOR FILTER ──
-# ── DYNAMIC INDICATOR FILTER ──
 st.markdown("### Target Soil Health Indicators")
 chk_c1, chk_c2, chk_c3 = st.columns(3)
 target_indicators = []
@@ -5418,8 +5663,18 @@ with chk_c3:
         if smaf_active: target_indicators.append("Potentially Mineralizable Nitrogen")
     if st.checkbox("Microbial Biomass Carbon", value=False, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("Microbial Biomass Carbon")
-    if st.checkbox("Beta-glucosidase", value=False, disabled=not smaf_active): 
-        if smaf_active: target_indicators.append("Beta-glucosidase")
+    bg_shape_available = (
+        active_region_name == "Brazil" and
+        selected_framework == "SHAPE + SMAF" and
+        bg_df is not None
+    )
+    if bg_shape_available:
+        if st.checkbox("Beta-glucosidase (BG-SHAPE) 🌿", value=False,
+                       help="Bayesian peer-group scoring for Brazil — replaces SMAF BG when SHAPE + SMAF is selected."):
+            target_indicators.append("BG-SHAPE")
+    else:
+        if st.checkbox("Beta-glucosidase", value=False):
+            target_indicators.append("Beta-glucosidase")
         
 if len(target_indicators) == 0:
     st.warning("⚠️ Please select all the indicators you want to score.")
@@ -5476,6 +5731,15 @@ if has_wfps or has_k:
 if has_beta_g:
     st.markdown("**SMAF Beta-glucosidase:**")
     st.markdown("- Stott, D. E., Andrews, S. S., Liebig, M. A., Wienhold, B. J., & Karlen, D. L. (2010). Evaluation of β-glucosidase activity as a soil quality indicator for the soil management assessment framework. *Soil Sci. Soc. Am. J.*, 74, 107-119. [https://doi.org/10.2136/sssaj2009.0029](https://acsess.onlinelibrary.wiley.com/doi/full/10.2136/sssaj2009.0029)")
+
+# Add this condition alongside the existing SHAPE SOC citation block
+has_bg_shape = "BG-SHAPE" in target_indicators and active_region_name == "Brazil"
+
+if has_bg_shape:
+    st.markdown("**SHAPE Beta-glucosidase (Brazil):**")
+    st.markdown(
+        "- [CITATION NEEDED: Nunes et al. or co-authors — BG-SHAPE Brazil model paper. "
+    )
 
 # ════════════════════════════════════════════════════════════════════
 # FOOTER

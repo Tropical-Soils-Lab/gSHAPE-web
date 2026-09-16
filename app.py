@@ -5774,48 +5774,82 @@ def render_performance_diagnostics(region_name, cfg, df):
         progress.empty()
 
 def render_region(region_name, cfg):
+    # ── Load region parameter data ──
     mineral_df, hist_df = load_region_data(cfg)
 
-    bg_df = load_bg_shape_data(cfg.get("csv_bg"), col_map=cfg.get("col_map"))
+    # ── Load BG-SHAPE parameters if available for this region ──
+    bg_df = load_bg_shape_data(
+        cfg.get("csv_bg"),
+        col_map=cfg.get("col_map")
+    )
 
+    # ── Check required parameter file ──
     if mineral_df is None and region_name != "Global_SMAF":
-        st.error(f"⚠️ Parameter file '{cfg['csv']}' not found.")
+        st.error(
+            f"⚠️ Parameter file '{cfg['csv']}' not found. "
+            f"Upload it to your deployment to activate scoring for "
+            f"{region_name}."
+        )
         return
 
-    tab_single, tab_batch, tab_use = st.tabs(["🔬 Single Sample", "📊 Batch Scoring", "📖 How to Use"])
+    # ════════════════════════════════════════════════════════════════
+    # REGION TABS
+    # ════════════════════════════════════════════════════════════════
 
+    tab_single, tab_batch, tab_use, tab_diag = st.tabs([
+        "🔬 Single Sample",
+        "📊 Batch Scoring",
+        "📖 How to Use",
+        "⏱️ Diagnostics"
+    ])
+
+    # ── 1. Single Sample ──
     with tab_single:
-        render_single_sample(region_name, cfg, mineral_df, hist_df, bg_df=bg_df)  # ← add bg_df
+        render_single_sample(
+            region_name,
+            cfg,
+            mineral_df,
+            hist_df,
+            bg_df=bg_df
+        )
+
+    # ── 2. Batch Scoring ──
     with tab_batch:
-        render_batch_scoring(region_name, cfg, mineral_df, hist_df, bg_df=bg_df)  # ← add bg_df
-    with tab_use:
-        render_how_to_use(region_name, cfg)
 
-
-    if mineral_df is None and region_name != "Global_SMAF":
-        st.error(f"⚠️ Parameter file '{cfg['csv']}' not found. Upload it to your deployment "
-                 f"to activate scoring for {region_name}.")
-        return
-    # 1. Standard sub-tabs setup
-    tab_single, tab_batch, tab_use, tab_diag = st.tabs(["🔬 Single Sample", "📊 Batch Scoring", "📖 How to Use", "⏱️ Diagnostics"])
-
-    # 2. Render Single Sample View
-    with tab_single:
-        render_single_sample(region_name, cfg, mineral_df, hist_df)
-
-    # 3. Render Batch View
-    with tab_batch:
         # Dynamically list ALL selected indicators
-        active_inds = st.session_state.get("target_indicators", [])
-        if active_inds:
-            st.markdown(f"**Active Indicators:** `{', '.join(active_inds)}`")
-        
-        render_batch_scoring(region_name, cfg, mineral_df, hist_df)
+        active_inds = st.session_state.get(
+            "target_indicators",
+            []
+        )
 
-    # 4. Render How to Use View
-    # 5. Render Diagnostics View
+        if active_inds:
+            st.markdown(
+                f"**Active Indicators:** "
+                f"`{', '.join(active_inds)}`"
+            )
+
+        render_batch_scoring(
+            region_name,
+            cfg,
+            mineral_df,
+            hist_df,
+            bg_df=bg_df
+        )
+
+    # ── 3. How to Use ──
+    with tab_use:
+        render_how_to_use(
+            region_name,
+            cfg
+        )
+
+    # ── 4. Diagnostics ──
     with tab_diag:
-        render_performance_diagnostics(region_name, cfg, mineral_df)
+        render_performance_diagnostics(
+            region_name,
+            cfg,
+            mineral_df
+        )
 
 # ════════════════════════════════════════════════════════════════════
 # 9. GLOBAL ROUTING ENGINE (Replaces Region Tabs)

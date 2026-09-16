@@ -2520,7 +2520,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
         
     if "Available Water Capacity" in target_indicators:
         awc_region_sum = st.session_state.get(f"{k}_awc_region", 2)
-        phys_scores.append(safe_float(run_smaf_awc_score(awc_val_sum, awc_region_sum, texture_id_sum, om_id_sum, SMAF_DATA)))
+        phys_scores.append(safe_float(run_smaf_awc_score(awc_val_sum, awc_region_sum, texture_id_sum, om_id_sum)))
         
     if "Water-Filled Pore Space" in target_indicators:
         wfps_scores_sum = run_smaf_wfps_score(wfps_frac_sum, texture_id_sum, SMAF_DATA)

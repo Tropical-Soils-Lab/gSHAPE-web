@@ -1749,7 +1749,30 @@ def run_smaf_mbc_score(mbc_val, om_class, texture, season_climate, smaf_data, cl
     base_season = int(math.floor(sc_key))
     
     # Checks for exact decimal (2.3), then base integer (2), then defaults to 1.0
-    c3 = sc_dict.get(sc_key) or sc_dict.get(str(sc_key)) or sc_dict.get(base_season) or sc_dict.get(str(base_season)) or 1.0
+    mbc_c3_reference = {
+        1.0: 1.000,
+        2.1: 0.920,
+        2.2: 0.930,
+        2.3: 0.940,
+        2.4: 0.950,
+        3.1: 0.980,
+        3.2: 0.975,
+        3.3: 0.970,
+        3.4: 0.965,
+        4.1: 0.880,
+        4.2: 0.900,
+        4.3: 0.920,
+        4.4: 0.940,
+    }
+
+    c3 = (
+        sc_dict.get(sc_key)
+        or sc_dict.get(str(sc_key))
+        or mbc_c3_reference.get(sc_key)
+        or sc_dict.get(base_season)
+        or sc_dict.get(str(base_season))
+        or 1.0
+    )
     
     c = float(c1) * float(c2) * float(c3)
     

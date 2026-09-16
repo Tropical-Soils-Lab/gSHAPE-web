@@ -2676,19 +2676,30 @@ def render_single_sample(region_name, cfg, df, df_hist):
         phys_scores.append(safe_float(run_smaf_agg_score(agg_val_sum, om_id_sum, texture_id_sum, fe_id_sum, SMAF_DATA)))
         
     if "Available Water Capacity" in target_indicators:
-        awc_region_sum = st.session_state.get(f"{k}_awc_region", 2)
-        phys_scores.append(
-    safe_float(
-        run_smaf_awc_score(
-            awc_val_sum,
-            awc_region_sum,
-            texture_id_sum,
-            om_id_sum,
-            SMAF_DATA,
-            clamp=False
+    awc_region_choice = st.session_state.get(
+        f"{k}_awc_region_choice",
+        "Auto-assigned"
+    )
+
+    if awc_region_choice == "Region 1 — Arid":
+        awc_region_sum = 1
+    elif awc_region_choice == "Region 2 — Humid":
+        awc_region_sum = 2
+    else:
+        awc_region_sum = 2 if target_precip is None or target_precip >= 600 else 1
+
+    phys_scores.append(
+        safe_float(
+            run_smaf_awc_score(
+                awc_val_sum,
+                awc_region_sum,
+                texture_id_sum,
+                om_id_sum,
+                SMAF_DATA,
+                clamp=False
+            )
         )
     )
-)
         
     if "Water-Filled Pore Space" in target_indicators:
         wfps_scores_sum = run_smaf_wfps_score(wfps_frac_sum, texture_id_sum, SMAF_DATA)
@@ -4775,7 +4786,17 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             if "Available Water Capacity" in target_indicators and "awc_g_g" in r and pd.notna(r["awc_g_g"]):
                 awc_v = safe_float(r["awc_g_g"])
                 if awc_v >= 0:
-                    batch.at[index, "Available Water Capacity Score"] = round(run_smaf_awc_score(awc_v, row_awc_region, row_texture_id, row_om_id, SMAF_DATA), 1)
+                    batch.at[index, "Available Water Capacity Score"] = round(
+    run_smaf_awc_score(
+        awc_v,
+        st.session_state.get(f"{k}_awc_region", 2),
+        row_texture_id,
+        row_om_id,
+        SMAF_DATA,
+        clamp=False
+    ),
+    1
+)
 
             # 11. Water-Filled Pore Space 
             if "Water-Filled Pore Space" in target_indicators and "wfps_frac" in r and pd.notna(r["wfps_frac"]):

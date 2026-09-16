@@ -2338,7 +2338,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
                     auto_awc_region = 2
 
                 awc_region_options = {
-                    "Auto-assigned": auto_awc_region,
                     "Region 1 — Arid": 1,
                     "Region 2 — Humid": 2
                 }
@@ -2527,29 +2526,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
     if missing_labs:
         st.info(f"🧪 **Pending Lab Results:** Please enter values for **{', '.join(missing_labs)}** to calculate your scores.")
         return  # ✨ Changed from st.stop() to return!
-    # ----------------------------------------------------------------------
-# AWC REGION ASSIGNMENT
-# Region 1 = Arid modified Michaelis-Menten curve
-# Region 2 = Humid sinusoidal curve
-# ----------------------------------------------------------------------
 
-    # ------------------------------------------------------------------
-    # AWC REGION ASSIGNMENT
-    # Region 1 = Arid modified Michaelis-Menten curve
-    # Region 2 = Humid sinusoidal curve
-    # ------------------------------------------------------------------
-
-    if target_precip is None:
-        awc_region_id = 2
-        awc_region_label = "Region 2 — Humid (Florida default)"
-
-    elif float(target_precip) < 600.0:
-        awc_region_id = 1
-        awc_region_label = "Region 1 — Arid (MAP < 600 mm)"
-
-    else:
-        awc_region_id = 2
-        awc_region_label = "Region 2 — Humid (MAP ≥ 600 mm)"
 
     # Save numeric code for the AWC scoring function.
     st.session_state[f"{k}_awc_region"] = awc_region_id
@@ -4534,6 +4511,8 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
         template_cols["Texture"] = ["Sandy Loam (>8% clay) / Sandy Clay Loam / Loam"] * 3
     if any(ind in target_indicators for ind in ["Macroaggregate Stability", "Available Water Capacity", "Potentially Mineralizable Nitrogen", "Microbial Biomass Carbon", "Beta-glucosidase", "SMAF Soil Organic Carbon"]):
         template_cols["OM_Class"] = ["Class 2 (Med-High OM)"] * 3
+    if "Available Water Capacity" in target_indicators:
+    template_cols["AWC_Region"] = ["Region 1 — Arid"] * 3
     if any(ind in target_indicators for ind in ["pH", "Soil Phosphorus", "Electrical Conductivity"]):
         template_cols["Crop"] = ["Soybean"] * 3
     if "Soil Phosphorus" in target_indicators:
@@ -4599,6 +4578,9 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             if "OM_Class" in template.columns:
                 st.markdown("**OM_Class:**")
                 st.code('\n'.join(list(SMAF_OM_MAP.keys())), language="text")
+            if "AWC_Region" in template.columns:
+                st.markdown("**AWC_Region:**")
+                st.code("Region 1 — Arid\nRegion 2 — Humid",language="text")
             if "Climate_Class" in template.columns:
                 st.markdown("**Climate_Class:**")
                 st.code('\n'.join(list(SMAF_CLIMATE_MAP.keys())), language="text")
@@ -4682,6 +4664,9 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             
             r_om = str(r.get("OM_Class", "")).strip()
             row_om_id = SMAF_OM_MAP.get(r_om, ui_om_id) if r_om and r_om != "nan" else ui_om_id
+
+            r_awc_region = str(r.get("AWC_Region", "")).strip()
+            row_awc_region = {"Region 1 — Arid": 1, "Region 2 — Humid": 2}.get(r_awc_region)
 
             r_crop = str(r.get("Crop", "")).strip().lower()
             row_crop_id = SMAF_DATA.get("crop_ui_map", {}).get(r_crop, ui_crop_id) if r_crop and r_crop != "nan" else ui_crop_id
@@ -4784,20 +4769,20 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
 
             # 10. Available Water Capacity 
             if "Available Water Capacity" in target_indicators and "awc_g_g" in r and pd.notna(r["awc_g_g"]):
-                awc_v = safe_float(r["awc_g_g"])
-                if awc_v >= 0:
-                    batch.at[index, "Available Water Capacity Score"] = round(
-    run_smaf_awc_score(
-        awc_v,
-        st.session_state.get(f"{k}_awc_region", 2),
-        row_texture_id,
-        row_om_id,
-        SMAF_DATA,
-        clamp=False
-    ),
-    1
-)
+    awc_v = safe_float(r["awc_g_g"])
 
+    if awc_v >= 0 and row_awc_region is not None:
+        batch.at[index, "Available Water Capacity Score"] = round(
+            run_smaf_awc_score(
+                awc_v,
+                row_awc_region,
+                row_texture_id,
+                row_om_id,
+                SMAF_DATA,
+                clamp=False
+            ),
+            1
+        )
             # 11. Water-Filled Pore Space 
             if "Water-Filled Pore Space" in target_indicators and "wfps_frac" in r and pd.notna(r["wfps_frac"]):
                 wfps_v = safe_float(r["wfps_frac"])

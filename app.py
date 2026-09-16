@@ -4578,7 +4578,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
                 st.code('\n'.join(list(SMAF_MINERALOGY_MAP.keys())), language="text")
             if "Fe2O3_Class" in template.columns:
                 st.markdown("**Fe2O3_Class:**")
-                st.code("(High Iron-Oxide)\nAll Other Soil Orders",language="text")
+                st.code("High Iron-Oxide\nAll Other Soil Orders",language="text")
             if "P_Method" in template.columns:
                 st.markdown("**P_Method:**")
                 st.code('\n'.join(list(SMAF_METHOD_MAP.keys())), language="text")

@@ -4767,22 +4767,21 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
                 if agg_v >= 0:
                     batch.at[index, "Macroaggregate Stability Score"] = round(run_smaf_agg_score(agg_v, row_om_id, row_texture_id, row_fe_id, SMAF_DATA), 1)
 
-            # 10. Available Water Capacity 
             if "Available Water Capacity" in target_indicators and "awc_g_g" in r and pd.notna(r["awc_g_g"]):
-    awc_v = safe_float(r["awc_g_g"])
+                awc_v = safe_float(r["awc_g_g"])
 
-    if awc_v >= 0 and row_awc_region is not None:
-        batch.at[index, "Available Water Capacity Score"] = round(
-            run_smaf_awc_score(
-                awc_v,
-                row_awc_region,
-                row_texture_id,
-                row_om_id,
-                SMAF_DATA,
-                clamp=False
-            ),
-            1
-        )
+                if awc_v >= 0 and row_awc_region is not None:
+                    batch.at[index, "Available Water Capacity Score"] = round(
+                        run_smaf_awc_score(
+                            awc_v,
+                            row_awc_region,
+                            row_texture_id,
+                            row_om_id,
+                            SMAF_DATA,
+                            clamp=False
+                        ),
+                        1
+                    )
             # 11. Water-Filled Pore Space 
             if "Water-Filled Pore Space" in target_indicators and "wfps_frac" in r and pd.notna(r["wfps_frac"]):
                 wfps_v = safe_float(r["wfps_frac"])

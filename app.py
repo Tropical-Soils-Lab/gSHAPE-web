@@ -4007,170 +4007,423 @@ def render_single_sample(region_name, cfg, df, df_hist,bg_df=None):
 
         st.info(f"**Score Tier: {bg_level}**\n\n{bg_rec}")
 
-    elif chosen_indicator == "BG-SHAPE":
-    if bg_df is None:
-        st.warning("BG-SHAPE parameter file not loaded for this region.")
-    else:
-        # ── 1. Parameter lookup ──
-        _bg_tax  = parse_code(selected_sub)
-        _bg_tex  = cfg["texture_map"][selected_tex]
-        _bg_row  = get_params_2d(bg_df, _bg_tax, _bg_tex, target_temp, target_precip)
+        elif chosen_indicator == "BG-SHAPE":
+        if bg_df is None:
+            st.warning("BG-SHAPE parameter file not loaded for this region.")
 
-        if _bg_row is None:
-            st.error(f"No BG-SHAPE parameters found for {_bg_tax} · {_bg_tex} · "
-                     f"{target_temp}°C · {target_precip} mm. Check your CSV coverage.")
         else:
-            lp_bg    = float(_bg_row["mean_lp"])
-            lp_lcl_bg = float(_bg_row["lcl_lp"])
-            lp_ucl_bg = float(_bg_row["ucl_lp"])
-            sigma_bg  = float(np.exp(_bg_row["mean_sigma"]))
+            # ── 1. Parameter lookup ──
+            _bg_tax = parse_code(selected_sub)
+            _bg_tex = cfg["texture_map"][selected_tex]
+            _bg_row = get_params_2d(
+                bg_df,
+                _bg_tax,
+                _bg_tex,
+                target_temp,
+                target_precip
+            )
 
-            score_bg   = compute_bg_shape_score(bg_val, lp_bg, sigma_bg)
-            color_bg   = score_color(score_bg)
-            label_bg   = score_label(score_bg)
-
-            target_pct_bg = st.session_state.get(f"{k}_target_pct", 90)
-            tgt_bg        = percentile_to_bg(target_pct_bg, lp_bg, sigma_bg)
-            median_bg     = percentile_to_bg(50,            lp_bg, sigma_bg)
-            plot_max_bg   = max(tgt_bg * 1.5, bg_val * 1.5, 800.0)
-
-            # ── 2. Layout ──
-            col_l, col_r = st.columns([1, 2])
-
-            with col_l:
-                gauge_title = (
-                    f"<b style='font-size:17px'>{label_bg}</b><br>"
-                    f"<span style='font-size:11px;color:gray'>"
-                    f"BG-SHAPE · {strip_code(selected_sub)} · {strip_code(selected_tex)} · "
-                    f"{target_temp:.1f}°C · {target_precip:.0f} mm · BG {bg_val} mg/kg/hr</span>"
+            if _bg_row is None:
+                st.error(
+                    f"No BG-SHAPE parameters found for {_bg_tax} · {_bg_tex} · "
+                    f"{target_temp}°C · {target_precip} mm. Check your CSV coverage."
                 )
-                fig_bg_gauge = go.Figure(go.Indicator(
-                    mode="gauge+number", value=int(round(score_bg)),
-                    title={"text": gauge_title, "font": {"size": 13}},
-                    number={"suffix": "/100", "font": {"size": 38, "color": color_bg}},
-                    gauge={
-                        "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray",
-                                 "tickvals": [0, 20, 40, 60, 80, 100]},
-                        "bar": {"color": color_bg, "thickness": 0.28},
-                        "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
-                        "steps": [
-                            {"range": [0,  20], "color": "rgba(215,48,39,0.35)"},
-                            {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
-                            {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
-                            {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
-                            {"range": [80,100], "color": "rgba(26,150,65,0.35)"},
+
+            else:
+                lp_bg = float(_bg_row["mean_lp"])
+                lp_lcl_bg = float(_bg_row["lcl_lp"])
+                lp_ucl_bg = float(_bg_row["ucl_lp"])
+                sigma_bg = float(np.exp(_bg_row["mean_sigma"]))
+
+                score_bg = compute_bg_shape_score(
+                    bg_val,
+                    lp_bg,
+                    sigma_bg
+                )
+                color_bg = score_color(score_bg)
+                label_bg = score_label(score_bg)
+
+                target_pct_bg = st.session_state.get(
+                    f"{k}_target_pct",
+                    90
+                )
+
+                tgt_bg = percentile_to_bg(
+                    target_pct_bg,
+                    lp_bg,
+                    sigma_bg
+                )
+
+                median_bg = percentile_to_bg(
+                    50,
+                    lp_bg,
+                    sigma_bg
+                )
+
+                plot_max_bg = max(
+                    tgt_bg * 1.5,
+                    bg_val * 1.5,
+                    800.0
+                )
+
+                # ── 2. Layout ──
+                col_l, col_r = st.columns([1, 2])
+
+                with col_l:
+                    gauge_title = (
+                        f"<b style='font-size:17px'>{label_bg}</b><br>"
+                        f"<span style='font-size:11px;color:gray'>"
+                        f"BG-SHAPE · {strip_code(selected_sub)} · "
+                        f"{strip_code(selected_tex)} · "
+                        f"{target_temp:.1f}°C · "
+                        f"{target_precip:.0f} mm · "
+                        f"BG {bg_val} mg/kg/hr"
+                        f"</span>"
+                    )
+
+                    fig_bg_gauge = go.Figure(
+                        go.Indicator(
+                            mode="gauge+number",
+                            value=int(round(score_bg)),
+                            title={
+                                "text": gauge_title,
+                                "font": {"size": 13}
+                            },
+                            number={
+                                "suffix": "/100",
+                                "font": {
+                                    "size": 38,
+                                    "color": color_bg
+                                }
+                            },
+                            gauge={
+                                "axis": {
+                                    "range": [0, 100],
+                                    "tickwidth": 1,
+                                    "tickcolor": "gray",
+                                    "tickvals": [
+                                        0, 20, 40, 60, 80, 100
+                                    ]
+                                },
+                                "bar": {
+                                    "color": color_bg,
+                                    "thickness": 0.28
+                                },
+                                "bgcolor": "rgba(0,0,0,0)",
+                                "borderwidth": 0,
+                                "steps": [
+                                    {
+                                        "range": [0, 20],
+                                        "color": "rgba(215,48,39,0.35)"
+                                    },
+                                    {
+                                        "range": [20, 40],
+                                        "color": "rgba(244,109,67,0.35)"
+                                    },
+                                    {
+                                        "range": [40, 60],
+                                        "color": "rgba(255,193,7,0.35)"
+                                    },
+                                    {
+                                        "range": [60, 80],
+                                        "color": "rgba(119,195,92,0.35)"
+                                    },
+                                    {
+                                        "range": [80, 100],
+                                        "color": "rgba(26,150,65,0.35)"
+                                    }
+                                ],
+                                "threshold": {
+                                    "line": {
+                                        "color": color_bg,
+                                        "width": 5
+                                    },
+                                    "thickness": 0.8,
+                                    "value": score_bg
+                                }
+                            }
+                        )
+                    )
+
+                    fig_bg_gauge.update_layout(
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        height=260,
+                        margin=dict(
+                            l=20,
+                            r=20,
+                            t=80,
+                            b=10
+                        )
+                    )
+
+                    st.plotly_chart(
+                        fig_bg_gauge,
+                        use_container_width=True,
+                        key=f"{k}_bg_shape_gauge"
+                    )
+
+                    st.divider()
+
+                    bg_gap = tgt_bg - bg_val
+
+                    m1, m2 = st.columns(2)
+
+                    with m1:
+                        st.metric(
+                            "Peer Group Median",
+                            f"{median_bg:.1f} mg/kg/hr",
+                            f"{bg_val - median_bg:+.1f} difference"
+                        )
+
+                    with m2:
+                        st.metric(
+                            f"Target ({target_pct_bg}th pct)",
+                            f"{tgt_bg:.1f} mg/kg/hr",
+                            "✅ Exceeds target"
+                            if bg_gap <= 0
+                            else f"-{bg_gap:.1f} needed"
+                        )
+
+                    st.divider()
+
+                    st.markdown("**BG targets by percentile**")
+
+                    bench_bg = pd.DataFrame({
+                        "Percentile": [
+                            "80th",
+                            "90th",
+                            "95th",
+                            "99th"
                         ],
-                        "threshold": {"line": {"color": color_bg, "width": 5},
-                                      "thickness": 0.8, "value": score_bg}
-                    }
-                ))
-                fig_bg_gauge.update_layout(
-                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                    height=260, margin=dict(l=20, r=20, t=80, b=10)
-                )
-                st.plotly_chart(fig_bg_gauge, use_container_width=True, key=f"{k}_bg_shape_gauge")
+                        "Target BG (mg/kg/hr)": [
+                            f"{percentile_to_bg(p, lp_bg, sigma_bg):.1f}"
+                            for p in [80, 90, 95, 99]
+                        ]
+                    })
 
-                st.divider()
-                bg_gap = tgt_bg - bg_val
-                m1, m2 = st.columns(2)
-                with m1:
-                    st.metric("Peer Group Median",
-                              f"{median_bg:.1f} mg/kg/hr",
-                              f"{bg_val - median_bg:+.1f} difference")
-                with m2:
-                    st.metric(f"Target ({target_pct_bg}th pct)",
-                              f"{tgt_bg:.1f} mg/kg/hr",
-                              "✅ Exceeds target" if bg_gap <= 0 else f"-{bg_gap:.1f} needed")
+                    st.dataframe(
+                        bench_bg,
+                        hide_index=True,
+                        use_container_width=True
+                    )
 
-                st.divider()
-                st.markdown("**BG targets by percentile**")
-                bench_bg = pd.DataFrame({
-                    "Percentile": ["80th", "90th", "95th", "99th"],
-                    "Target BG (mg/kg/hr)": [
-                        f"{percentile_to_bg(p, lp_bg, sigma_bg):.1f}"
-                        for p in [80, 90, 95, 99]
+                    st.divider()
+
+                    st.markdown("**📥 Export result**")
+
+                    bg_export = pd.DataFrame([{
+                        "Region": region_name,
+                        "Suborder": strip_code(selected_sub),
+                        "Texture": strip_code(selected_tex),
+                        "Temperature_C": target_temp,
+                        "Precipitation_mm": target_precip,
+                        "BG_mg_kg_hr": bg_val,
+                        "BG_SHAPE_Score": round(score_bg, 2),
+                        "Zone": label_bg,
+                        f"Target_BG_{target_pct_bg}th_pct": round(
+                            tgt_bg,
+                            2
+                        ),
+                    }])
+
+                    st.download_button(
+                        "⬇️ Download as CSV",
+                        data=bg_export.to_csv(
+                            index=False
+                        ).encode("utf-8"),
+                        file_name=(
+                            f"gSHAPE_BG_{_bg_tax}_{_bg_tex}.csv"
+                        ),
+                        mime="text/csv",
+                        use_container_width=True,
+                        key=f"{k}_bg_shape_export"
+                    )
+
+                with col_r:
+                    st.markdown("#### Scoring Curve (BG-SHAPE)")
+
+                    # Generate curve points
+                    xs_bg = np.linspace(
+                        0.5,
+                        plot_max_bg,
+                        400
+                    )
+
+                    y_mean_bg = [
+                        compute_bg_shape_score(
+                            xi,
+                            lp_bg,
+                            sigma_bg
+                        ) / 100
+                        for xi in xs_bg
                     ]
-                })
-                st.dataframe(bench_bg, hide_index=True, use_container_width=True)
 
-                st.divider()
-                st.markdown("**📥 Export result**")
-                bg_export = pd.DataFrame([{
-                    "Region": region_name,
-                    "Suborder": strip_code(selected_sub),
-                    "Texture": strip_code(selected_tex),
-                    "Temperature_C": target_temp,
-                    "Precipitation_mm": target_precip,
-                    "BG_mg_kg_hr": bg_val,
-                    "BG_SHAPE_Score": round(score_bg, 2),
-                    "Zone": label_bg,
-                    f"Target_BG_{target_pct_bg}th_pct": round(tgt_bg, 2),
-                }])
-                st.download_button(
-                    "⬇️ Download as CSV",
-                    data=bg_export.to_csv(index=False).encode("utf-8"),
-                    file_name=f"gSHAPE_BG_{_bg_tax}_{_bg_tex}.csv",
-                    mime="text/csv", use_container_width=True,
-                    key=f"{k}_bg_shape_export"
-                )
+                    y_lcl_bg = [
+                        compute_bg_shape_score(
+                            xi,
+                            lp_lcl_bg,
+                            sigma_bg
+                        ) / 100
+                        for xi in xs_bg
+                    ]
 
-            with col_r:
-                st.markdown("#### Scoring Curve (BG-SHAPE)")
-                # Generate curve points
-                xs_bg = np.linspace(0.5, plot_max_bg, 400)  # must be > 0 for log()
-                y_mean_bg = [compute_bg_shape_score(xi, lp_bg,    sigma_bg) / 100 for xi in xs_bg]
-                y_lcl_bg  = [compute_bg_shape_score(xi, lp_lcl_bg, sigma_bg) / 100 for xi in xs_bg]
-                y_ucl_bg  = [compute_bg_shape_score(xi, lp_ucl_bg, sigma_bg) / 100 for xi in xs_bg]
+                    y_ucl_bg = [
+                        compute_bg_shape_score(
+                            xi,
+                            lp_ucl_bg,
+                            sigma_bg
+                        ) / 100
+                        for xi in xs_bg
+                    ]
 
-                fig_bg_cdf = go.Figure()
-                # 95% CI ribbon
-                fig_bg_cdf.add_trace(go.Scatter(
-                    x=np.concatenate([xs_bg, xs_bg[::-1]]),
-                    y=np.concatenate([y_ucl_bg, y_lcl_bg[::-1]]),
-                    fill="toself", fillcolor="rgba(26,150,65,0.18)",
-                    line=dict(color="rgba(0,0,0,0)"),
-                    name="95% Credible Interval", hoverinfo="skip"
-                ))
-                # Score curve
-                fig_bg_cdf.add_trace(go.Scatter(
-                    x=xs_bg, y=y_mean_bg, mode="lines",
-                    line=dict(color="#4C7A3F", width=2.5), name="Score Curve",
-                    hovertemplate="BG: %{x:.1f} mg/kg/hr<br>Score: %{y:.0%}<extra></extra>"
-                ))
-                # Zone lines
-                for zy, zl in [(0.20,"V.Low|Low"), (0.40,"Low|Med"),
-                               (0.60,"Med|High"), (0.80,"High|V.High")]:
-                    fig_bg_cdf.add_hline(y=zy, line_dash="dot",
-                                         line_color="rgba(150,150,150,0.5)",
-                                         annotation_text=zl, annotation_position="right")
-                # Your site
-                fig_bg_cdf.add_trace(go.Scatter(
-                    x=[bg_val], y=[score_bg / 100], mode="markers",
-                    marker=dict(color=color_bg, size=14, symbol="circle",
-                                line=dict(color="white", width=2)),
-                    name="Your Site",
-                    hovertemplate=f"BG: {bg_val} mg/kg/hr<br>Score: {score_bg:.0f}/100<extra></extra>"
-                ))
-                # Target marker
-                fig_bg_cdf.add_trace(go.Scatter(
-                    x=[tgt_bg], y=[target_pct_bg / 100], mode="markers",
-                    marker=dict(color="#0072B2", size=13, symbol="x-thin",
-                                line=dict(color="#0072B2", width=3)),
-                    name=f"Target ({target_pct_bg}th)",
-                    hovertemplate=f"Target<br>BG: {tgt_bg:.1f} mg/kg/hr<extra></extra>"
-                ))
-                fig_bg_cdf.update_layout(
-                    xaxis_title="Beta-glucosidase (mg PNP kg⁻¹ hr⁻¹)",
-                    yaxis_title="SHAPE Score",
-                    yaxis=dict(range=[0, 1], tickformat=".0%"),
-                    xaxis=dict(range=[0, plot_max_bg]),
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02),
-                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                    height=400, margin=dict(l=10, r=10, t=40, b=10)
-                )
-                fig_bg_cdf.update_xaxes(gridcolor="rgba(150,150,150,0.1)")
-                fig_bg_cdf.update_yaxes(gridcolor="rgba(150,150,150,0.1)")
-                st.plotly_chart(fig_bg_cdf, use_container_width=True, key=f"{k}_bg_shape_curve")
+                    fig_bg_cdf = go.Figure()
+
+                    # 95% CI ribbon
+                    fig_bg_cdf.add_trace(
+                        go.Scatter(
+                            x=np.concatenate([
+                                xs_bg,
+                                xs_bg[::-1]
+                            ]),
+                            y=np.concatenate([
+                                y_ucl_bg,
+                                y_lcl_bg[::-1]
+                            ]),
+                            fill="toself",
+                            fillcolor="rgba(26,150,65,0.18)",
+                            line=dict(
+                                color="rgba(0,0,0,0)"
+                            ),
+                            name="95% Credible Interval",
+                            hoverinfo="skip"
+                        )
+                    )
+
+                    # Score curve
+                    fig_bg_cdf.add_trace(
+                        go.Scatter(
+                            x=xs_bg,
+                            y=y_mean_bg,
+                            mode="lines",
+                            line=dict(
+                                color="#4C7A3F",
+                                width=2.5
+                            ),
+                            name="Score Curve",
+                            hovertemplate=(
+                                "BG: %{x:.1f} mg/kg/hr"
+                                "<br>Score: %{y:.0%}"
+                                "<extra></extra>"
+                            )
+                        )
+                    )
+
+                    # Zone lines
+                    for zy, zl in [
+                        (0.20, "V.Low|Low"),
+                        (0.40, "Low|Med"),
+                        (0.60, "Med|High"),
+                        (0.80, "High|V.High")
+                    ]:
+                        fig_bg_cdf.add_hline(
+                            y=zy,
+                            line_dash="dot",
+                            line_color="rgba(150,150,150,0.5)",
+                            annotation_text=zl,
+                            annotation_position="right"
+                        )
+
+                    # Your site
+                    fig_bg_cdf.add_trace(
+                        go.Scatter(
+                            x=[bg_val],
+                            y=[score_bg / 100],
+                            mode="markers",
+                            marker=dict(
+                                color=color_bg,
+                                size=14,
+                                symbol="circle",
+                                line=dict(
+                                    color="white",
+                                    width=2
+                                )
+                            ),
+                            name="Your Site",
+                            hovertemplate=(
+                                f"BG: {bg_val} mg/kg/hr"
+                                f"<br>Score: {score_bg:.0f}/100"
+                                "<extra></extra>"
+                            )
+                        )
+                    )
+
+                    # Target marker
+                    fig_bg_cdf.add_trace(
+                        go.Scatter(
+                            x=[tgt_bg],
+                            y=[target_pct_bg / 100],
+                            mode="markers",
+                            marker=dict(
+                                color="#0072B2",
+                                size=13,
+                                symbol="x-thin",
+                                line=dict(
+                                    color="#0072B2",
+                                    width=3
+                                )
+                            ),
+                            name=f"Target ({target_pct_bg}th)",
+                            hovertemplate=(
+                                f"Target<br>"
+                                f"BG: {tgt_bg:.1f} mg/kg/hr"
+                                "<extra></extra>"
+                            )
+                        )
+                    )
+
+                    fig_bg_cdf.update_layout(
+                        xaxis_title=(
+                            "Beta-glucosidase "
+                            "(mg PNP kg⁻¹ hr⁻¹)"
+                        ),
+                        yaxis_title="SHAPE Score",
+                        yaxis={
+                            "range": [0, 1],
+                            "tickformat": ".0%"
+                        },
+                        xaxis={
+                            "range": [0, plot_max_bg]
+                        },
+                        legend={
+                            "orientation": "h",
+                            "yanchor": "bottom",
+                            "y": 1.02
+                        },
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        height=400,
+                        margin=dict(
+                            l=10,
+                            r=10,
+                            t=40,
+                            b=10
+                        )
+                    )
+
+                    fig_bg_cdf.update_xaxes(
+                        gridcolor="rgba(150,150,150,0.1)"
+                    )
+
+                    fig_bg_cdf.update_yaxes(
+                        gridcolor="rgba(150,150,150,0.1)"
+                    )
+
+                    st.plotly_chart(
+                        fig_bg_cdf,
+                        use_container_width=True,
+                        key=f"{k}_bg_shape_curve"
+                    )
 
             # ── 3. Recommendations ──
             st.divider()

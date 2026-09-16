@@ -2519,7 +2519,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
 
     # Display the active branch only when AWC is selected.
     if "Available Water Capacity" in target_indicators:
-    awc_region_options = {
+        awc_region_options = {
         "Auto-assigned": awc_region_id,
         "Region 1 — Arid": 1,
         "Region 2 — Humid": 2

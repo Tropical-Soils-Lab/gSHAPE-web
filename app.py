@@ -4508,7 +4508,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
     if any(ind in target_indicators for ind in ["Macroaggregate Stability", "Available Water Capacity", "Potentially Mineralizable Nitrogen", "Microbial Biomass Carbon", "Beta-glucosidase", "SMAF Soil Organic Carbon"]):
         template_cols["OM_Class"] = ["Class 2 (Med-High OM)"] * 3
     if "Available Water Capacity" in target_indicators:
-        template_cols["AWC_Region"] = ["Region 1 — Arid"] * 3
+        template_cols["AWC_Region"] = ["Region 1 Arid"] * 3
     if any(ind in target_indicators for ind in ["pH", "Soil Phosphorus", "Electrical Conductivity"]):
         template_cols["Crop"] = ["Soybean"] * 3
     if "Soil Phosphorus" in target_indicators:
@@ -4576,11 +4576,10 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
                 st.code('\n'.join(list(SMAF_OM_MAP.keys())), language="text")
             if "AWC_Region" in template.columns:
                 st.markdown("**AWC_Region:**")
-                st.code("Region 1 — Arid\nRegion 2 — Humid",language="text")
+                st.code("Region 1 Arid\nRegion 2 Humid",language="text")
             if "Climate_Class" in template.columns:
                 st.markdown("**Climate_Class:**")
                 st.code('\n'.join(list(SMAF_CLIMATE_MAP.keys())), language="text")
-            
             if "Season" in template.columns:
                 st.markdown("**Season:**")
                 st.code("Spring\nSummer\nFall\nWinter", language="text")
@@ -4662,7 +4661,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             row_om_id = SMAF_OM_MAP.get(r_om, ui_om_id) if r_om and r_om != "nan" else ui_om_id
 
             r_awc_region = str(r.get("AWC_Region", "")).strip()
-            row_awc_region = {"Region 1 — Arid": 1, "Region 2 — Humid": 2}.get(r_awc_region)
+            row_awc_region = {"Region 1 Arid": 1,"Region 2 Humid": 2}.get(r_awc_region)
 
             r_crop = str(r.get("Crop", "")).strip().lower()
             row_crop_id = SMAF_DATA.get("crop_ui_map", {}).get(r_crop, ui_crop_id) if r_crop and r_crop != "nan" else ui_crop_id

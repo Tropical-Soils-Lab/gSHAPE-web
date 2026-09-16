@@ -2676,7 +2676,7 @@ def render_single_sample(region_name, cfg, df, df_hist):
         phys_scores.append(safe_float(run_smaf_agg_score(agg_val_sum, om_id_sum, texture_id_sum, fe_id_sum, SMAF_DATA)))
         
     if "Available Water Capacity" in target_indicators:
-    awc_region_choice = st.session_state.get(
+        awc_region_choice = st.session_state.get(
         f"{k}_awc_region_choice",
         "Auto-assigned"
     )

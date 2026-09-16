@@ -1259,7 +1259,7 @@ def run_smaf_agg_score(agg_val, om_class, texture_id, fe_class, smaf_data, clamp
     import math
     y = K.get("a", 0.0) + K.get("b", 0.0) * math.cos(K.get("c", 0.0) * agg_val - d)
     
-    if agg_val >= K.get("plateau_x", 50.0) and y < K.get("plateau_score", 1.0):
+    if agg_val >= K.get("plateau_x", 51.0) and y < K.get("plateau_score", 1.0):
         y = K.get("plateau_score", 1.0)
         
     if clamp:
@@ -2649,31 +2649,16 @@ def render_single_sample(region_name, cfg, df, df_hist):
         phys_scores.append(safe_float(run_smaf_agg_score(agg_val_sum, om_id_sum, texture_id_sum, fe_id_sum, SMAF_DATA)))
         
     if "Available Water Capacity" in target_indicators:
-        awc_region_choice = st.session_state.get(
-        f"{k}_awc_region_choice",
-        "Auto-assigned"
-    )
+        awc_region_sum = st.session_state.get(f"{k}_awc_region", 1)
 
-    if awc_region_choice == "Region 1 — Arid":
-        awc_region_sum = 1
-    elif awc_region_choice == "Region 2 — Humid":
-        awc_region_sum = 2
-    else:
-        awc_region_sum = 2 if target_precip is None or target_precip >= 600 else 1
-
-    phys_scores.append(
-        safe_float(
-            run_smaf_awc_score(
-                awc_val_sum,
-                awc_region_sum,
-                texture_id_sum,
-                om_id_sum,
-                SMAF_DATA,
-                clamp=False
-            )
-        )
-    )
-        
+        phys_scores.append(safe_float(run_smaf_awc_score(
+            awc_val_sum,
+            awc_region_sum,
+            texture_id_sum,
+            om_id_sum,
+            SMAF_DATA,
+            clamp=False
+        )))
     if "Water-Filled Pore Space" in target_indicators:
         wfps_scores_sum = run_smaf_wfps_score(wfps_frac_sum, texture_id_sum, SMAF_DATA)
         phys_scores.append(safe_float(wfps_scores_sum["combined"]))

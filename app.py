@@ -4007,7 +4007,7 @@ def render_single_sample(region_name, cfg, df, df_hist,bg_df=None):
 
         st.info(f"**Score Tier: {bg_level}**\n\n{bg_rec}")
 
-        elif chosen_indicator == "BG-SHAPE":
+    elif chosen_indicator == "BG-SHAPE":
         if bg_df is None:
             st.warning("BG-SHAPE parameter file not loaded for this region.")
 

@@ -4512,7 +4512,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
     if any(ind in target_indicators for ind in ["Macroaggregate Stability", "Available Water Capacity", "Potentially Mineralizable Nitrogen", "Microbial Biomass Carbon", "Beta-glucosidase", "SMAF Soil Organic Carbon"]):
         template_cols["OM_Class"] = ["Class 2 (Med-High OM)"] * 3
     if "Available Water Capacity" in target_indicators:
-    template_cols["AWC_Region"] = ["Region 1 — Arid"] * 3
+        template_cols["AWC_Region"] = ["Region 1 — Arid"] * 3
     if any(ind in target_indicators for ind in ["pH", "Soil Phosphorus", "Electrical Conductivity"]):
         template_cols["Crop"] = ["Soybean"] * 3
     if "Soil Phosphorus" in target_indicators:

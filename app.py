@@ -1468,31 +1468,56 @@ def load_awc_data(smaf_data, path="SMAF_lookup.xlsx"):
     smaf_data["awc_texture"] = awc_texture
     smaf_data["awc_om"] = awc_om
 
-def run_smaf_awc_score(awc_val, region, texture, om_class, smaf_data, clamp=True):
-    load_awc_data(smaf_data)
-    K = smaf_data.get("awc_K", {})
+def run_smaf_awc_score(awc_v, region_id, texture_id, om_id):
+    """
+    Calculates the SMAF score for Available Water Capacity (AWC).
+    awc_v: float, measured AWC in g H2O / g soil
+    region_id: 1 for Arid (LRR A-J), 2 for Humid
+    texture_id: int, SMAF Texture Class (1-5)
+    om_id: int, SMAF Organic Matter Class (1-4)
+    """
+    x = float(awc_v)
     
-    if not K: return 0.0  
+    # 1. Look up Site-Specific Factors
+    # Texture -> b1 (arid), d (humid)
+    texture_map = {
+        1: (0.002754, -1.89288002),
+        2: (0.007404, -2.348342498),
+        3: (0.008693, -2.471779993),
+        4: (0.006234666, -2.23568667),
+        5: (0.004255, -2.042720013)
+    }
+    b1, d_humid = texture_map.get(texture_id, texture_map[2]) # Fallback to class 2
     
-    import math
-    if region == 1:  # Arid
-        b1 = smaf_data.get("awc_texture", {}).get(texture, {}).get("b1_arid", 1.0)
-        b2 = smaf_data.get("awc_om", {}).get(om_class, 1.0)
-        b = b1 * b2
-        try:
-            xd = awc_val ** K.get("mmf_d", 1.0)
-            y = (K.get("mmf_a", 1.0) * b + K.get("mmf_c", 1.0) * xd) / (b + xd)
-        except ZeroDivisionError:
-            y = 0.0
-    else:  # Humid
-        d = smaf_data.get("awc_texture", {}).get(texture, {}).get("d_humid", 0.0)
-        y = K.get("sin_a", 0.0) + K.get("sin_b", 1.0) * math.cos(K.get("sin_c", 1.0) * awc_val + d)
-        
-    if clamp:
-        y = max(K.get("score_min", 0.0), min(K.get("score_max", 1.0), y))
-        
-    return y * 100.0
+    # OM Class -> b2 (arid only)
+    om_map = {
+        1: 1.25, 
+        2: 1.05, 
+        3: 1.035, 
+        4: 1.0
+    }
+    b2 = om_map.get(om_id, om_map[2])
 
+    # 2. Execute Regional Algorithm
+    if region_id == 1:
+        # MMF Algorithm (Arid)
+        a = 0.0114
+        c = 1.08786
+        d_fixed = 2.182
+        b = b1 * b2
+        
+        score = (a * b + c * (x ** d_fixed)) / (b + (x ** d_fixed))
+    else:
+        # Sinusoidal Algorithm (Humid)
+        a = 0.4772
+        b_sin = 0.52675
+        c = 6.87765
+        
+        score = a + b_sin * math.cos(c * x + d_humid)
+
+    # 3. Output standard 0 to 1 scale 
+    # (Multiply by 100 in your main loop if your SQI logic expects a 0-100 scale)
+    return max(0.0, min(1.0, score))
 # ----------------------------------------------------------------------
 # SMAF WATER-FILLED PORE SPACE (WFPS) BACKEND ENGINE
 # ----------------------------------------------------------------------

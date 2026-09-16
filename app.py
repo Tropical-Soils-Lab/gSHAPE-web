@@ -4281,10 +4281,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
         st.link_button("Related Research (Google Scholar)",
                        "https://scholar.google.com/scholar?q=soil+organic+carbon+soil+health",
                        width='stretch')
-import streamlit as st
-import pandas as pd
-import numpy as np
-import plotly.graph_objects as go
 
 def render_batch_scoring(region_name, cfg, df, df_hist):
     k = cfg["key"]
@@ -4329,7 +4325,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
         template_cols["PRISM_tmea"] = [cfg["temp_default"]] * 3
         if has_precip: template_cols["PRISM_ppt"] = [cfg["precip_default"]] * 3
 
-    # Dynamic SMAF Metadata Overrides
+    # Dynamic SMAF Metadata Overrides (Only added if relevant indicators are checked)
     if any(ind in target_indicators for ind in ["Bulk Density", "Macroaggregate Stability", "Available Water Capacity", "Water-Filled Pore Space", "Soil Phosphorus", "Electrical Conductivity", "Sodium Adsorption Ratio", "Potentially Mineralizable Nitrogen", "Microbial Biomass Carbon", "Beta-glucosidase", "Extractable Potassium", "SMAF Soil Organic Carbon"]):
         template_cols["Texture"] = ["Sandy Loam (>8% clay) / Sandy Clay Loam / Loam"] * 3
     if any(ind in target_indicators for ind in ["Macroaggregate Stability", "Available Water Capacity", "Potentially Mineralizable Nitrogen", "Microbial Biomass Carbon", "Beta-glucosidase", "SMAF Soil Organic Carbon"]):
@@ -4347,6 +4343,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
         template_cols["Season"] = ["Spring"] * 3
     if any(ind in target_indicators for ind in ["Soil Phosphorus", "Macroaggregate Stability"]):
         template_cols["Slope"] = ["0–2% Level Slope"] * 3
+    # ✨ FIX: Add Clay Mineralogy column if Bulk Density is active
     if "Bulk Density" in target_indicators:
         template_cols["Clay_Mineralogy"] = ["Smectitic"] * 3
 
@@ -4370,7 +4367,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             key=f"{k}_template_btn"
         )
         
-        # Demo Data Injection
+        # Inject realistic fake data for whatever indicators happen to be active!
         if st.button("Try Demo Data", use_container_width=True, key=f"{k}_demo_btn"):
             demo_df = pd.DataFrame(template_cols)
             if "soc_pct" in demo_df.columns: demo_df["soc_pct"] = [1.2, 2.5, 4.8]
@@ -4401,6 +4398,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             if "Climate_Class" in template.columns:
                 st.markdown("**Climate_Class:**")
                 st.code('\n'.join(list(SMAF_CLIMATE_MAP.keys())), language="text")
+            
             if "Season" in template.columns:
                 st.markdown("**Season:**")
                 st.code("Spring\nSummer\nFall\nWinter", language="text")
@@ -4423,14 +4421,16 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
                 st.markdown(f"**Crop ({len(MASTER_CROP_OPTIONS)} supported):**")
                 st.code(', '.join(MASTER_CROP_OPTIONS), language="text")
 
+    # 3. Handle File Upload
     # 3. Handle File Upload with Multi-Encoding Fallback
     uploaded = st.file_uploader("Upload your populated CSV", type="csv", key=f"{k}_uploader")
     if uploaded is not None:
         try:
+            # ✨ FIX: Try standard UTF-8 first, then automatically fall back to Windows-1252 (Excel default)
             try:
                 up_df = pd.read_csv(uploaded, encoding="utf-8")
             except UnicodeDecodeError:
-                uploaded.seek(0)
+                uploaded.seek(0) # Reset file pointer
                 up_df = pd.read_csv(uploaded, encoding="cp1252")
                 
             up_df.columns = up_df.columns.str.strip()
@@ -4460,19 +4460,16 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
         mineral_str = st.session_state.get(f"{k}_bd_min", "— Select —")
         ui_mineralogy_id = SMAF_MINERALOGY_MAP.get(mineral_str, 0) if mineral_str != "— Select —" else 0
 
+        # Initialize tracking arrays for SHAPE SOC targets
+        tgt_ocs = []
         score_columns = []
 
         # Initialize result columns in the dataframe
         for ind in target_indicators:
             batch[f"{ind} Score"] = np.nan
             score_columns.append(f"{ind} Score")
-            
-        # Ensure SHAPE target columns exist if needed
-        if "Soil Organic Carbon" in target_indicators and selected_framework in ["SHAPE", "SHAPE + SMAF (Hybrid)"]:
-            batch["SOC_target_90th"] = np.nan
-            batch["Gap_to_90th"] = np.nan
 
-        # Loop through rows and score
+        # Loop through rows and score!
         for index, r in batch.iterrows():
             
             # Extract row metadata if it exists, otherwise use the UI fallback
@@ -4487,6 +4484,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
 
             r_clim = str(r.get("Climate_Class", "")).strip()
             row_climate_id = SMAF_CLIMATE_MAP.get(r_clim, ui_climate_id) if r_clim and r_clim != "nan" else ui_climate_id
+            row_season_climate = 1.0 if season_num == 1 else float(f"{season_num}.{row_climate_id}")
 
             r_pmeth = str(r.get("P_Method", "")).strip()
             row_method_id = SMAF_METHOD_MAP.get(r_pmeth, ui_method_id) if r_pmeth and r_pmeth != "nan" else ui_method_id
@@ -4497,6 +4495,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             r_ecmeth = str(r.get("EC_Method", "")).strip()
             row_ec_method_id = 1 if "Saturated Paste" in r_ecmeth else (2 if "1:1" in r_ecmeth else ui_ec_method_id)
 
+            # ✨ SMART FIX: Extract Season and Slope from the row, or use the UI fallback
             r_season = str(r.get("Season", "")).strip().capitalize()
             row_season_name = r_season if r_season in ["Spring", "Summer", "Fall", "Winter"] else season_name
             row_season_num = {"Spring": 1, "Summer": 2, "Fall": 3, "Winter": 4}.get(row_season_name, 1)
@@ -4505,10 +4504,15 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             r_slope = str(r.get("Slope", "")).strip().replace("Ð", "–").replace("-", "–")
             row_slope_id = SMAF_SLOPE_MAP.get(r_slope, ui_slope_id) if r_slope and r_slope != "nan" else ui_slope_id
 
+            # ✨ SMART FIX: Extract Clay Mineralogy from the row, or use the UI fallback
             r_min = str(r.get("Clay_Mineralogy", "")).strip()
             row_mineralogy_id = SMAF_MINERALOGY_MAP.get(r_min, ui_mineralogy_id) if r_min and r_min != "nan" else ui_mineralogy_id
 
 
+            # --- EXECUTE SCORING MATH ---
+            
+            # SHAPE SOC 
+          # SHAPE SOC 
             # --- EXECUTE SCORING MATH SAFELY ---
             
             # 1. SHAPE SOC 
@@ -4519,11 +4523,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
                         oc_val = safe_float(r[possible_col])
                         break
                 if oc_val is not None and oc_val > 0:
-                    # Replace with your actual SHAPE SOC calculation logic:
-                    # Example:
-                    # score, target_90th = run_shape_soc(oc_val, r.get("lat"), r.get("lon"), row_texture_id, ...)
-                    # batch.at[index, "Soil Organic Carbon Score"] = round(score, 1)
-                    # batch.at[index, "SOC_target_90th"] = round(target_90th, 2)
+                    # ... [keep your existing SHAPE calculation lines here] ...
                     pass
 
             # 2. SMAF SOC 
@@ -4539,14 +4539,15 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
                     batch.at[index, "pH Score"] = round(run_smaf_ph_score(ph_v, row_crop_id, SMAF_DATA), 1)
 
             # 4. Phosphorus 
+            # Phosphorus 
             if "Soil Phosphorus" in target_indicators and "p_mg_kg" in r and pd.notna(r["p_mg_kg"]):
                 p_v = safe_float(r["p_mg_kg"])
                 if p_v > 0:
+                    # ✨ Batch loop now passes row_om_id directly to use Alternate Table 3
                     batch.at[index, "Soil Phosphorus Score"] = round(
                         run_smaf_p_score(p_v, row_crop_id, row_method_id, row_weather_id, row_texture_id, row_slope_id, om_class=row_om_id), 
                         1
                     )
-                    
             # 5. Extractable Potassium 
             if "Extractable Potassium" in target_indicators and "k_mg_kg" in r and pd.notna(r["k_mg_kg"]):
                 k_v = safe_float(r["k_mg_kg"])
@@ -4607,32 +4608,39 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
                 bg_v = safe_float(r["bg_mg_kg_hr"])
                 if bg_v >= 0:
                     batch.at[index, "Beta-glucosidase Score"] = round(run_smaf_bg_score(bg_v, row_om_id, row_texture_id, row_climate_id, SMAF_DATA), 1)
-        
+            
         # 5. Post-Processing & Aggregation
         batch = batch.copy()
         
+        # --- NEW: Define category groupings ---
         phys_inds = ["Bulk Density", "Macroaggregate Stability", "Available Water Capacity", "Water-Filled Pore Space"]
         chem_inds = ["pH", "Soil Phosphorus", "Extractable Potassium", "Electrical Conductivity", "Sodium Adsorption Ratio"]
         bio_inds = ["Soil Organic Carbon", "SMAF Soil Organic Carbon", "Potentially Mineralizable Nitrogen", "Microbial Biomass Carbon", "Beta-glucosidase"]
         
+        # Find which score columns are actually active in this batch
         phys_cols = [f"{i} Score" for i in phys_inds if f"{i} Score" in batch.columns]
         chem_cols = [f"{i} Score" for i in chem_inds if f"{i} Score" in batch.columns]
         bio_cols = [f"{i} Score" for i in bio_inds if f"{i} Score" in batch.columns]
         
+        # Calculate category-specific SQIs
         if phys_cols: batch["SQI_Physical"] = batch[phys_cols].mean(axis=1).round(1)
         if chem_cols: batch["SQI_Chemical"] = batch[chem_cols].mean(axis=1).round(1)
         if bio_cols: batch["SQI_Biological"] = batch[bio_cols].mean(axis=1).round(1)
         
+        # Calculate Overall SQI across all active indicators for the row
         batch["Overall_SQI"] = batch[score_columns].mean(axis=1).round(1)
+        
+        # Generate categorical zones based on Overall SQI
         batch["Zone"] = batch["Overall_SQI"].apply(lambda s: score_label(s) if pd.notna(s) else "No data")
         
-        # Add SHAPE gaps if calculated safely
+        # Add SHAPE targets if they were calculated
         if "Soil Organic Carbon" in target_indicators and selected_framework in ["SHAPE", "SHAPE + SMAF (Hybrid)"]:
+            batch["SOC_target_90th"] = tgt_ocs
             soc_col = "soc_pct" if "soc_pct" in batch.columns else "oc"
             if soc_col in batch.columns:
                 batch["Gap_to_90th"] = (batch["SOC_target_90th"] - batch[soc_col]).round(3)
 
-        # 6. Render Metrics
+        # 6. Render Restored Metrics
         valid = batch["Overall_SQI"].dropna()
         mc1, mc2, mc3, mc4 = st.columns(4)
         mc1.metric("Samples scored", len(valid))
@@ -4642,7 +4650,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
 
         st.divider()
 
-        # 7. Render Histogram
+        # 7. Render Restored Histogram
         fig_dist = go.Figure()
         fig_dist.add_trace(go.Histogram(x=valid, nbinsx=20, marker_color="#1a9641", opacity=0.75))
         for xv, lbl, clr in [(20, "V.Low|Low", "#f46d43"), (40, "Low|Med", "#ffc107"), (60, "Med|High", "#77c35c"), (80, "High|V.High", "#1a9641")]:
@@ -4658,7 +4666,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
 
         st.markdown("#### Scored Results")
         
-        # 8. Render Colored Dataframe
+        # 8. Render Restored Colored Dataframe
         def highlight_zone(row):
             s = row.get("Overall_SQI", np.nan)
             if pd.isna(s): return [""] * len(row)
@@ -4671,7 +4679,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             
         st.dataframe(batch.style.apply(highlight_zone, axis=1), width='stretch', hide_index=True)
 
-        # 9. Render Map
+        # 9. Render Restored Map
         if "lat" in batch.columns and "lon" in batch.columns:
             map_data = batch[["lat", "lon"]].dropna()
             if not map_data.empty:

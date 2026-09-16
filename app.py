@@ -2921,17 +2921,20 @@ def render_single_sample(region_name, cfg, df, df_hist,bg_df=None):
             val = f"{bg_val_sum} mg/kg/hr"
             scr = run_smaf_bg_score(bg_val_sum, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)
         elif ind == "BG-SHAPE":
-        # These three lines MUST be indented 4 spaces to the right of 'elif'
-            val = f"{bg_val_sum} mg/kg/hr"
-            scr = 0.0
-            if bg_df is not None:
-            # These are perfect exactly as you have them now!
+        # These are correctly indented 4 spaces under elif
+        val = f"{bg_val_sum} mg/kg/hr"
+        scr = 0.0
+        if bg_df is not None:
+            
+            # This block must be indented 4 spaces under the 'if' above it
             _r = get_params_2d(bg_df, parse_code(st.session_state.get(f"{k}_sub", "")),
                                cfg["texture_map"].get(st.session_state.get(f"{k}_tex", ""), "T1"),
                                st.session_state.get(f"{k}_temp", cfg["temp_default"]),
                                st.session_state.get(f"{k}_precip", cfg["precip_default"]))
             
+            # This 'if' is at the same level as the '_r' definition
             if _r is not None:
+                # This final calculation is indented 4 spaces under 'if _r is not None:'
                 scr = compute_bg_shape_score(bg_val_sum, float(_r["mean_lp"]),
                                              float(np.exp(_r["mean_sigma"])))
 

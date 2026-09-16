@@ -1468,47 +1468,123 @@ def load_awc_data(smaf_data, path="SMAF_lookup.xlsx"):
     smaf_data["awc_texture"] = awc_texture
     smaf_data["awc_om"] = awc_om
 
-def run_smaf_awc_score(awc_v, region_id, texture_id, om_id):
+def run_smaf_awc_score(
+    awc_val,
+    region_id,
+    texture_id,
+    om_class,
+    smaf_data=None,
+    clamp=False
+):
     """
-    Calculates the SMAF score for Available Water Capacity (AWC).
-    """
-    x = float(awc_v)
-    
-    # Texture lookup: b1 (arid), d (humid)
-    texture_map = {
-        1: (0.002754, -1.89288002),
-        2: (0.007404, -2.348342498),
-        3: (0.008693, -2.471779993),
-        4: (0.006234666, -2.23568667),
-        5: (0.004255, -2.042720013)
-    }
-    b1, d_humid = texture_map.get(texture_id, texture_map[2])
-    
-    # OM Class lookup: b2 (arid only)
-    om_map = {
-        1: 1.25, 
-        2: 1.05, 
-        3: 1.035, 
-        4: 1.0
-    }
-    b2 = om_map.get(om_id, om_map[2])
+    Calculate SMAF Available Water Capacity (AWC) score.
 
-    # Regional Algorithm
+    Parameters
+    ----------
+    awc_val : float
+        Measured AWC in g H2O per g soil.
+    region_id : int
+        1 = arid region; 2 = humid region.
+    texture_id : int
+        SMAF texture class 1–5.
+    om_class : int
+        SMAF OM class 1–4. Used only for the arid curve.
+    smaf_data : dict, optional
+        Present only for compatibility with batch calls.
+    clamp : bool, default False
+        Set True only if the UI must restrict scores to 0–100.
+        Leave False for exact Excel-reference reproduction.
+    """
+
+    import math
+
+    try:
+        x = float(awc_val)
+        region_id = int(float(region_id))
+        texture_id = int(float(texture_id))
+        om_class = int(float(om_class))
+    except (TypeError, ValueError):
+        return 0.0
+
+    # Invalid AWC values cannot be scored.
+    if x < 0:
+        return 0.0
+
+    # ---------------------------------------------------------
+    # SMAF AWC Factor Table 1: Texture factors
+    # b1 = arid MMF parameter
+    # d  = humid sinusoidal phase shift
+    # ---------------------------------------------------------
+    texture_factors = {
+        1: {"b1_arid": 0.002754,    "d_humid": -1.89288002},
+        2: {"b1_arid": 0.007404,    "d_humid": -2.348342498},
+        3: {"b1_arid": 0.008693,    "d_humid": -2.471779993},
+        4: {"b1_arid": 0.006234666, "d_humid": -2.23568667},
+        5: {"b1_arid": 0.004255,    "d_humid": -2.042720013},
+    }
+
+    # ---------------------------------------------------------
+    # SMAF AWC Factor Table 2: OM factors
+    # Used only by the arid-region modified MMF curve.
+    # ---------------------------------------------------------
+    om_factors = {
+        1: 1.25,
+        2: 1.05,
+        3: 1.035,
+        4: 1.00,
+    }
+
+    if texture_id not in texture_factors:
+        return 0.0
+
+    # ---------------------------------------------------------
+    # Region 1: Arid modified Michaelis–Menten curve
+    #
+    # y = (a*b + c*x^d) / (b + x^d)
+    # b = b1 * b2
+    # ---------------------------------------------------------
     if region_id == 1:
-        # MMF Algorithm (Arid)
-        a_arid = 0.0114
-        c_arid = 1.08786
-        d_fixed = 2.182
-        b_arid = b1 * b2
-        score = (a_arid * b_arid + c_arid * (x ** d_fixed)) / (b_arid + (x ** d_fixed))
+        a_mmf = 0.0114
+        c_mmf = 1.08786
+        d_mmf = 2.182
+
+        b1 = texture_factors[texture_id]["b1_arid"]
+        b2 = om_factors.get(om_class)
+
+        if b2 is None:
+            return 0.0
+
+        b = b1 * b2
+        x_to_d = x ** d_mmf
+
+        try:
+            score = (a_mmf * b + c_mmf * x_to_d) / (b + x_to_d)
+        except ZeroDivisionError:
+            return 0.0
+
+    # ---------------------------------------------------------
+    # Region 2: Humid sinusoidal curve
+    #
+    # y = a + b*cos(c*x + d)
+    # d = texture-specific humid-region factor
+    # ---------------------------------------------------------
     else:
-        # Sinusoidal Algorithm (Humid)
         a_sin = 0.4772
         b_sin = 0.52675
         c_sin = 6.87765
-        score = a_sin + b_sin * math.cos(c_sin * x + d_humid)
+        d_humid = texture_factors[texture_id]["d_humid"]
 
-    return max(0.0, min(1.0, score))
+        score = a_sin + b_sin * math.cos(
+            c_sin * x + d_humid
+        )
+
+    # The Excel reference table includes values such as 1.01 and 1.03.
+    # Therefore, do NOT clamp if your goal is exact Excel reproduction.
+    if clamp:
+        score = max(0.0, min(1.0, score))
+
+    # gSHAPE displays SMAF scores on a 0–100 scale.
+    return score * 100.0
 # ----------------------------------------------------------------------
 # SMAF WATER-FILLED PORE SPACE (WFPS) BACKEND ENGINE
 # ----------------------------------------------------------------------

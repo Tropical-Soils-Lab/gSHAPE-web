@@ -2490,38 +2490,86 @@ def render_single_sample(region_name, cfg, df, df_hist):
 # Region 2 = Humid sinusoidal curve
 # ----------------------------------------------------------------------
 
-if target_precip is None:
-    # Florida currently has no MAP input in this interface.
-    # Use the humid AWC curve as the default.
-    awc_region_id = 2
-    awc_region_label = "Region 2 — Humid (Florida default)"
+    # ------------------------------------------------------------------
+    # AWC REGION ASSIGNMENT
+    # Region 1 = Arid modified Michaelis-Menten curve
+    # Region 2 = Humid sinusoidal curve
+    # ------------------------------------------------------------------
 
-elif float(target_precip) < 600.0:
-    awc_region_id = 1
-    awc_region_label = "Region 1 — Arid (MAP < 600 mm)"
+    if target_precip is None:
+        awc_region_id = 2
+        awc_region_label = "Region 2 — Humid (Florida default)"
 
-else:
-    awc_region_id = 2
-    awc_region_label = "Region 2 — Humid (MAP ≥ 600 mm)"
+    elif float(target_precip) < 600.0:
+        awc_region_id = 1
+        awc_region_label = "Region 1 — Arid (MAP < 600 mm)"
 
-# Save numeric code for the AWC scoring function.
-st.session_state[f"{k}_awc_region"] = awc_region_id
+    else:
+        awc_region_id = 2
+        awc_region_label = "Region 2 — Humid (MAP ≥ 600 mm)"
 
-# Show scoring branch only when AWC is selected.
-if "Available Water Capacity" in target_indicators:
-    st.info(
-        f"**AWC scoring branch:** {awc_region_label}. "
-        f"Texture class: {texture_id}; "
-        f"OM class: {SMAF_OM_MAP.get(selected_om_class, 2)}."
-    )
-    # ✨ THE MASTER SITE INPUTS GATEKEEPER ✨
-    required_inputs = [selected_sub, selected_tex, selected_sm_tex, selected_sm_slope, selected_method, selected_weath, ec_method_str, selected_fe_class, selected_climate_class]
-    if selected_bd_min is not None:
+    # Save numeric code for the AWC scoring function.
+    st.session_state[f"{k}_awc_region"] = awc_region_id
+
+    # Display the active branch only when AWC is selected.
+    if "Available Water Capacity" in target_indicators:
+        st.info(
+            f"**AWC scoring branch:** {awc_region_label}. "
+            f"Texture class: {texture_id}; "
+            f"OM class: {SMAF_OM_MAP.get(selected_om_class, 2)}."
+        )
+
+    # ------------------------------------------------------------------
+    # MASTER SITE INPUTS GATEKEEPER
+    # ------------------------------------------------------------------
+
+    required_inputs = [
+        selected_sub,
+        selected_tex,
+        selected_sm_tex,
+        selected_om_class
+    ]
+
+    if "Bulk Density" in target_indicators and texture_id >= 4:
         required_inputs.append(selected_bd_min)
-        
-    if any(val == "— Select —" for val in required_inputs):
-       st.info("💡 Please complete all dropdown selections in the **Site Inputs** above to unlock your soil health scores and recommendations.")
-       return
+
+    if "Macroaggregate Stability" in target_indicators:
+        required_inputs.extend([
+            selected_sm_slope,
+            selected_fe_class
+        ])
+
+    if "Soil Phosphorus" in target_indicators:
+        required_inputs.extend([
+            selected_method,
+            selected_weath,
+            selected_sm_slope
+        ])
+
+    if "Electrical Conductivity" in target_indicators:
+        required_inputs.append(ec_method_str)
+
+    if "Sodium Adsorption Ratio" in target_indicators:
+        required_inputs.append(ec_method_str)
+
+    if any(
+        indicator in target_indicators
+        for indicator in [
+            "Potentially Mineralizable Nitrogen",
+            "Microbial Biomass Carbon",
+            "Beta-glucosidase",
+            "SMAF Soil Organic Carbon"
+        ]
+    ):
+        required_inputs.append(selected_climate_class)
+
+    if any(value == "— Select —" for value in required_inputs):
+        st.info(
+            "💡 Please complete all dropdown selections in the "
+            "**Site Inputs** above to unlock your soil health scores "
+            "and recommendations."
+        )
+        return
     # ── GLOBAL SOC PEER GROUP RESOLUTION ──
     tax = parse_code(selected_sub)
     tex = cfg["texture_map"][selected_tex]

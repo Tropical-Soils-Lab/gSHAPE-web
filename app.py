@@ -1302,8 +1302,11 @@ def load_sar_data(smaf_data, path="SMAF_lookup.xlsx"):
     smaf_data["sar_branches"] = sar_branches
 
 def sar_branch_for(ec_sat, K):
-    if ec_sat < K.get("ec_break_lo", 0.2): return "lo"
-    if ec_sat > K.get("ec_break_hi", 0.55): return "hi"
+    if ec_sat <= K.get("ec_break_lo", 0.2):
+        return "lo"
+    if ec_sat >= K.get("ec_break_hi", 0.55):
+        return "hi"
+    
     return "med"
 
 def run_smaf_sar_score(sar_val, ec_val, method_id, texture_id, smaf_data, clamp=True):

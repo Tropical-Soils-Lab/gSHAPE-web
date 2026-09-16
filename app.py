@@ -4906,7 +4906,6 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
                 if pmn_v >= 0:
                     batch.at[index, "Potentially Mineralizable Nitrogen Score"] = round(run_smaf_pmn_score(pmn_v, row_om_id, row_texture_id, row_climate_id, SMAF_DATA), 1)
 
-            # 13. Microbial Biomass Carbon 
                         # 13. Microbial Biomass Carbon
             # Accept either:
             # - gSHAPE template column: mbc_mg_kg
@@ -4915,6 +4914,21 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
 
             if pd.isna(mbc_raw) or str(mbc_raw).strip() == "":
                 mbc_raw = r.get("x_value", np.nan)
+
+            # For Excel validation rows, use season_x_climate directly.
+            # Otherwise use the Season + Climate_Class value calculated above.
+            raw_mbc_season_climate = r.get("season_x_climate", np.nan)
+
+            if (
+                pd.notna(raw_mbc_season_climate)
+                and str(raw_mbc_season_climate).strip() != ""
+            ):
+                mbc_season_climate = round(
+                    float(raw_mbc_season_climate),
+                    1
+                )
+            else:
+                mbc_season_climate = row_season_climate
 
             if (
                 "Microbial Biomass Carbon" in target_indicators
@@ -4928,7 +4942,7 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
                             mbc_v,
                             row_om_id,
                             row_texture_id,
-                            row_season_climate,
+                            mbc_season_climate,
                             SMAF_DATA
                         ),
                         1

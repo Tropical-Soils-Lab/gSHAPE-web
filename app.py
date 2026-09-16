@@ -2527,10 +2527,6 @@ def render_single_sample(region_name, cfg, df, df_hist):
         st.info(f"🧪 **Pending Lab Results:** Please enter values for **{', '.join(missing_labs)}** to calculate your scores.")
         return  # ✨ Changed from st.stop() to return!
 
-
-    # Save numeric code for the AWC scoring function.
-    st.session_state[f"{k}_awc_region"] = awc_region_id
-
     # ------------------------------------------------------------------
     # MASTER SITE INPUTS GATEKEEPER
     # ------------------------------------------------------------------

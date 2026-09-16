@@ -2770,39 +2770,35 @@ def render_single_sample(region_name, cfg, df, df_hist,bg_df=None):
         season_climate_code = 1.0 if season_num == 1 else float(f"{season_num}.{climate_id}")
         bio_scores.append(safe_float(run_smaf_mbc_score(mbc_val_sum, om_id_sum, texture_id_sum, season_climate_code, SMAF_DATA)))
 
-    if "Beta-glucosidase" in target_indicators:
-        bio_scores.append(safe_float(run_smaf_bg_score(bg_val_sum, om_id_sum, texture_id_sum, climate_id_sum, SMAF_DATA)))
-
-    
     if "BG-SHAPE" in target_indicators and bg_df is not None:
-    _bg_tax = parse_code(
-        st.session_state.get(f"{k}_sub", cfg["taxon_display"][0])
-    )
-    _bg_tex = cfg["texture_map"].get(
-        st.session_state.get(f"{k}_tex", ""), "T1"
-    )
+        _bg_tax = parse_code(
+            st.session_state.get(f"{k}_sub", cfg["taxon_display"][0])
+        )
+        _bg_tex = cfg["texture_map"].get(
+            st.session_state.get(f"{k}_tex", ""), "T1"
+        )
 
-    _bg_row = get_params_2d(
-        bg_df,
-        _bg_tax,
-        _bg_tex,
-        st.session_state.get(f"{k}_temp", cfg["temp_default"]),
-        st.session_state.get(f"{k}_precip", cfg["precip_default"])
-    )
+        _bg_row = get_params_2d(
+            bg_df,
+            _bg_tax,
+            _bg_tex,
+            st.session_state.get(f"{k}_temp", cfg["temp_default"]),
+            st.session_state.get(f"{k}_precip", cfg["precip_default"])
+        )
 
-    if _bg_row is not None:
-        _lp_bg = float(_bg_row["mean_lp"])
-        _sig_bg = float(np.exp(_bg_row["mean_sigma"]))
+        if _bg_row is not None:
+            _lp_bg = float(_bg_row["mean_lp"])
+            _sig_bg = float(np.exp(_bg_row["mean_sigma"]))
 
-        bio_scores.append(
-            safe_float(
-                compute_bg_shape_score(
-                    bg_val_sum,
-                    _lp_bg,
-                    _sig_bg
+            bio_scores.append(
+                safe_float(
+                    compute_bg_shape_score(
+                        bg_val_sum,
+                        _lp_bg,
+                        _sig_bg
+                    )
                 )
             )
-        )
 
    # ── DYNAMIC CATEGORY AVERAGING (Only includes categories with selected indicators) ──
     score_phys = sum(phys_scores) / len(phys_scores) if phys_scores else None

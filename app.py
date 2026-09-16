@@ -4181,9 +4181,25 @@ def render_single_sample(region_name, cfg, df, df_hist,bg_df=None):
                 color_bg = score_color(score_bg)
                 label_bg = score_label(score_bg)
 
-                target_pct_bg = st.session_state.get(
-                    f"{k}_target_pct",
-                    90
+                # ── BG-SHAPE TARGET PERCENTILE ──
+                st.markdown("### 🎯 BG-SHAPE Benchmark Target")
+
+                target_pct_bg = st.slider(
+                    "Target Percentile",
+                    min_value=50,
+                    max_value=99,
+                    value=int(
+                        st.session_state.get(
+                            f"{k}_bg_target_pct",
+                            90
+                        )
+                    ),
+                    step=1,
+                    key=f"{k}_bg_target_pct",
+                    help=(
+                        "Select the peer-group percentile you want to use "
+                        "as the BG-SHAPE benchmark target."
+                    )
                 )
 
                 tgt_bg = percentile_to_bg(

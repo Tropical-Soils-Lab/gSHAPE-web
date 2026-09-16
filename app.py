@@ -4510,6 +4510,8 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
     # ✨ FIX: Add Clay Mineralogy column if Bulk Density is active
     if "Bulk Density" in target_indicators:
         template_cols["Clay_Mineralogy"] = ["Smectitic"] * 3
+    if "Macroaggregate Stability" in target_indicators:
+        template_cols["Fe2O3_Class"] = ["All Other Soil Orders"] * 3
 
     # Add Raw Lab Value columns
     for ind in target_indicators:
@@ -4574,6 +4576,9 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             if "Clay_Mineralogy" in template.columns:
                 st.markdown("**Clay_Mineralogy:**")
                 st.code('\n'.join(list(SMAF_MINERALOGY_MAP.keys())), language="text")
+            if "Fe2O3_Class" in template.columns:
+                st.markdown("**Fe2O3_Class:**")
+                st.code("(High Iron-Oxide)\nAll Other Soil Orders",language="text")
             if "P_Method" in template.columns:
                 st.markdown("**P_Method:**")
                 st.code('\n'.join(list(SMAF_METHOD_MAP.keys())), language="text")
@@ -4644,6 +4649,9 @@ def render_batch_scoring(region_name, cfg, df, df_hist):
             
             r_om = str(r.get("OM_Class", "")).strip()
             row_om_id = SMAF_OM_MAP.get(r_om, ui_om_id) if r_om and r_om != "nan" else ui_om_id
+
+            r_fe = str(r.get("Fe2O3_Class", "")).strip()
+            row_fe_id = SMAF_FE_MAP.get(r_fe, ui_fe_id) if r_fe and r_fe != "nan" else ui_fe_id
 
             r_awc_region = str(r.get("AWC_Region", "")).strip()
             row_awc_region = {"Region 1 Arid": 1,"Region 2 Humid": 2}.get(r_awc_region)

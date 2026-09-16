@@ -1736,33 +1736,61 @@ def load_smaf_soc_data(smaf_data, path="SMAF_lookup.xlsx"):
     smaf_data["soc_climate"] = soc_climate
 
 def run_smaf_soc_score(toc_pct, om_class, texture, climate, smaf_data, clamp=True):
+    """
+    SMAF Total Organic Carbon scoring.
+
+    Reference equation:
+        y = a / [1 + b * exp(-c * TOC)]
+
+    TOC is entered and evaluated in percent (%), consistent with
+    the SMAF Excel reference worksheet.
+    """
     load_smaf_soc_data(smaf_data)
+
     K = smaf_data.get("soc_K", {})
-    if not K: return 0.0
-    
+    if not K:
+        return 0.0
+
     import math
-    c1 = smaf_data.get("soc_om", {}).get(om_class, 1.0)
-    c2 = smaf_data.get("soc_texture", {}).get(texture, 1.0)
-    c3 = smaf_data.get("soc_climate", {}).get(climate, 1.0)
-    
-    # Reverted to your original additive logic that perfectly matches your Excel calibration!
-    c = (float(c1) * float(c2)) + (float(c1) * float(c2) * float(c3))
-    
-    # ✨ THE FIX: Convert UI percentage (e.g., 2.0%) to SMAF g/kg (20.0 g/kg)
-    toc_g_kg = float(toc_pct) * 10.0
-    
+
     try:
-        a = float(K.get("a", 1.0))
-        b = float(K.get("b", 1.0))
-        
-        # The math runs using the g/kg value
-        y = a / (1.0 + b * math.exp(-c * toc_g_kg))
-    except (OverflowError, TypeError, ValueError):
+        toc_pct = float(toc_pct)
+        om_class = int(om_class)
+        texture = int(texture)
+        climate = int(climate)
+    except (TypeError, ValueError):
+        return 0.0
+
+    a = float(K.get("a", 1.0))
+    b = float(K.get("b", 50.1))
+
+    c1 = smaf_data.get("soc_om", {}).get(om_class)
+    c2 = smaf_data.get("soc_texture", {}).get(texture)
+    c3 = smaf_data.get("soc_climate", {}).get(climate)
+
+    if c1 is None or c2 is None or c3 is None:
+        return 0.0
+
+    c1 = float(c1)
+    c2 = float(c2)
+    c3 = float(c3)
+
+    # SMAF Excel formulation:
+    # c = (c1*c2) + (c1*c2*c3)
+    c = (c1 * c2) + (c1 * c2 * c3)
+
+    try:
+        # IMPORTANT: Toc is already in percent. Do not multiply by 10.
+        y = a / (1.0 + b * math.exp(-c * toc_pct))
+    except OverflowError:
         y = 0.0
-        
+
     if clamp:
-        y = max(float(K.get("score_min", 0.0)), min(float(K.get("score_max", 1.0)), y))
-        
+        y = max(
+            float(K.get("score_min", 0.0)),
+            min(float(K.get("score_max", 1.0)), y)
+        )
+
     return y * 100.0
 # ----------------------------------------------------------------------
 # SMAF BETA-GLUCOSIDASE (BG) BACKEND ENGINE

@@ -1468,6 +1468,10 @@ def load_awc_data(smaf_data, path="SMAF_lookup.xlsx"):
     smaf_data["awc_texture"] = awc_texture
     smaf_data["awc_om"] = awc_om
 
+# ----------------------------------------------------------------------
+# SMAF AVAILABLE WATER CAPACITY (AWC) BACKEND ENGINE
+# ----------------------------------------------------------------------
+
 def run_smaf_awc_score(
     awc_val,
     region_id,
@@ -1477,23 +1481,13 @@ def run_smaf_awc_score(
     clamp=False
 ):
     """
-    Calculate SMAF Available Water Capacity (AWC) score.
+    SMAF Available Water Capacity score.
 
-    Parameters
-    ----------
-    awc_val : float
-        Measured AWC in g H2O per g soil.
-    region_id : int
-        1 = arid region; 2 = humid region.
-    texture_id : int
-        SMAF texture class 1–5.
-    om_class : int
-        SMAF OM class 1–4. Used only for the arid curve.
-    smaf_data : dict, optional
-        Present only for compatibility with batch calls.
-    clamp : bool, default False
-        Set True only if the UI must restrict scores to 0–100.
-        Leave False for exact Excel-reference reproduction.
+    region_id:
+        1 = Arid modified Michaelis-Menten curve
+        2 = Humid sinusoidal curve
+
+    clamp=False reproduces the Excel reference, including values above 1.0.
     """
 
     import math
@@ -1506,15 +1500,10 @@ def run_smaf_awc_score(
     except (TypeError, ValueError):
         return 0.0
 
-    # Invalid AWC values cannot be scored.
     if x < 0:
         return 0.0
 
-    # ---------------------------------------------------------
-    # SMAF AWC Factor Table 1: Texture factors
-    # b1 = arid MMF parameter
-    # d  = humid sinusoidal phase shift
-    # ---------------------------------------------------------
+    # AWC Factor Table 1: texture factors
     texture_factors = {
         1: {"b1_arid": 0.002754,    "d_humid": -1.89288002},
         2: {"b1_arid": 0.007404,    "d_humid": -2.348342498},
@@ -1523,10 +1512,7 @@ def run_smaf_awc_score(
         5: {"b1_arid": 0.004255,    "d_humid": -2.042720013},
     }
 
-    # ---------------------------------------------------------
-    # SMAF AWC Factor Table 2: OM factors
-    # Used only by the arid-region modified MMF curve.
-    # ---------------------------------------------------------
+    # AWC Factor Table 2: OM class factor used only for arid scoring
     om_factors = {
         1: 1.25,
         2: 1.05,
@@ -1537,12 +1523,11 @@ def run_smaf_awc_score(
     if texture_id not in texture_factors:
         return 0.0
 
-    # ---------------------------------------------------------
-    # Region 1: Arid modified Michaelis–Menten curve
+    # Region 1: Arid modified Michaelis-Menten curve
     #
     # y = (a*b + c*x^d) / (b + x^d)
     # b = b1 * b2
-    # ---------------------------------------------------------
+    #
     if region_id == 1:
         a_mmf = 0.0114
         c_mmf = 1.08786
@@ -1555,19 +1540,17 @@ def run_smaf_awc_score(
             return 0.0
 
         b = b1 * b2
-        x_to_d = x ** d_mmf
+        x_d = x ** d_mmf
 
         try:
-            score = (a_mmf * b + c_mmf * x_to_d) / (b + x_to_d)
+            score = (a_mmf * b + c_mmf * x_d) / (b + x_d)
         except ZeroDivisionError:
             return 0.0
 
-    # ---------------------------------------------------------
     # Region 2: Humid sinusoidal curve
     #
     # y = a + b*cos(c*x + d)
-    # d = texture-specific humid-region factor
-    # ---------------------------------------------------------
+    #
     else:
         a_sin = 0.4772
         b_sin = 0.52675
@@ -1578,12 +1561,9 @@ def run_smaf_awc_score(
             c_sin * x + d_humid
         )
 
-    # The Excel reference table includes values such as 1.01 and 1.03.
-    # Therefore, do NOT clamp if your goal is exact Excel reproduction.
     if clamp:
         score = max(0.0, min(1.0, score))
 
-    # gSHAPE displays SMAF scores on a 0–100 scale.
     return score * 100.0
 # ----------------------------------------------------------------------
 # SMAF WATER-FILLED PORE SPACE (WFPS) BACKEND ENGINE
@@ -2504,9 +2484,36 @@ def render_single_sample(region_name, cfg, df, df_hist):
     if missing_labs:
         st.info(f"🧪 **Pending Lab Results:** Please enter values for **{', '.join(missing_labs)}** to calculate your scores.")
         return  # ✨ Changed from st.stop() to return!
-    # Auto-assign AWC Region: Humid (2) if MAP >= 600mm, Arid (1) if MAP < 600mm
-    is_wet_for_awc = target_precip >= 600.0 if target_precip is not None else True
-    st.session_state[f"{k}_awc_region"] = 2 if is_wet_for_awc else 1
+    # ----------------------------------------------------------------------
+# AWC REGION ASSIGNMENT
+# Region 1 = Arid modified Michaelis-Menten curve
+# Region 2 = Humid sinusoidal curve
+# ----------------------------------------------------------------------
+
+if target_precip is None:
+    # Florida currently has no MAP input in this interface.
+    # Use the humid AWC curve as the default.
+    awc_region_id = 2
+    awc_region_label = "Region 2 — Humid (Florida default)"
+
+elif float(target_precip) < 600.0:
+    awc_region_id = 1
+    awc_region_label = "Region 1 — Arid (MAP < 600 mm)"
+
+else:
+    awc_region_id = 2
+    awc_region_label = "Region 2 — Humid (MAP ≥ 600 mm)"
+
+# Save numeric code for the AWC scoring function.
+st.session_state[f"{k}_awc_region"] = awc_region_id
+
+# Show scoring branch only when AWC is selected.
+if "Available Water Capacity" in target_indicators:
+    st.info(
+        f"**AWC scoring branch:** {awc_region_label}. "
+        f"Texture class: {texture_id}; "
+        f"OM class: {SMAF_OM_MAP.get(selected_om_class, 2)}."
+    )
     # ✨ THE MASTER SITE INPUTS GATEKEEPER ✨
     required_inputs = [selected_sub, selected_tex, selected_sm_tex, selected_sm_slope, selected_method, selected_weath, ec_method_str, selected_fe_class, selected_climate_class]
     if selected_bd_min is not None:
@@ -2587,7 +2594,18 @@ def render_single_sample(region_name, cfg, df, df_hist):
         
     if "Available Water Capacity" in target_indicators:
         awc_region_sum = st.session_state.get(f"{k}_awc_region", 2)
-        phys_scores.append(safe_float(run_smaf_awc_score(awc_val_sum, awc_region_sum, texture_id_sum, om_id_sum)))
+        phys_scores.append(
+    safe_float(
+        run_smaf_awc_score(
+            awc_val_sum,
+            awc_region_sum,
+            texture_id_sum,
+            om_id_sum,
+            SMAF_DATA,
+            clamp=False
+        )
+    )
+)
         
     if "Water-Filled Pore Space" in target_indicators:
         wfps_scores_sum = run_smaf_wfps_score(wfps_frac_sum, texture_id_sum, SMAF_DATA)

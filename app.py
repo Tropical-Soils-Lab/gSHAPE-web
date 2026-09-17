@@ -5300,6 +5300,27 @@ def render_batch_scoring(region_name, cfg, df, df_hist,bg_df=None):
         ui_mineralogy_id = SMAF_MINERALOGY_MAP.get(mineral_str, 0) if mineral_str != "— Select —" else 0
 
         # Initialize tracking arrays for SHAPE SOC targets
+        # Initialize result tracking
+        score_columns = []
+
+# SHAPE-SOC 90th percentile benchmark
+        tgt_ocs = None
+        if (
+            "Soil Organic Carbon" in target_indicators
+             and selected_framework in ["SHAPE", "SHAPE + SMAF (Hybrid)"]
+        ):
+    # Use the same SHAPE parameters as the Single Sample SOC model.
+    # These should already correspond to the selected Brazil
+    # peer-group / texture / climate inputs.
+            try:
+                tgt_ocs = percentile_to_oc(
+                    90,
+                    lp_mean,
+                    sigma_val
+                )
+            except NameError:
+                tgt_ocs = None
+                
         tgt_ocs = []
         score_columns = []
 

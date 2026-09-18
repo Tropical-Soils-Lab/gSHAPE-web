@@ -5398,6 +5398,7 @@ with chk_c3:
             
     if st.checkbox("Potentially Mineralizable Nitrogen", value=False, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("Potentially Mineralizable Nitrogen")
+        
     if st.checkbox("Microbial Biomass Carbon", value=False, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("Microbial Biomass Carbon")
         
@@ -5406,25 +5407,9 @@ with chk_c3:
     bg_is_shape = (active_region_name == "Brazil" and selected_framework in ["SHAPE", "SHAPE + SMAF (Hybrid)"])
     bg_enabled = smaf_active or bg_is_shape
     
-    if st.checkbox("Beta-glucosidase", value=False, disabled=not bg_enabled):
+    # Adding a specific key completely prevents the DuplicateElementId error
+    if st.checkbox("Beta-glucosidase", value=False, disabled=not bg_enabled, key="master_bg_checkbox"):
         target_indicators.append("Beta-glucosidase")
-        
-    # ✨ FIXED: Beta-glucosidase Dynamic Gatekeeper ✨
-    # Determine if BG is allowed based on the selected framework and region
-    bg_is_shape = (active_region_name == "Brazil" and selected_framework in ["SHAPE", "SHAPE + SMAF (Hybrid)"])
-    bg_is_smaf = (selected_framework in ["SMAF", "SHAPE + SMAF (Hybrid)"])
-    
-    # Enable the checkbox if it's Brazil (SHAPE/Hybrid) OR if SMAF is active generally
-    bg_enabled = bg_is_shape or bg_is_smaf
-    
-    # Set the appropriate label dynamically
-    bg_label = "Beta-glucosidase (BG-SHAPE) 🌿" if bg_is_shape else "Beta-glucosidase"
-    
-    if st.checkbox(bg_label, value=False, disabled=not bg_enabled):
-        if bg_is_shape:
-            target_indicators.append("BG-SHAPE")
-        else:
-            target_indicators.append("Beta-glucosidase")
         
 if len(target_indicators) == 0:
     st.warning("⚠️ Please select all the indicators you want to score.")

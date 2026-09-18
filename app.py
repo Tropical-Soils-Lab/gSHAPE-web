@@ -2428,52 +2428,43 @@ def render_single_sample(region_name, cfg, df, df_hist,bg_df=None):
                 selected_fe_class = st.selectbox("Iron-Oxide Class (Auto-Assigned)", fe_options, key=f"{k}_sm_fe_class")
                 
             clim_options = ["— Select —"] + list(SMAF_CLIMATE_MAP.keys())
-            selected_climate_class = clim_options[1]
-            if any(ind in target_indicators for ind in ["Potentially Mineralizable Nitrogen", "Microbial Biomass Carbon", "Beta-glucosidase", "SMAF Soil Organic Carbon"]):
+            
+            # ✨ DYNAMIC GATEKEEPER: Hide Climate Class if only running SHAPE
+            needs_climate = any(ind in target_indicators for ind in ["Potentially Mineralizable Nitrogen", "Microbial Biomass Carbon", "Beta-glucosidase", "SMAF Soil Organic Carbon"])
+            
+            if needs_climate:
                 is_warm = target_temp >= 15.0
                 is_wet = target_precip >= 600.0 if target_precip is not None else True
                 derived_clim_id = 1 if (is_warm and is_wet) else 2 if (is_warm and not is_wet) else 3 if (not is_warm and is_wet) else 4
                 st.session_state[f"{k}_sm_climate_class"] = clim_options[derived_clim_id]
                 selected_climate_class = st.selectbox("Climate Class (Auto-Assigned)", clim_options, key=f"{k}_sm_climate_class")
-
-           # ✨ VISIBLE OM CLASS DERIVATION (Taxonomy-Based Default) ✨
-            # Safely grab the taxonomy dropdown value (Ensure 'selected_sub' matches your left-column variable!)
-            raw_tax = selected_sub.lower().strip() if 'selected_sub' in locals() and selected_sub else ""
-            raw_tax = raw_tax.replace("oxs", "ox").replace("oxes", "ox")
-            
-            # Use base (singular) forms to catch any variations or pluralizations
-            class_1_subs = ["aquand", "aquod", "aquox", "fibrist", "folist", "hemist", "histel", "saprist", "turbel"]
-            class_2_subs = ["alboll", "aquept", "aquert", "aquoll", "aquult", "boroll", "cryoll", "humod", "humult", "rendoll", "udand", "udoll", "udox", "ustand", "ustert", "ustoll", "xerert", "xeroll"]
-            class_3_subs = ["andept", "anthrept", "aqualf", "aquent", "boralf", "cryalf", "cryand", "cryert", "cryod", "orthel", "udalf", "ustalf", "vitrand", "xeralf"]
-            
-            # Use 'any()' to search for the keyword anywhere inside the dropdown string
-            if any(sub in raw_tax for sub in class_1_subs):
-                default_om_idx = 0
-            elif any(sub in raw_tax for sub in class_2_subs):
-                default_om_idx = 1
-            elif any(sub in raw_tax for sub in class_3_subs):
-                default_om_idx = 2
             else:
-                default_om_idx = 3  # Class 4 fallback
+                selected_climate_class = clim_options[1] # Safe hidden default
             
-            om_options = [
-                "Class 1 (Highest OM)", 
-                "Class 2 (Med-High OM)", 
-                "Class 3 (Med-Low OM)", 
-                "Class 4 (Lowest OM)"
-            ]
+            # ✨ DYNAMIC GATEKEEPER: Hide OM Class if only running SHAPE
+            needs_om = any(ind in target_indicators for ind in ["Macroaggregate Stability", "Available Water Capacity", "Soil Phosphorus", "Potentially Mineralizable Nitrogen", "Microbial Biomass Carbon", "Beta-glucosidase", "SMAF Soil Organic Carbon"])
+            
+            if needs_om:
+                raw_tax = selected_sub.lower().strip() if 'selected_sub' in locals() and selected_sub else ""
+                raw_tax = raw_tax.replace("oxs", "ox").replace("oxes", "ox")
+                class_1_subs = ["aquand", "aquod", "aquox", "fibrist", "folist", "hemist", "histel", "saprist", "turbel"]
+                class_2_subs = ["alboll", "aquept", "aquert", "aquoll", "aquult", "boroll", "cryoll", "humod", "humult", "rendoll", "udand", "udoll", "udox", "ustand", "ustert", "ustoll", "xerert", "xeroll"]
+                class_3_subs = ["andept", "anthrept", "aqualf", "aquent", "boralf", "cryalf", "cryand", "cryert", "cryod", "orthel", "udalf", "ustalf", "vitrand", "xeralf"]
+                
+                if any(sub in raw_tax for sub in class_1_subs): default_om_idx = 0
+                elif any(sub in raw_tax for sub in class_2_subs): default_om_idx = 1
+                elif any(sub in raw_tax for sub in class_3_subs): default_om_idx = 2
+                else: default_om_idx = 3  
 
-           # ✨ FIX: Smart Auto-Assign Tracker
-            # If the user selects a new Soil Taxonomy, instantly auto-update the OM Class!
-            if st.session_state.get(f"{k}_last_tax") != raw_tax:
-                st.session_state[f"{k}_sm_om_class"] = om_options[default_om_idx]
-                st.session_state[f"{k}_last_tax"] = raw_tax
+                om_options = ["Class 1 (Highest OM)", "Class 2 (Med-High OM)", "Class 3 (Med-Low OM)", "Class 4 (Lowest OM)"]
 
-            selected_om_class = st.selectbox(
-                "Organic Matter (OM) Class (Auto-Assigned)", 
-                options=om_options, 
-                key=f"{k}_sm_om_class"
-            )
+                if st.session_state.get(f"{k}_last_tax") != raw_tax:
+                    st.session_state[f"{k}_sm_om_class"] = om_options[default_om_idx]
+                    st.session_state[f"{k}_last_tax"] = raw_tax
+
+                selected_om_class = st.selectbox("Organic Matter (OM) Class (Auto-Assigned)", options=om_options, key=f"{k}_sm_om_class")
+            else:
+                selected_om_class = "Class 2 (Med-High OM)" # Safe hidden default
             # This explicitly locks the checkbox so it ONLY appears for United States -> Florida
             hist_toggle = False 
             
@@ -2557,7 +2548,7 @@ def render_single_sample(region_name, cfg, df, df_hist,bg_df=None):
                 mbc_val = st.number_input("Measured MBC (mg/kg)", min_value=0.0, max_value=2000.0, step=10.0, value=None, placeholder="Enter value...", key=f"{k}_mbc_val")
             col_idx += 1
             
-        if "Beta-glucosidase" in target_indicators:
+        if "Beta-glucosidase" in target_indicators or "BG-SHAPE" in target_indicators:
             with cols[col_idx % 3]: 
                 bg_val = st.number_input("Measured BG (mg/kg/hr)", min_value=0.0, max_value=2000.0, step=10.0, value=None, placeholder="Enter value...", key=f"{k}_bg_val")
             col_idx += 1
@@ -2578,7 +2569,7 @@ def render_single_sample(region_name, cfg, df, df_hist,bg_df=None):
     if "Water-Filled Pore Space" in target_indicators and wfps_frac is None: missing_labs.append("Water-Filled Pore Space")
     if "Potentially Mineralizable Nitrogen" in target_indicators and pmn_val is None: missing_labs.append("Potentially Mineralizable Nitrogen")
     if "Microbial Biomass Carbon" in target_indicators and mbc_val is None: missing_labs.append("Microbial Biomass Carbon")
-    if "Beta-glucosidase" in target_indicators and bg_val is None: missing_labs.append("Beta-glucosidase")
+    if ("Beta-glucosidase" in target_indicators or "BG-SHAPE" in target_indicators) and bg_val is None: missing_labs.append("Beta-glucosidase")
 
     if missing_labs:
         st.info(f"🧪 **Pending Lab Results:** Please enter values for **{', '.join(missing_labs)}** to calculate your scores.")
@@ -4148,77 +4139,28 @@ def render_single_sample(region_name, cfg, df, df_hist,bg_df=None):
     elif chosen_indicator == "BG-SHAPE":
         if bg_df is None:
             st.warning("BG-SHAPE parameter file not loaded for this region.")
-
         else:
             # ── 1. Parameter lookup ──
             _bg_tax = parse_code(selected_sub)
             _bg_tex = cfg["texture_map"][selected_tex]
-            _bg_row = get_params_2d(
-                bg_df,
-                _bg_tax,
-                _bg_tex,
-                target_temp,
-                target_precip
-            )
+            _bg_row = get_params_2d(bg_df, _bg_tax, _bg_tex, target_temp, target_precip)
 
             if _bg_row is None:
-                st.error(
-                    f"No BG-SHAPE parameters found for {_bg_tax} · {_bg_tex} · "
-                    f"{target_temp}°C · {target_precip} mm. Check your CSV coverage."
-                )
-
+                st.error(f"No BG-SHAPE parameters found for {_bg_tax} · {_bg_tex} · {target_temp}°C · {target_precip} mm. Check your CSV coverage.")
             else:
                 lp_bg = float(_bg_row["mean_lp"])
                 lp_lcl_bg = float(_bg_row["lcl_lp"])
                 lp_ucl_bg = float(_bg_row["ucl_lp"])
                 sigma_bg = float(np.exp(_bg_row["mean_sigma"]))
 
-                score_bg = compute_bg_shape_score(
-                    bg_val,
-                    lp_bg,
-                    sigma_bg
-                )
+                score_bg = compute_bg_shape_score(bg_val, lp_bg, sigma_bg)
                 color_bg = score_color(score_bg)
                 label_bg = score_label(score_bg)
 
-                # ── BG-SHAPE TARGET PERCENTILE ──
-                st.markdown("### 🎯 BG-SHAPE Benchmark Target")
-
-                target_pct_bg = st.slider(
-                    "Target Percentile",
-                    min_value=50,
-                    max_value=99,
-                    value=int(
-                        st.session_state.get(
-                            f"{k}_bg_target_pct",
-                            90
-                        )
-                    ),
-                    step=1,
-                    key=f"{k}_bg_target_pct",
-                    help=(
-                        "Select the peer-group percentile you want to use "
-                        "as the BG-SHAPE benchmark target."
-                    )
-                )
-
-                tgt_bg = percentile_to_bg(
-                    target_pct_bg,
-                    lp_bg,
-                    sigma_bg
-                )
-
-                median_bg = percentile_to_bg(
-                    50,
-                    lp_bg,
-                    sigma_bg
-                )
-
-                plot_max_bg = max(
-                    tgt_bg * 1.5,
-                    bg_val * 1.5,
-                    800.0
-                )
+                target_pct_bg = st.session_state.get(f"{k}_bg_target_pct", 90)
+                tgt_bg = percentile_to_bg(target_pct_bg, lp_bg, sigma_bg)
+                median_bg = percentile_to_bg(50, lp_bg, sigma_bg)
+                plot_max_bg = max(tgt_bg * 1.5, bg_val * 1.5, 800.0)
 
                 # ── 2. Layout ──
                 col_l, col_r = st.columns([1, 2])
@@ -4227,372 +4169,125 @@ def render_single_sample(region_name, cfg, df, df_hist,bg_df=None):
                     gauge_title = (
                         f"<b style='font-size:17px'>{label_bg}</b><br>"
                         f"<span style='font-size:11px;color:gray'>"
-                        f"BG-SHAPE · {strip_code(selected_sub)} · "
-                        f"{strip_code(selected_tex)} · "
-                        f"{target_temp:.1f}°C · "
-                        f"{target_precip:.0f} mm · "
-                        f"BG {bg_val} mg/kg/hr"
-                        f"</span>"
+                        f"BG-SHAPE · {strip_code(selected_sub)} · {strip_code(selected_tex)} · "
+                        f"{target_temp:.1f}°C · {target_precip:.0f} mm · BG {bg_val}</span>"
                     )
 
-                    fig_bg_gauge = go.Figure(
-                        go.Indicator(
-                            mode="gauge+number",
-                            value=int(round(score_bg)),
-                            title={
-                                "text": gauge_title,
-                                "font": {"size": 13}
-                            },
-                            number={
-                                "suffix": "/100",
-                                "font": {
-                                    "size": 38,
-                                    "color": color_bg
-                                }
-                            },
-                            gauge={
-                                "axis": {
-                                    "range": [0, 100],
-                                    "tickwidth": 1,
-                                    "tickcolor": "gray",
-                                    "tickvals": [
-                                        0, 20, 40, 60, 80, 100
-                                    ]
-                                },
-                                "bar": {
-                                    "color": color_bg,
-                                    "thickness": 0.28
-                                },
-                                "bgcolor": "rgba(0,0,0,0)",
-                                "borderwidth": 0,
-                                "steps": [
-                                    {
-                                        "range": [0, 20],
-                                        "color": "rgba(215,48,39,0.35)"
-                                    },
-                                    {
-                                        "range": [20, 40],
-                                        "color": "rgba(244,109,67,0.35)"
-                                    },
-                                    {
-                                        "range": [40, 60],
-                                        "color": "rgba(255,193,7,0.35)"
-                                    },
-                                    {
-                                        "range": [60, 80],
-                                        "color": "rgba(119,195,92,0.35)"
-                                    },
-                                    {
-                                        "range": [80, 100],
-                                        "color": "rgba(26,150,65,0.35)"
-                                    }
-                                ],
-                                "threshold": {
-                                    "line": {
-                                        "color": color_bg,
-                                        "width": 5
-                                    },
-                                    "thickness": 0.8,
-                                    "value": score_bg
-                                }
-                            }
-                        )
-                    )
-
-                    fig_bg_gauge.update_layout(
-                        paper_bgcolor="rgba(0,0,0,0)",
-                        plot_bgcolor="rgba(0,0,0,0)",
-                        height=260,
-                        margin=dict(
-                            l=20,
-                            r=20,
-                            t=80,
-                            b=10
-                        )
-                    )
-
-                    st.plotly_chart(
-                        fig_bg_gauge,
-                        use_container_width=True,
-                        key=f"{k}_bg_shape_gauge"
-                    )
+                    fig_bg_gauge = go.Figure(go.Indicator(
+                        mode="gauge+number", value=int(round(score_bg)),
+                        title={"text": gauge_title, "font": {"size": 13}},
+                        number={"suffix": "/100", "font": {"size": 38, "color": color_bg}},
+                        gauge={
+                            "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "gray"},
+                            "bar": {"color": color_bg, "thickness": 0.28},
+                            "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                            "steps": [
+                                {"range": [0, 20], "color": "rgba(215,48,39,0.35)"},
+                                {"range": [20, 40], "color": "rgba(244,109,67,0.35)"},
+                                {"range": [40, 60], "color": "rgba(255,193,7,0.35)"},
+                                {"range": [60, 80], "color": "rgba(119,195,92,0.35)"},
+                                {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}
+                            ],
+                            "threshold": {"line": {"color": color_bg, "width": 5}, "thickness": 0.8, "value": score_bg}
+                        }
+                    ))
+                    fig_bg_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=40, r=40, t=80, b=10))
+                    st.plotly_chart(fig_bg_gauge, use_container_width=True, key=f"{k}_bg_shape_gauge")
 
                     st.divider()
-
                     bg_gap = tgt_bg - bg_val
-
+                    
                     m1, m2 = st.columns(2)
-
                     with m1:
-                        st.metric(
-                            "Peer Group Median",
-                            f"{median_bg:.1f} mg/kg/hr",
-                            f"{bg_val - median_bg:+.1f} difference"
-                        )
-
+                        st.metric("Peer Group Median", f"{median_bg:.1f} mg/kg/hr", f"{bg_val - median_bg:+.1f} difference")
                     with m2:
-                        st.metric(
-                            f"Target ({target_pct_bg}th pct)",
-                            f"{tgt_bg:.1f} mg/kg/hr",
-                            "✅ Exceeds target"
-                            if bg_gap <= 0
-                            else f"-{bg_gap:.1f} needed"
-                        )
+                        st.metric(f"Target ({target_pct_bg}th pct)", f"{tgt_bg:.1f} mg/kg/hr", "✅ Exceeds target" if bg_gap <= 0 else f"-{bg_gap:.1f} needed")
 
                     st.divider()
-
                     st.markdown("**BG targets by percentile**")
-
                     bench_bg = pd.DataFrame({
-                        "Percentile": [
-                            "80th",
-                            "90th",
-                            "95th",
-                            "99th"
-                        ],
-                        "Target BG (mg/kg/hr)": [
-                            f"{percentile_to_bg(p, lp_bg, sigma_bg):.1f}"
-                            for p in [80, 90, 95, 99]
-                        ]
+                        "Percentile": ["80th", "90th", "95th", "99th"],
+                        "Target BG": [f"{percentile_to_bg(p, lp_bg, sigma_bg):.1f}" for p in [80, 90, 95, 99]]
                     })
-
-                    st.dataframe(
-                        bench_bg,
-                        hide_index=True,
-                        use_container_width=True
-                    )
+                    st.dataframe(bench_bg, hide_index=True, width='stretch')
 
                     st.divider()
-
                     st.markdown("**📥 Export result**")
-
                     bg_export = pd.DataFrame([{
-                        "Region": region_name,
-                        "Suborder": strip_code(selected_sub),
-                        "Texture": strip_code(selected_tex),
-                        "Temperature_C": target_temp,
-                        "Precipitation_mm": target_precip,
-                        "BG_mg_kg_hr": bg_val,
-                        "BG_SHAPE_Score": round(score_bg, 2),
-                        "Zone": label_bg,
-                        f"Target_BG_{target_pct_bg}th_pct": round(
-                            tgt_bg,
-                            2
-                        ),
+                        "Region": region_name, "Suborder": strip_code(selected_sub), "Texture": strip_code(selected_tex),
+                        "Temperature_C": target_temp, "Precipitation_mm": target_precip,
+                        "BG_mg_kg_hr": bg_val, "BG_SHAPE_Score": round(score_bg, 2), "Zone": label_bg,
+                        "Target_BG_90th_pct": round(tgt_bg, 2)
                     }])
-
-                    st.download_button(
-                        "⬇️ Download as CSV",
-                        data=bg_export.to_csv(
-                            index=False
-                        ).encode("utf-8"),
-                        file_name=(
-                            f"gSHAPE_BG_{_bg_tax}_{_bg_tex}.csv"
-                        ),
-                        mime="text/csv",
-                        use_container_width=True,
-                        key=f"{k}_bg_shape_export"
-                    )
+                    st.download_button("⬇️ Download as CSV", data=bg_export.to_csv(index=False).encode("utf-8"),
+                                       file_name=f"SHAPE_{cfg['key']}_{_bg_tax}_{_bg_tex}_BG.csv",
+                                       mime="text/csv", width='stretch', key=f"{k}_bg_export_btn")
 
                 with col_r:
                     st.markdown("#### Scoring Curve (BG-SHAPE)")
-
-                    # Generate curve points
-                    xs_bg = np.linspace(
-                        0.5,
-                        plot_max_bg,
-                        400
-                    )
-
-                    y_mean_bg = [
-                        compute_bg_shape_score(
-                            xi,
-                            lp_bg,
-                            sigma_bg
-                        ) / 100
-                        for xi in xs_bg
-                    ]
-
-                    y_lcl_bg = [
-                        compute_bg_shape_score(
-                            xi,
-                            lp_lcl_bg,
-                            sigma_bg
-                        ) / 100
-                        for xi in xs_bg
-                    ]
-
-                    y_ucl_bg = [
-                        compute_bg_shape_score(
-                            xi,
-                            lp_ucl_bg,
-                            sigma_bg
-                        ) / 100
-                        for xi in xs_bg
-                    ]
+                    
+                    # Generate vectorized log-normal CDF array for ribbon
+                    x_bg = np.linspace(0.1, plot_max_bg, 400)
+                    lx_bg = np.log(x_bg)
+                    y_mean_bg = norm.cdf(lx_bg, lp_bg, sigma_bg)
+                    y_lcl_bg  = norm.cdf(lx_bg, lp_lcl_bg, sigma_bg)
+                    y_ucl_bg  = norm.cdf(lx_bg, lp_ucl_bg, sigma_bg)
 
                     fig_bg_cdf = go.Figure()
-
-                    # 95% CI ribbon
-                    fig_bg_cdf.add_trace(
-                        go.Scatter(
-                            x=np.concatenate([
-                                xs_bg,
-                                xs_bg[::-1]
-                            ]),
-                            y=np.concatenate([
-                                y_ucl_bg,
-                                y_lcl_bg[::-1]
-                            ]),
-                            fill="toself",
-                            fillcolor="rgba(26,150,65,0.18)",
-                            line=dict(
-                                color="rgba(0,0,0,0)"
-                            ),
-                            name="95% Credible Interval",
-                            hoverinfo="skip"
-                        )
-                    )
-
-                    # Score curve
-                    fig_bg_cdf.add_trace(
-                        go.Scatter(
-                            x=xs_bg,
-                            y=y_mean_bg,
-                            mode="lines",
-                            line=dict(
-                                color="#4C7A3F",
-                                width=2.5
-                            ),
-                            name="Score Curve",
-                            hovertemplate=(
-                                "BG: %{x:.1f} mg/kg/hr"
-                                "<br>Score: %{y:.0%}"
-                                "<extra></extra>"
-                            )
-                        )
-                    )
-
-                    # Zone lines
-                    for zy, zl in [
-                        (0.20, "V.Low|Low"),
-                        (0.40, "Low|Med"),
-                        (0.60, "Med|High"),
-                        (0.80, "High|V.High")
-                    ]:
-                        fig_bg_cdf.add_hline(
-                            y=zy,
-                            line_dash="dot",
-                            line_color="rgba(150,150,150,0.5)",
-                            annotation_text=zl,
-                            annotation_position="right"
-                        )
-
-                    # Your site
-                    fig_bg_cdf.add_trace(
-                        go.Scatter(
-                            x=[bg_val],
-                            y=[score_bg / 100],
-                            mode="markers",
-                            marker=dict(
-                                color=color_bg,
-                                size=14,
-                                symbol="circle",
-                                line=dict(
-                                    color="white",
-                                    width=2
-                                )
-                            ),
-                            name="Your Site",
-                            hovertemplate=(
-                                f"BG: {bg_val} mg/kg/hr"
-                                f"<br>Score: {score_bg:.0f}/100"
-                                "<extra></extra>"
-                            )
-                        )
-                    )
-
-                    # Target marker
-                    fig_bg_cdf.add_trace(
-                        go.Scatter(
-                            x=[tgt_bg],
-                            y=[target_pct_bg / 100],
-                            mode="markers",
-                            marker=dict(
-                                color="#0072B2",
-                                size=13,
-                                symbol="x-thin",
-                                line=dict(
-                                    color="#0072B2",
-                                    width=3
-                                )
-                            ),
-                            name=f"Target ({target_pct_bg}th)",
-                            hovertemplate=(
-                                f"Target<br>"
-                                f"BG: {tgt_bg:.1f} mg/kg/hr"
-                                "<extra></extra>"
-                            )
-                        )
-                    )
-
+                    
+                    # 95% CI Ribbon
+                    fig_bg_cdf.add_trace(go.Scatter(
+                        x=np.concatenate([x_bg, x_bg[::-1]]), y=np.concatenate([y_ucl_bg, y_lcl_bg[::-1]]),
+                        fill="toself", fillcolor="rgba(26,150,65,0.18)", line=dict(color="rgba(0,0,0,0)"),
+                        name="95% Credible Interval", hoverinfo="skip"
+                    ))
+                    
+                    # Main Curve
+                    fig_bg_cdf.add_trace(go.Scatter(
+                        x=x_bg, y=y_mean_bg, mode="lines", line=dict(color="#1a9641", width=2.5), name="Score Curve",
+                        hovertemplate="BG: %{x:.1f} mg/kg/hr<br>Score: %{y:.3f}<extra></extra>"
+                    ))
+                    
+                    for zy, zl in [(0.20, "V.Low | Low"), (0.40, "Low | Med"), (0.60, "Med | High"), (0.80, "High | V.High")]:
+                        fig_bg_cdf.add_hline(y=zy, line_dash="dot", line_color="rgba(150,150,150,0.5)",
+                                          annotation_text=zl, annotation_position="right")
+                                          
+                    fig_bg_cdf.add_trace(go.Scatter(
+                        x=[bg_val], y=[score_bg / 100], mode="markers",
+                        marker=dict(color=color_bg, size=14, symbol="circle", line=dict(color="white", width=2)),
+                        name="Your Site", hovertemplate=f"Your site<br>BG: {bg_val}<br>Score: {score_bg:.0f}/100<extra></extra>"
+                    ))
+                    
+                    fig_bg_cdf.add_trace(go.Scatter(
+                        x=[tgt_bg], y=[target_pct_bg / 100], mode="markers",
+                        marker=dict(color="#0072B2", size=13, symbol="x-thin", line=dict(color="#0072B2", width=3)),
+                        name=f"Target ({target_pct_bg}th)", hovertemplate=f"Target<br>BG: {tgt_bg:.1f}<br>{target_pct_bg}th pct<extra></extra>"
+                    ))
+                    
                     fig_bg_cdf.update_layout(
-                        xaxis_title=(
-                            "Beta-glucosidase "
-                            "(mg PNP kg⁻¹ hr⁻¹)"
-                        ),
-                        yaxis_title="SHAPE Score",
-                        yaxis={
-                            "range": [0, 1],
-                            "tickformat": ".0%"
-                        },
-                        xaxis={
-                            "range": [0, plot_max_bg]
-                        },
-                        legend={
-                            "orientation": "h",
-                            "yanchor": "bottom",
-                            "y": 1.02
-                        },
-                        paper_bgcolor="rgba(0,0,0,0)",
-                        plot_bgcolor="rgba(0,0,0,0)",
-                        height=400,
-                        margin=dict(
-                            l=10,
-                            r=10,
-                            t=40,
-                            b=10
-                        )
+                        xaxis_title="Beta-glucosidase (mg PNP / kg / hr)", yaxis_title="Score",
+                        yaxis=dict(range=[0, 1], tickformat=".0%"), xaxis=dict(range=[0, plot_max_bg]),
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        height=400, margin=dict(l=10, r=10, t=40, b=10)
                     )
-
-                    fig_bg_cdf.update_xaxes(
-                        gridcolor="rgba(150,150,150,0.1)"
-                    )
-
-                    fig_bg_cdf.update_yaxes(
-                        gridcolor="rgba(150,150,150,0.1)"
-                    )
-
-                    st.plotly_chart(
-                        fig_bg_cdf,
-                        use_container_width=True,
-                        key=f"{k}_bg_shape_curve"
-                    )
-
-            # ── 3. Recommendations ──
-            st.divider()
-            st.markdown("### 📋 Agronomic Recommendations")
-            if score_bg >= 80:
-                st.success("**Score Tier: Very High**\n\nYour soil exhibits very high beta-glucosidase activity relative to comparable Brazilian soils under similar climate conditions, indicating a highly active soil carbon cycle. Continue minimal soil disturbance practices and maintain diverse crop rotations and continuous residue cover.")
-            elif score_bg >= 60:
-                st.success("**Score Tier: High**\n\nBeta-glucosidase activity is above the peer-group median, reflecting healthy soil organic matter turnover. Maintain current organic matter inputs and residue management to sustain biological function.")
-            elif score_bg >= 40:
-                st.warning("**Score Tier: Medium**\n\nYour beta-glucosidase activity is near the peer-group median. Incorporating high-biomass cover crops or compost applications can stimulate enzyme production and improve the biological carbon cycle.")
-            elif score_bg >= 20:
-                st.error("**Score Tier: Low**\n\nBelow-median beta-glucosidase activity suggests constrained carbon decomposition and reduced biological function. Prioritize practices that increase organic carbon inputs and reduce tillage intensity to rebuild the soil enzyme pool.")
-            else:
-                st.error("**Score Tier: Very Low**\n\nSeverely degraded enzyme activity indicates a critically depleted soil biological system. Immediate intervention with diverse organic amendments, cover cropping, and elimination of bare-fallow periods is recommended. Consult a local agronomist for a site-specific rehabilitation plan.")
-
+                    fig_bg_cdf.update_xaxes(gridcolor="rgba(150,150,150,0.1)")
+                    fig_bg_cdf.update_yaxes(gridcolor="rgba(150,150,150,0.1)")
+                    st.plotly_chart(fig_bg_cdf, width='stretch', key=f"{k}_bg_cdf_chart")
+                    
+                # ── 3. Recommendations ──
+                st.divider()
+                st.markdown("### 📋 Agronomic Recommendations")
+                if score_bg >= 80:
+                    st.success("**Score Tier: Very High**\n\nYour soil exhibits very high beta-glucosidase activity relative to comparable Brazilian soils under similar climate conditions, indicating a highly active soil carbon cycle. Continue minimal soil disturbance practices and maintain diverse crop rotations and continuous residue cover.")
+                elif score_bg >= 60:
+                    st.success("**Score Tier: High**\n\nBeta-glucosidase activity is above the peer-group median, reflecting healthy soil organic matter turnover. Maintain current organic matter inputs and residue management to sustain biological function.")
+                elif score_bg >= 40:
+                    st.warning("**Score Tier: Medium**\n\nYour beta-glucosidase activity is near the peer-group median. Incorporating high-biomass cover crops or compost applications can stimulate enzyme production and improve the biological carbon cycle.")
+                elif score_bg >= 20:
+                    st.error("**Score Tier: Low**\n\nBelow-median beta-glucosidase activity suggests constrained carbon decomposition and reduced biological function. Prioritize practices that increase organic carbon inputs and reduce tillage intensity to rebuild the soil enzyme pool.")
+                else:
+                    st.error("**Score Tier: Very Low**\n\nSeverely degraded enzyme activity indicates a critically depleted soil biological system. Immediate intervention with diverse organic amendments, cover cropping, and elimination of bare-fallow periods is recommended. Consult a local agronomist for a site-specific rehabilitation plan.")
     elif chosen_indicator == "SMAF Soil Organic Carbon":
         # 1. Grab Global Variables
         texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
@@ -6091,7 +5786,6 @@ with chk_c2:
 with chk_c3:
     st.markdown("<div class='pillar-badge-bio'> Biological Indicators</div>", unsafe_allow_html=True)
     
-    # ✨ THE FIX: Updated string names for the SOC routing
     if st.checkbox("Soil Organic Carbon", value=True): 
         if selected_framework == "SHAPE":
             target_indicators.append("Soil Organic Carbon") # Routes to SHAPE math
@@ -6104,18 +5798,15 @@ with chk_c3:
         if smaf_active: target_indicators.append("Potentially Mineralizable Nitrogen")
     if st.checkbox("Microbial Biomass Carbon", value=False, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("Microbial Biomass Carbon")
-    bg_shape_available = (
-        active_region_name == "Brazil" and
-        selected_framework == "SHAPE + SMAF" and
-        bg_df is not None
-    )
-    if bg_shape_available:
-        if st.checkbox("Beta-glucosidase (BG-SHAPE) 🌿", value=False,
-                       help="Bayesian peer-group scoring for Brazil — replaces SMAF BG when SHAPE + SMAF is selected."):
-            target_indicators.append("BG-SHAPE")
-    else:
-        if st.checkbox("Beta-glucosidase", value=False):
-            target_indicators.append("Beta-glucosidase")
+        
+    # ✨ FIXED: Strictly isolate Beta-glucosidase to Brazil
+    if active_region_name == "Brazil":
+        if selected_framework in ["SHAPE", "SHAPE + SMAF (Hybrid)"]:
+            if st.checkbox("Beta-glucosidase (BG-SHAPE) 🌿", value=False, help="Bayesian peer-group scoring for Brazil"):
+                target_indicators.append("BG-SHAPE")
+        elif smaf_active:
+            if st.checkbox("Beta-glucosidase (SMAF)", value=False):
+                target_indicators.append("Beta-glucosidase")
         
 if len(target_indicators) == 0:
     st.warning("⚠️ Please select all the indicators you want to score.")

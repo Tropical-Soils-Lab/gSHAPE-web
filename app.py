@@ -5404,18 +5404,18 @@ if "Global_SMAF" not in REGIONS:
 active_cfg = REGIONS[active_region_name]
 
 # ── DYNAMIC INDICATOR FILTER ──
+# ── DYNAMIC INDICATOR FILTER ──
 st.markdown("### Target Soil Health Indicators")
 chk_c1, chk_c2, chk_c3 = st.columns(3)
 target_indicators = []
 
-# ✨ THE FIX: Updated string names to match your clean dropdown labels
 smaf_active = selected_framework in ["SMAF", "SHAPE + SMAF (Hybrid)"]
 
 with chk_c1:
     st.markdown("<div class='pillar-badge-phys'> Physical Indicators</div>", unsafe_allow_html=True)
-    if st.checkbox("Bulk Density", value=smaf_active, disabled=not smaf_active): 
+    if st.checkbox("Bulk Density", value=False, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("Bulk Density")
-    if st.checkbox("Macroaggregate Stability", value=smaf_active, disabled=not smaf_active): 
+    if st.checkbox("Macroaggregate Stability", value=False, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("Macroaggregate Stability")
     if st.checkbox("Available Water Capacity", value=False, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("Available Water Capacity")
@@ -5424,13 +5424,13 @@ with chk_c1:
 
 with chk_c2:
     st.markdown("<div class='pillar-badge-chem'> Chemical Indicators</div>", unsafe_allow_html=True)
-    if st.checkbox("pH", value=smaf_active, disabled=not smaf_active): 
+    if st.checkbox("pH", value=False, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("pH")
-    if st.checkbox("Soil Phosphorus", value=smaf_active, disabled=not smaf_active): 
+    if st.checkbox("Soil Phosphorus", value=False, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("Soil Phosphorus")
     if st.checkbox("Extractable Potassium", value=False, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("Extractable Potassium")
-    if st.checkbox("Electrical Conductivity", value=smaf_active, disabled=not smaf_active): 
+    if st.checkbox("Electrical Conductivity", value=False, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("Electrical Conductivity")
     if st.checkbox("Sodium Adsorption Ratio", value=False, disabled=not smaf_active): 
         if smaf_active: target_indicators.append("Sodium Adsorption Ratio")
@@ -5438,7 +5438,7 @@ with chk_c2:
 with chk_c3:
     st.markdown("<div class='pillar-badge-bio'> Biological Indicators</div>", unsafe_allow_html=True)
     
-    if st.checkbox("Soil Organic Carbon", value=True): 
+    if st.checkbox("Soil Organic Carbon", value=False): 
         if selected_framework == "SHAPE":
             target_indicators.append("Soil Organic Carbon") # Routes to SHAPE math
         elif selected_framework == "SMAF":
@@ -5453,11 +5453,9 @@ with chk_c3:
         if smaf_active: target_indicators.append("Microbial Biomass Carbon")
         
     # ✨ UNIFIED BG GATEKEEPER ✨
-    # BG is enabled if SMAF is active OR if Brazil SHAPE is active
     bg_is_shape = (active_region_name == "Brazil" and selected_framework in ["SHAPE", "SHAPE + SMAF (Hybrid)"])
     bg_enabled = smaf_active or bg_is_shape
     
-    # Adding a specific key completely prevents the DuplicateElementId error
     if st.checkbox("Beta-glucosidase", value=False, disabled=not bg_enabled, key="master_bg_checkbox"):
         target_indicators.append("Beta-glucosidase")
         

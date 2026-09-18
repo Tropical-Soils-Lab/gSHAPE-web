@@ -4742,36 +4742,57 @@ def render_batch_scoring(region_name, cfg, df, df_hist,bg_df=None):
             row_mineralogy_id = SMAF_MINERALOGY_MAP.get(r_min, ui_mineralogy_id) if r_min and r_min != "nan" else ui_mineralogy_id
 
             
+           
             # 1. SHAPE SOC 
             # 1. SHAPE SOC 
             if "Soil Organic Carbon" in target_indicators and selected_framework in ["SHAPE", "SHAPE + SMAF (Hybrid)"]:
                 oc_val = None
                 for possible_col in ["soc_pct", "oc", "SOC", "Soil Organic Carbon", "Carbon", "soc", "TOC"]:
-                    if possible_col in r and pd.notna(r[possible_col]) and str(r[possible_col]).strip() != "":
-                        oc_val = safe_float(r[possible_col])
+                    val_raw = r.get(possible_col)
+                    if pd.notna(val_raw) and str(val_raw).strip() != "":
+                        oc_val = safe_float(val_raw)
                         break
                 
                 score_soc = 0.0
                 tgt_soc_90 = 0.0
                 
                 if oc_val is not None and oc_val > 0:
-                    # Extract Taxonomy safely
-                    r_tax_raw = str(r.get("peer_group_taxon", r.get("Taxonomy_Group", st.session_state.get(f"{k}_sub", "")))).strip()
+                    
+                    # --- Safely Extract Taxonomy (Catch NaN for Smart Override) ---
+                    tax_csv = r.get("peer_group_taxon", r.get("Taxonomy_Group"))
+                    if pd.isna(tax_csv) or str(tax_csv).strip().lower() in ["", "nan"]:
+                        r_tax_raw = st.session_state.get(f"{k}_sub", "")
+                    else:
+                        r_tax_raw = str(tax_csv).strip()
+                        
                     r_tax = parse_code(r_tax_raw) if "(" in r_tax_raw else r_tax_raw
                     if "—" in r_tax: r_tax = r_tax.split("—")[0].strip()
                     
-                    # Extract Texture safely
-                    r_tex_raw = str(r.get("peer_group_texture", r.get("Texture", st.session_state.get(f"{k}_tex", "")))).strip()
+                    # --- Safely Extract Texture (Catch NaN for Smart Override) ---
+                    tex_csv = r.get("peer_group_texture", r.get("Texture"))
+                    if pd.isna(tex_csv) or str(tex_csv).strip().lower() in ["", "nan"]:
+                        r_tex_raw = st.session_state.get(f"{k}_tex", "")
+                    else:
+                        r_tex_raw = str(tex_csv).strip()
+                        
                     r_tex = cfg["texture_map_full"].get(r_tex_raw, r_tex_raw) if "texture_map_full" in cfg else r_tex_raw
                     
-                    # Extract Climate safely
-                    mat_val = safe_float(r.get("PRISM_tmea", r.get("MAT_C", st.session_state.get(f"{k}_temp", cfg.get("temp_default", 22.0)))))
+                    # --- Safely Extract Climate (Catch NaN for Smart Override) ---
+                    mat_csv = r.get("PRISM_tmea", r.get("MAT_C"))
+                    if pd.isna(mat_csv) or str(mat_csv).strip().lower() in ["", "nan"]:
+                        mat_val = safe_float(st.session_state.get(f"{k}_temp", cfg.get("temp_default", 22.0)))
+                    else:
+                        mat_val = safe_float(mat_csv)
                     
                     map_val = None
                     if has_precip:
-                        map_val = safe_float(r.get("PRISM_ppt", r.get("MAP_mm", st.session_state.get(f"{k}_precip", cfg.get("precip_default", 1000.0)))))
+                        map_csv = r.get("PRISM_ppt", r.get("MAP_mm"))
+                        if pd.isna(map_csv) or str(map_csv).strip().lower() in ["", "nan"]:
+                            map_val = safe_float(st.session_state.get(f"{k}_precip", cfg.get("precip_default", 1000.0)))
+                        else:
+                            map_val = safe_float(map_csv)
                     
-                    # Execute Bayesian Math
+                    # --- Execute Bayesian Math ---
                     if df is not None:
                         row_params = get_params_any(cfg, df, r_tax, r_tex, mat_val, map_val)
                         if row_params is not None:
@@ -4786,8 +4807,6 @@ def render_batch_scoring(region_name, cfg, df, df_hist,bg_df=None):
                         
                     batch.at[index, "Soil Organic Carbon Score"] = round(score_soc, 1)
                 
-                # CRITICAL: Append to the target list regardless of whether oc_val was valid
-                # This guarantees the list length matches the dataframe row count perfectly!
                 tgt_ocs.append(tgt_soc_90)
 
             # 2. SMAF SOC 

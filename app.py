@@ -5403,64 +5403,82 @@ if "Global_SMAF" not in REGIONS:
 
 active_cfg = REGIONS[active_region_name]
 
-# ── DYNAMIC INDICATOR FILTER ──
-# ── DYNAMIC INDICATOR FILTER ──
-st.markdown("### Target Soil Health Indicators")
-chk_c1, chk_c2, chk_c3 = st.columns(3)
-target_indicators = []
 
+# ── DYNAMIC INDICATOR FILTER ──
+col_hdr1, col_hdr2 = st.columns([5, 1])
+with col_hdr1:
+    st.markdown("### Target Soil Health Indicators")
+with col_hdr2:
+    # Adding a slight top margin so the button aligns vertically with the header
+    st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
+    if st.button("🧹 Clear All", use_container_width=True):
+        for key in st.session_state.keys():
+            if key.startswith("chk_"):
+                st.session_state[key] = False
+        st.rerun()
+
+target_indicators = []
 smaf_active = selected_framework in ["SMAF", "SHAPE + SMAF (Hybrid)"]
 
-with chk_c1:
-    st.markdown("<div class='pillar-badge-phys'> Physical Indicators</div>", unsafe_allow_html=True)
-    if st.checkbox("Bulk Density", value=False, disabled=not smaf_active): 
-        if smaf_active: target_indicators.append("Bulk Density")
-    if st.checkbox("Macroaggregate Stability", value=False, disabled=not smaf_active): 
-        if smaf_active: target_indicators.append("Macroaggregate Stability")
-    if st.checkbox("Available Water Capacity", value=False, disabled=not smaf_active): 
-        if smaf_active: target_indicators.append("Available Water Capacity")
-    if st.checkbox("Water-Filled Pore Space", value=False, disabled=not smaf_active): 
-        if smaf_active: target_indicators.append("Water-Filled Pore Space")
+# Wrap in a card for the premium look
+with st.container(border=True):
+    chk_c1, chk_c2, chk_c3 = st.columns(3)
 
-with chk_c2:
-    st.markdown("<div class='pillar-badge-chem'> Chemical Indicators</div>", unsafe_allow_html=True)
-    if st.checkbox("pH", value=False, disabled=not smaf_active): 
-        if smaf_active: target_indicators.append("pH")
-    if st.checkbox("Soil Phosphorus", value=False, disabled=not smaf_active): 
-        if smaf_active: target_indicators.append("Soil Phosphorus")
-    if st.checkbox("Extractable Potassium", value=False, disabled=not smaf_active): 
-        if smaf_active: target_indicators.append("Extractable Potassium")
-    if st.checkbox("Electrical Conductivity", value=False, disabled=not smaf_active): 
-        if smaf_active: target_indicators.append("Electrical Conductivity")
-    if st.checkbox("Sodium Adsorption Ratio", value=False, disabled=not smaf_active): 
-        if smaf_active: target_indicators.append("Sodium Adsorption Ratio")
+    with chk_c1:
+        st.markdown("<div class='pillar-badge-phys'> Physical Indicators</div>", unsafe_allow_html=True)
+        if st.checkbox("Bulk Density", disabled=not smaf_active, key="chk_bd"): 
+            if smaf_active: target_indicators.append("Bulk Density")
+        if st.checkbox("Macroaggregate Stability", disabled=not smaf_active, key="chk_agg"): 
+            if smaf_active: target_indicators.append("Macroaggregate Stability")
+        if st.checkbox("Available Water Capacity", disabled=not smaf_active, key="chk_awc"): 
+            if smaf_active: target_indicators.append("Available Water Capacity")
+        if st.checkbox("Water-Filled Pore Space", disabled=not smaf_active, key="chk_wfps"): 
+            if smaf_active: target_indicators.append("Water-Filled Pore Space")
 
-with chk_c3:
-    st.markdown("<div class='pillar-badge-bio'> Biological Indicators</div>", unsafe_allow_html=True)
-    
-    if st.checkbox("Soil Organic Carbon", value=False): 
-        if selected_framework == "SHAPE":
-            target_indicators.append("Soil Organic Carbon") # Routes to SHAPE math
-        elif selected_framework == "SMAF":
-            target_indicators.append("SMAF Soil Organic Carbon") # Routes to SMAF math
-        else: # Hybrid Mode
-            target_indicators.append("Soil Organic Carbon") # Uses SHAPE for SOC override
+    with chk_c2:
+        st.markdown("<div class='pillar-badge-chem'> Chemical Indicators</div>", unsafe_allow_html=True)
+        if st.checkbox("pH", disabled=not smaf_active, key="chk_ph"): 
+            if smaf_active: target_indicators.append("pH")
+        if st.checkbox("Soil Phosphorus", disabled=not smaf_active, key="chk_p"): 
+            if smaf_active: target_indicators.append("Soil Phosphorus")
+        if st.checkbox("Extractable Potassium", disabled=not smaf_active, key="chk_k"): 
+            if smaf_active: target_indicators.append("Extractable Potassium")
+        if st.checkbox("Electrical Conductivity", disabled=not smaf_active, key="chk_ec"): 
+            if smaf_active: target_indicators.append("Electrical Conductivity")
+        if st.checkbox("Sodium Adsorption Ratio", disabled=not smaf_active, key="chk_sar"): 
+            if smaf_active: target_indicators.append("Sodium Adsorption Ratio")
+
+    with chk_c3:
+        st.markdown("<div class='pillar-badge-bio'> Biological Indicators</div>", unsafe_allow_html=True)
+        
+        if st.checkbox("Soil Organic Carbon", key="chk_soc"): 
+            if selected_framework == "SHAPE":
+                target_indicators.append("Soil Organic Carbon")
+            elif selected_framework == "SMAF":
+                target_indicators.append("SMAF Soil Organic Carbon")
+            else: 
+                target_indicators.append("Soil Organic Carbon")
+                
+        if st.checkbox("Potentially Mineralizable Nitrogen", disabled=not smaf_active, key="chk_pmn"): 
+            if smaf_active: target_indicators.append("Potentially Mineralizable Nitrogen")
             
-    if st.checkbox("Potentially Mineralizable Nitrogen", value=False, disabled=not smaf_active): 
-        if smaf_active: target_indicators.append("Potentially Mineralizable Nitrogen")
+        if st.checkbox("Microbial Biomass Carbon", disabled=not smaf_active, key="chk_mbc"): 
+            if smaf_active: target_indicators.append("Microbial Biomass Carbon")
+            
+        # UNIFIED BG GATEKEEPER
+        bg_is_shape = (active_region_name == "Brazil" and selected_framework in ["SHAPE", "SHAPE + SMAF (Hybrid)"])
+        bg_enabled = smaf_active or bg_is_shape
         
-    if st.checkbox("Microbial Biomass Carbon", value=False, disabled=not smaf_active): 
-        if smaf_active: target_indicators.append("Microbial Biomass Carbon")
-        
-    # ✨ UNIFIED BG GATEKEEPER ✨
-    bg_is_shape = (active_region_name == "Brazil" and selected_framework in ["SHAPE", "SHAPE + SMAF (Hybrid)"])
-    bg_enabled = smaf_active or bg_is_shape
-    
-    if st.checkbox("Beta-glucosidase", value=False, disabled=not bg_enabled, key="master_bg_checkbox"):
-        target_indicators.append("Beta-glucosidase")
+        if st.checkbox("Beta-glucosidase", disabled=not bg_enabled, key="chk_bg"):
+            target_indicators.append("Beta-glucosidase")
         
 if len(target_indicators) == 0:
-    st.warning("⚠️ Please select all the indicators you want to score.")
+    st.markdown("""
+        <div style="text-align: center; padding: 40px; background-color: #f8f9fa; border-radius: 8px; border: 1px dashed #ced4da;">
+            <h3 style="color: #6c757d; margin-bottom: 10px;">Awaiting Selection</h3>
+            <p style="color: #6c757d; font-size: 14px;">Check the boxes above to build your custom soil health assessment.</p>
+        </div>
+    """, unsafe_allow_html=True)
     st.stop()
     
 st.session_state["target_indicators"] = target_indicators

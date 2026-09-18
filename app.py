@@ -2176,17 +2176,19 @@ def percentile_to_oc(pct, lp_mean, sigma_val):
 
 def compute_bg_shape_score(bg_val, lp_mean, sigma_val):
     """Score BG via Bayesian log-normal CDF (mirrors SHAPE SOC but with log transform, not logit)."""
+    import math
     try:
         if float(bg_val) <= 0:
             return 0.0
-        return float(norm.cdf(_math.log(float(bg_val)), loc=lp_mean, scale=sigma_val) * 100)
+        return float(norm.cdf(math.log(float(bg_val)), loc=lp_mean, scale=sigma_val) * 100)
     except (TypeError, ValueError, OverflowError):
         return 0.0
 
 def percentile_to_bg(pct, lp_mean, sigma_val):
     """Return BG value (mg PNP kg⁻¹ hr⁻¹) at the given peer-group percentile."""
+    import math
     try:
-        return float(_math.exp(norm.ppf(pct / 100, loc=lp_mean, scale=sigma_val)))
+        return float(math.exp(norm.ppf(pct / 100, loc=lp_mean, scale=sigma_val)))
     except (TypeError, ValueError, OverflowError):
         return 0.0
 

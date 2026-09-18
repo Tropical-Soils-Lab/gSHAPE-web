@@ -5476,7 +5476,7 @@ if len(target_indicators) == 0:
     st.markdown("""
         <div style="text-align: center; padding: 40px; background-color: #f8f9fa; border-radius: 8px; border: 1px dashed #ced4da;">
             <h3 style="color: #6c757d; margin-bottom: 10px;">Awaiting Selection</h3>
-            <p style="color: #6c757d; font-size: 14px;">Check the boxes above to build your custom soil health assessment.</p>
+            <p style="color: #6c757d; font-size: 14px;">Select your measured indicators above to generate soil health scores and unlock tailored management strategies</p>
         </div>
     """, unsafe_allow_html=True)
     st.stop()

@@ -4741,13 +4741,8 @@ def render_batch_scoring(region_name, cfg, df, df_hist,bg_df=None):
             r_min = str(r.get("Clay_Mineralogy", "")).strip()
             row_mineralogy_id = SMAF_MINERALOGY_MAP.get(r_min, ui_mineralogy_id) if r_min and r_min != "nan" else ui_mineralogy_id
 
-
-            # --- EXECUTE SCORING MATH ---
             
-            # SHAPE SOC 
-          # SHAPE SOC 
-            # --- EXECUTE SCORING MATH SAFELY ---
-            
+            # 1. SHAPE SOC 
             # 1. SHAPE SOC 
             if "Soil Organic Carbon" in target_indicators and selected_framework in ["SHAPE", "SHAPE + SMAF (Hybrid)"]:
                 oc_val = None
@@ -4755,9 +4750,45 @@ def render_batch_scoring(region_name, cfg, df, df_hist,bg_df=None):
                     if possible_col in r and pd.notna(r[possible_col]) and str(r[possible_col]).strip() != "":
                         oc_val = safe_float(r[possible_col])
                         break
+                
+                score_soc = 0.0
+                tgt_soc_90 = 0.0
+                
                 if oc_val is not None and oc_val > 0:
-                    # ... [keep your existing SHAPE calculation lines here] ...
-                    pass
+                    # Extract Taxonomy safely
+                    r_tax_raw = str(r.get("peer_group_taxon", r.get("Taxonomy_Group", st.session_state.get(f"{k}_sub", "")))).strip()
+                    r_tax = parse_code(r_tax_raw) if "(" in r_tax_raw else r_tax_raw
+                    if "—" in r_tax: r_tax = r_tax.split("—")[0].strip()
+                    
+                    # Extract Texture safely
+                    r_tex_raw = str(r.get("peer_group_texture", r.get("Texture", st.session_state.get(f"{k}_tex", "")))).strip()
+                    r_tex = cfg["texture_map_full"].get(r_tex_raw, r_tex_raw) if "texture_map_full" in cfg else r_tex_raw
+                    
+                    # Extract Climate safely
+                    mat_val = safe_float(r.get("PRISM_tmea", r.get("MAT_C", st.session_state.get(f"{k}_temp", cfg.get("temp_default", 22.0)))))
+                    
+                    map_val = None
+                    if has_precip:
+                        map_val = safe_float(r.get("PRISM_ppt", r.get("MAP_mm", st.session_state.get(f"{k}_precip", cfg.get("precip_default", 1000.0)))))
+                    
+                    # Execute Bayesian Math
+                    if df is not None:
+                        row_params = get_params_any(cfg, df, r_tax, r_tex, mat_val, map_val)
+                        if row_params is not None:
+                            _lp = float(row_params["mean_lp"])
+                            _sig = float(np.exp(row_params["mean_sigma"]))
+                            score_soc = compute_score(oc_val, _lp, _sig)
+                            tgt_soc_90 = percentile_to_oc(90, _lp, _sig)
+                        else:
+                            score_soc = 50.0 # Fallback if parameters missing
+                    else:
+                        score_soc = 50.0
+                        
+                    batch.at[index, "Soil Organic Carbon Score"] = round(score_soc, 1)
+                
+                # CRITICAL: Append to the target list regardless of whether oc_val was valid
+                # This guarantees the list length matches the dataframe row count perfectly!
+                tgt_ocs.append(tgt_soc_90)
 
             # 2. SMAF SOC 
             if "SMAF Soil Organic Carbon" in target_indicators and "soc_pct" in r and pd.notna(r["soc_pct"]):

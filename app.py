@@ -5373,13 +5373,19 @@ elif selected_country in SSA_COUNTRIES: active_region_name = "Sub-Saharan Africa
 elif selected_country == "United States" and selected_state == "Florida": active_region_name = "Florida"
 
 st.markdown("### Scoring Framework")
-framework_options = ["SMAF"]
+
+# Prepend '— Select —' to the options
+framework_options = ["— Select —", "SMAF"]
 if active_region_name != "Global_SMAF":
-    # ✨ Add all three modes here!
-    framework_options = ["SHAPE + SMAF (Hybrid)", "SMAF", "SHAPE"]
+    framework_options = ["— Select —", "SHAPE + SMAF (Hybrid)", "SMAF", "SHAPE"]
 
 selected_framework = st.selectbox("Select your preferred evaluation framework:", framework_options)
 st.session_state["selected_framework"] = selected_framework
+
+# Stop the app from rendering the checkboxes until a framework is chosen
+if selected_framework == "— Select —":
+    st.info("💡 Please select a Scoring Framework to view available indicators.")
+    st.stop()
 
 # Silently force the fallback to global parameters if they strictly select SMAF
 if selected_framework in ["SMAF", "SMAF Only"]:

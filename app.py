@@ -5411,7 +5411,7 @@ with col_hdr1:
 with col_hdr2:
     # Adding a slight top margin so the button aligns vertically with the header
     st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
-    if st.button("🧹 Clear All", use_container_width=True):
+    if st.button("Clear All", use_container_width=True):
         for key in st.session_state.keys():
             if key.startswith("chk_"):
                 st.session_state[key] = False

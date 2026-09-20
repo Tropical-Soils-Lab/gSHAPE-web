@@ -3180,7 +3180,28 @@ def render_single_sample(region_name, cfg, df, df_hist,bg_df=None):
             st.plotly_chart(fig_c, use_container_width=True, key=f"{k}_ph_curve")
             
         st.divider()
-        st.info("💡 **Agronomic Note:** The pH curve is generated dynamically based on the specific tolerance thresholds of your selected crop.")
+        
+        # ── 5-TIER pH RECOMMENDATION ENGINE ──
+        st.markdown("### 📋 Agronomic Recommendations")
+        
+        if score_ph >= 80:
+            ph_level = "Very High"
+            ph_rec = "Your soil pH is in the optimal range for your selected crop. This maximizes nutrient solubility and provides a perfect habitat for beneficial soil microbes. Maintain your current practices."
+        elif score_ph >= 60:
+            ph_level = "High"
+            ph_rec = "Your soil pH is adequate and generally supportive of your crop's requirements. Minor pH fluctuations may occur, but nutrient availability remains largely unhindered."
+        elif score_ph >= 40:
+            ph_level = "Medium"
+            ph_rec = "Your soil pH is moderately outside the ideal zone for your crop, which may begin to limit the availability of certain macronutrients or micronutrients. Monitor closely and consider a soil test to plan future amendments."
+        elif score_ph >= 20:
+            ph_level = "Low"
+            ph_rec = "Your soil pH is significantly limiting crop potential. You are likely experiencing nutrient lock-out or micronutrient toxicities. A targeted application of agricultural lime (if too acidic) or elemental sulfur (if too alkaline) is recommended based on buffer pH."
+        else:
+            ph_level = "Very Low"
+            ph_rec = "Critical pH limitation. Your soil is severely restricted by extreme acidity or alkalinity, creating a toxic environment for crop roots and stalling soil biological activity. Immediate consultation with an agronomist for aggressive remediation is required."
+            
+        st.info(f"**Score Tier: {ph_level}**\n\n{ph_rec}")
+        st.caption("💡 *Agronomic Note: The pH ideal range and score curve are generated dynamically based on the specific tolerance thresholds of your selected crop.*")
 
     elif chosen_indicator == "Extractable Potassium":
         texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
@@ -3210,6 +3231,28 @@ def render_single_sample(region_name, cfg, df, df_hist,bg_df=None):
             fig_c.add_trace(go.Scatter(x=[k_val], y=[score_k/100.0], mode="markers", marker=dict(color=color_k, size=14, line=dict(color="white", width=2)), name="Your Soil"))
             fig_c.update_layout(xaxis_title="Extractable Potassium (mg/kg)", yaxis_title="Score", yaxis=dict(range=[0, 1.05], tickformat=".0%"), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=400, margin=dict(l=10, r=10, t=40, b=10))
             st.plotly_chart(fig_c, use_container_width=True, key=f"{k}_k_curve")
+            st.divider()
+        
+        # ── 5-TIER POTASSIUM RECOMMENDATION ENGINE ──
+        st.markdown("### 📋 Agronomic Recommendations")
+        
+        if score_k >= 80:
+            k_level = "Very High"
+            k_rec = "Your soil's extractable potassium levels are optimal, providing excellent support for crop stress tolerance, water regulation, and enzyme activation. No additional K applications are required."
+        elif score_k >= 60:
+            k_level = "High"
+            k_rec = "Your potassium levels are adequate for healthy crop production. Maintain routine soil testing and apply maintenance-level potassium only to replace what is removed at harvest."
+        elif score_k >= 40:
+            k_level = "Medium"
+            k_rec = "Your potassium levels are moderate and may become a limiting factor during peak growth stages or drought conditions. Consider a targeted application of potash to ensure nutrient sufficiency."
+        elif score_k >= 20:
+            k_level = "Low"
+            k_rec = "Your soil shows low potassium levels, which likely restricts yield potential and increases crop vulnerability to drought and disease. A corrective potassium application is recommended. Consult a local agronomist."
+        else:
+            k_level = "Very Low"
+            k_rec = "Critical nutrient limitation. Your extractable potassium is severely deficient, presenting a major constraint on root development and overall crop health. Immediate intervention with a structured potassium fertility plan is essential."
+            
+        st.info(f"**Score Tier: {k_level}**\n\n{k_rec}")
 
     elif chosen_indicator == "SMAF Soil Organic Carbon":
         om_id = SMAF_OM_MAP.get(st.session_state.get(f"{k}_sm_om_class", ""), 2)

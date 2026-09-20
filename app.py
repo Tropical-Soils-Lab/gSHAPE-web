@@ -3149,6 +3149,103 @@ def render_single_sample(region_name, cfg, df, df_hist,bg_df=None):
         tgt_oc = 0.0
     col_l, col_r = st.columns([1, 2])
 # ── CONDITIONAL SCORING LOGIC ──
+
+    if chosen_indicator == "pH":
+        crop_id = SMAF_DATA.get("crop_ui_map", {}).get(st.session_state.get(f"{k}_sm_crop", "").lower(), 82)
+        score_ph = run_smaf_ph_score(ph_val, crop_id, SMAF_DATA)
+        color_ph = score_color(score_ph)
+        label_ph = score_label(score_ph)
+
+        with col_l:
+            gauge_title = f"<b style='font-size:17px'>{label_ph}</b><br><span style='font-size:11px;color:gray'>Measured pH {ph_val}</span>"
+            fig_ph = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_ph)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": color_ph}},
+                gauge={"axis": {"range": [0, 100]}, "bar": {"color": color_ph, "thickness": 0.28}, "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                       "steps": [{"range": [0, 20], "color": "rgba(215,48,39,0.35)"}, {"range": [20, 40], "color": "rgba(244,109,67,0.35)"}, {"range": [40, 60], "color": "rgba(255,193,7,0.35)"}, {"range": [60, 80], "color": "rgba(119,195,92,0.35)"}, {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}],
+                       "threshold": {"line": {"color": color_ph, "width": 5}, "thickness": 0.8, "value": score_ph}}
+            ))
+            fig_ph.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
+            st.plotly_chart(fig_ph, use_container_width=True, key=f"{k}_ph_gauge")
+
+        with col_r:
+            st.markdown("#### Scoring Curve")
+            xs = np.linspace(3.5, 9.5, 300)
+            ys = [run_smaf_ph_score(x, crop_id, SMAF_DATA) for x in xs]
+            fig_c = go.Figure()
+            fig_c.add_trace(go.Scatter(x=xs, y=np.array(ys)/100.0, mode="lines", line=dict(color="#C25953", width=3), name="Score Curve", hovertemplate="pH: %{x:.1f}<br>Score: %{y:.0%}<extra></extra>"))
+            fig_c.add_trace(go.Scatter(x=[ph_val], y=[score_ph/100.0], mode="markers", marker=dict(color=color_ph, size=14, line=dict(color="white", width=2)), name="Your Soil"))
+            fig_c.update_layout(xaxis_title="Soil pH", yaxis_title="Score", yaxis=dict(range=[0, 1.05], tickformat=".0%"), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=400, margin=dict(l=10, r=10, t=40, b=10))
+            st.plotly_chart(fig_c, use_container_width=True, key=f"{k}_ph_curve")
+            
+        st.divider()
+        st.info("💡 **Agronomic Note:** The pH curve is generated dynamically based on the specific tolerance thresholds of your selected crop.")
+
+    elif chosen_indicator == "Extractable Potassium":
+        texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
+        score_k = run_smaf_exk_score(k_val, texture_id, SMAF_DATA)
+        color_k = score_color(score_k)
+        label_k = score_label(score_k)
+
+        with col_l:
+            gauge_title = f"<b style='font-size:17px'>{label_k}</b><br><span style='font-size:11px;color:gray'>Extractable K {k_val} mg/kg</span>"
+            fig_k = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_k)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": color_k}},
+                gauge={"axis": {"range": [0, 100]}, "bar": {"color": color_k, "thickness": 0.28}, "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                       "steps": [{"range": [0, 20], "color": "rgba(215,48,39,0.35)"}, {"range": [20, 40], "color": "rgba(244,109,67,0.35)"}, {"range": [40, 60], "color": "rgba(255,193,7,0.35)"}, {"range": [60, 80], "color": "rgba(119,195,92,0.35)"}, {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}],
+                       "threshold": {"line": {"color": color_k, "width": 5}, "thickness": 0.8, "value": score_k}}
+            ))
+            fig_k.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
+            st.plotly_chart(fig_k, use_container_width=True, key=f"{k}_k_gauge")
+
+        with col_r:
+            st.markdown("#### Scoring Curve")
+            xs = np.linspace(0, 500, 300)
+            ys = [run_smaf_exk_score(x, texture_id, SMAF_DATA) for x in xs]
+            fig_c = go.Figure()
+            fig_c.add_trace(go.Scatter(x=xs, y=np.array(ys)/100.0, mode="lines", line=dict(color="#A56A3C", width=3), name="Score Curve", hovertemplate="K: %{x:.1f} mg/kg<br>Score: %{y:.0%}<extra></extra>"))
+            fig_c.add_trace(go.Scatter(x=[k_val], y=[score_k/100.0], mode="markers", marker=dict(color=color_k, size=14, line=dict(color="white", width=2)), name="Your Soil"))
+            fig_c.update_layout(xaxis_title="Extractable Potassium (mg/kg)", yaxis_title="Score", yaxis=dict(range=[0, 1.05], tickformat=".0%"), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=400, margin=dict(l=10, r=10, t=40, b=10))
+            st.plotly_chart(fig_c, use_container_width=True, key=f"{k}_k_curve")
+
+    elif chosen_indicator == "SMAF Soil Organic Carbon":
+        om_id = SMAF_OM_MAP.get(st.session_state.get(f"{k}_sm_om_class", ""), 2)
+        texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
+        climate_id = SMAF_CLIMATE_MAP.get(st.session_state.get(f"{k}_sm_climate_class", ""), 3)
+        score_smaf_soc = run_smaf_soc_score(oc_val, om_id, texture_id, climate_id, SMAF_DATA)
+        color_soc = score_color(score_smaf_soc)
+        label_soc = score_label(score_smaf_soc)
+
+        with col_l:
+            gauge_title = f"<b style='font-size:17px'>{label_soc}</b><br><span style='font-size:11px;color:gray'>SOC {oc_val}% (SMAF)</span>"
+            fig_s = go.Figure(go.Indicator(
+                mode="gauge+number", value=int(round(score_smaf_soc)),
+                title={"text": gauge_title, "font": {"size": 13}},
+                number={"suffix": "/100", "font": {"size": 38, "color": color_soc}},
+                gauge={"axis": {"range": [0, 100]}, "bar": {"color": color_soc, "thickness": 0.28}, "bgcolor": "rgba(0,0,0,0)", "borderwidth": 0,
+                       "steps": [{"range": [0, 20], "color": "rgba(215,48,39,0.35)"}, {"range": [20, 40], "color": "rgba(244,109,67,0.35)"}, {"range": [40, 60], "color": "rgba(255,193,7,0.35)"}, {"range": [60, 80], "color": "rgba(119,195,92,0.35)"}, {"range": [80, 100], "color": "rgba(26,150,65,0.35)"}],
+                       "threshold": {"line": {"color": color_soc, "width": 5}, "thickness": 0.8, "value": score_smaf_soc}}
+            ))
+            fig_s.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=260, margin=dict(l=20, r=20, t=80, b=10))
+            st.plotly_chart(fig_s, use_container_width=True, key=f"{k}_smaf_soc_gauge")
+
+        with col_r:
+            st.markdown("#### Scoring Curve")
+            xs = np.linspace(0, 10, 300)
+            ys = [run_smaf_soc_score(x, om_id, texture_id, climate_id, SMAF_DATA) for x in xs]
+            fig_c = go.Figure()
+            fig_c.add_trace(go.Scatter(x=xs, y=np.array(ys)/100.0, mode="lines", line=dict(color="#1a9641", width=3), name="Score Curve", hovertemplate="SOC: %{x:.1f}%<br>Score: %{y:.0%}<extra></extra>"))
+            fig_c.add_trace(go.Scatter(x=[oc_val], y=[score_smaf_soc/100.0], mode="markers", marker=dict(color=color_soc, size=14, line=dict(color="white", width=2)), name="Your Soil"))
+            fig_c.update_layout(xaxis_title="Soil Organic Carbon (%)", yaxis_title="Score", yaxis=dict(range=[0, 1.05], tickformat=".0%"), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=400, margin=dict(l=10, r=10, t=40, b=10))
+            st.plotly_chart(fig_c, use_container_width=True, key=f"{k}_smaf_soc_curve")
+            
+        st.divider()
+        # 🚦 THE TRAFFIC COP: All regions now dynamically route through Excel!
+        render_excel_recommendation_engine(region_name, st.session_state[f"{k}_sm_crop"], score_smaf_soc, key_prefix=f"{k}_soc_tab_smaf")
+    
     if chosen_indicator == "Soil Phosphorus":
         if not SMAF_DATA:
             st.error("Missing `SMAF_lookup.xlsx` file dashboard linkage.")
@@ -3810,8 +3907,7 @@ def render_single_sample(region_name, cfg, df, df_hist,bg_df=None):
         # 1. Grab Global Variables
         texture_id = SMAF_TEXTURE_MAP.get(st.session_state.get(f"{k}_sm_tex", ""), 2)
         
-        # 2. Calculate WFPS Fraction & Scores
-        wfps_frac = get_wfps_frac(w_val, bd_val, SMAF_DATA)
+        # 2. Calculate Scores (wfps_frac is collected directly from the UI!)
         wfps_scores = run_smaf_wfps_score(wfps_frac, texture_id, SMAF_DATA)
         
         try:
@@ -3826,7 +3922,7 @@ def render_single_sample(region_name, cfg, df, df_hist,bg_df=None):
         col_l, col_r = st.columns([1, 2])
         
         with col_l:
-            gauge_title = f"<b style='font-size:17px'>{wfps_label}</b><br><span style='font-size:11px;color:gray'>Calculated WFPS: {wfps_frac:.1%}</span>"
+            gauge_title = f"<b style='font-size:17px'>{wfps_label}</b><br><span style='font-size:11px;color:gray'>Measured WFPS: {wfps_frac:.1%}</span>"
             fig_wfps_gauge = go.Figure(go.Indicator(
                 mode="gauge+number", value=int(round(score_wfps)),
                 title={"text": gauge_title, "font": {"size": 13}},
@@ -3885,6 +3981,7 @@ def render_single_sample(region_name, cfg, df, df_hist,bg_df=None):
                 height=400, margin=dict(l=10, r=10, t=40, b=10)
             )
             st.plotly_chart(fig_wfps, width='stretch', key=f"{k}_wfps_curve_plot")
+
         # ── 5-TIER WFPS RECOMMENDATION ENGINE ──
         st.markdown("### 📋 Agronomic Recommendations")
 
